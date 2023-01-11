@@ -1289,4 +1289,361 @@ info replication
 
 启动源主库（6380），看状态。
 ```
+参数说明:
+```
+sentinel monitor mymaster 127.0.0.1 6379 2
+Sentinel 去监视一个名为mymaster的主服务器，这个主服务器的IP地址为127.0.0.1，端口号为6379，而将这个主服务器判断为失效至少需要2个Sentinel同意（只要同意Sentinel的数量不达标，自动故障迁移就不会执行，不过要注意，无论你设置要多少个Sentinel同意才能判断一个服务器失效，一个 Sentinel 都需要获得系统中多数（majority） Sentinel 的支持，才能发起一次自动故障迁移，并预留一个给定的配置节点（configuration Epoch，一个配置节点就是一个新主服务器配置的版本号）。换句话说，在只有少数（minority）Sentinel进程正常运作的情况下，Sentinel 是不能执行自动故障迁移的。
+sentinel down-after-milliseconds mymaster 5000
+指定了Sentinel认为服务器已经断线所需的毫秒数。如果服务器在给定的毫秒数之内，没有返回Sentinel发送的Ping命令的回复，或者返回一个错误，那么Sentinel将这个服务器标记为主观下线（subjectively down，简称SDOWN）。不过只有一个Sentinel将服务器标记为主观下线并不一定会引起服务器的自动故障迁移：只有在足够数量的Sentinel都将一个服务器标记为主观下线之后，服务器才会被标记为客观下线（objectively down， 简称 ODOWN ），这时自动故障迁移才会执行。
+sentinel failover-timeout mymaster 180000 
+自动故障切换的超时时间
+sentinel parallel-syncs mymaster 1 
+在执行故障转移时，最多可以有多少个从服务器同时对新的主服务器进行同步，这个数字越小，完成故障转移所需的时间就越长。如果从服务器被设置为允许使用过期数据集（参见对 redis.conf 文件中对 slave-serve-stale-data 选项的说明），那么你可能不希望所有从服务器都在同一时间向新的主服务器发送同步请求，因为尽管复制过程的绝大部分步骤都不会阻塞从服务器，但从服务器在载入主服务器发来的 RDB 文件时，仍然会造成从服务器在一段时间内不能处理命令请求：如果全部从服务器一起对新的主服务器进行同步，那么就可能会造成所有从服务器在短时间内全部不可用的情况出现。可以通过将这个值设为1来保证每次只有一个从服务器处于不能处理命令请求的状态。
+```
 
+sentinel管理命令（不常用）
+```
+#连接sentinel管理端口
+[root@db01 26380]# redis-cli -p 26380
+#检测状态，返回PONG
+127.0.0.1:26380> PING
+PONG
+#列出所有被监视的主服务器
+127.0.0.1:26380> SENTINEL masters
+#列出所有被监视的从服务器
+127.0.0.1:26380> SENTINEL slaves mymaster
+#返回给定名字的主服务器的IP地址和端口号
+127.0.0.1:26380> SENTINEL get-master-addr-by-name mymaster
+1) "127.0.0.1"
+2) "6380"
+#重置所有名字和给定模式
+127.0.0.1:26380> SENTINEL reset mymaster
+#当主服务器失效时，在不询问其他Sentinel意见的情况下，强制开始一次自动故障迁移。
+127.0.0.1:26380> SENTINEL failover mymaster
+```
+
+## redis cluster 核心技术
+
+什么是Redis Cluster
+1）Redis集群是一个可以在多个Redis节点之间进行数据共享的设施（installation）。
+2）Redis集群不支持那些需要同时处理多个键的Redis命令，因为执行这些命令需要在多个Redis节点之间移动数据，并且在高负载的情况下，这些命令将降低Redis集群的性能，并导致不可预测的行为。
+3）Redis集群通过分区（partition）来提供一定程度的可用性（availability）：即使集群中有一部分节点失效或者无法进行通讯，集群也可以继续处理命令请求。
+4）Redis集群有将数据自动切分（split）到多个节点的
+
+Redis Cluster的特点
+高性能
+1.在多酚片节点中，将16384个槽位，均匀分布到多个分片节点中
+2.存数据时，将key做crc16（key），然后和16384进行取模，得出槽位值（0-16384之间）
+3.根据计算得出的槽位值，找到相对应的分片节点的主节点，存储到相应槽位上
+4.如果客户端当时连接的节点不是将来要存储的分片节点，分片集群会将客户端连接切换至真正存储节点进行数据存储
+高可用
+在搭建集群时，会为每一个分片的主节点，对应一个从节点，实现slaveof功能，同时当主节点down，实现类似于sentinel的自动failover的功能。
+
+
+Redis Cluster客户端连接任意节点
+当我们用客户端连接A分片时，如果按照数据的取模，我们想要访问的数据，不在A分片中，那么集群会自动将请求进行转发。
+
+
+Redis Cluster运行机制
+所有的redis节点彼此互联(PING-PONG机制),内部使用二进制协议优化传输速度和带宽.
+节点的fail是通过集群中超过半数的master节点检测失效时才生效.
+客户端与redis节点直连,不需要中间proxy层.客户端不需要连接集群所有节点,连接集群中任何一个可用节点即可
+把所有的物理节点映射到[0-16383]slot上,cluster 负责维护node<->slot<->key
+
+Redis Cluster如何做集群复制
+为了使得集群在一部分节点下线或者无法与集群的大多数（majority）节点进行通讯的情况下， 仍然可以正常运作， Redis  集群对节点使用了主从复制功能： 集群中的每个节点都有 1 个至 N 个复制品（replica）， 其中一个复制品为主节点（master），  而其余的 N-1 个复制品为从节点（slave）。
+在之前列举的节点 A 、B 、C 的例子中， 如果节点 B 下线了， 那么集群将无法正常运行， 因为集群找不到节点来处理 5501 号至 11000 号的哈希槽。
+假如在创建集群的时候（或者至少在节点 B 下线之前）， 我们为主节点 B 添加了从节点 B1 ， 那么当主节点 B 下线的时候，  集群就会将 B1 设置为新的主节点， 并让它代替下线的主节点 B ， 继续处理 5501 号至 11000 号的哈希槽，  这样集群就不会因为主节点 B 的下线而无法正常运作了。
+不过如果节点 B 和 B1 都下线的话， Redis 集群还是会停止运作。
+**集群的复制特性重用了 SLAVEOF 命令的代码，所以集群节点的复制行为和 SLAVEOF 命令的复制行为完全相同。**
+
+Redis Cluster故障转移
+1）在集群里面，节点会对其他节点进行下线检测。
+2）当一个主节点下线时，集群里面的其他主节点负责对下线主节点进行故障转移。
+3）换句话说，集群的节点集成了下线检测和故障转移等类似 Sentinel 的功能。
+4）因为 Sentinel 是一个独立运行的监控程序，而集群的下线检测和故障转移等功能是集成在节点里面的，它们的运行模式非常地不同，所以尽管这两者的功能很相似，但集群的实现没有重用 Sentinel 的代码。
+
+Redis Cluster中执行命令的两种情况
+1）命令发送到了正确的节点：命令要处理的键所在的槽正好是由接收命令的节点负责，那么该节点执行命令，就像单机 Redis 服务器一样.
+2）命令发送到了错误的节点：接收到命令的节点并非处理键所在槽的节点，那么节点将向客户端返回一个转向（redirection）错误，告知客户端应该到哪个节点去执行这个命令，客户端会根据错误提示的信息，重新向正确的节点发送命令。
+
+
+### 规划, 搭建过程:
+6个redis实例，一般会放到3台硬件服务器
+注：在企业规划中，一个分片的两个节点，分到不同的物理机，防止硬件主机宕机造成的整个分片数据丢失。
+
+```
+端口号：7000-7005
+
+1、安装集群插件
+EPEL源安装ruby支持
+yum install ruby rubygems -y
+
+使用国内源
+gem sources -l
+gem sources -a http://mirrors.aliyun.com/rubygems/ 
+gem sources  --remove http://rubygems.org/
+gem install redis -v 3.3.3
+gem sources -l
+
+或者：
+gem sources -a http://mirrors.aliyun.com/rubygems/  --remove http://rubygems.org/ 
+
+---
+2、集群节点准备
+
+mkdir /data/700{0..5}
+
+cat > /data/7000/redis.conf<<EOF
+port 7000
+daemonize yes
+pidfile /data/7000/redis.pid
+loglevel notice
+logfile "/data/7000/redis.log"
+dbfilename dump.rdb
+dir /data/7000
+protected-mode no
+cluster-enabled yes
+cluster-config-file nodes.conf
+cluster-node-timeout 5000
+appendonly yes
+EOF
+
+cat > /data/7001/redis.conf<<EOF
+port 7001
+daemonize yes
+pidfile /data/7001/redis.pid
+loglevel notice
+logfile "/data/7001/redis.log"
+dbfilename dump.rdb
+dir /data/7001
+protected-mode no
+cluster-enabled yes
+cluster-config-file nodes.conf
+cluster-node-timeout 5000
+appendonly yes
+EOF
+
+cat > /data/7002/redis.conf<<EOF
+port 7002
+daemonize yes
+pidfile /data/7002/redis.pid
+loglevel notice
+logfile "/data/7002/redis.log"
+dbfilename dump.rdb
+dir /data/7002
+protected-mode no
+cluster-enabled yes
+cluster-config-file nodes.conf
+cluster-node-timeout 5000
+appendonly yes
+EOF
+
+cat > /data/7003/redis.conf<<EOF
+port 7003
+daemonize yes
+pidfile /data/7003/redis.pid
+loglevel notice
+logfile "/data/7003/redis.log"
+dbfilename dump.rdb
+dir /data/7003
+protected-mode no
+cluster-enabled yes
+cluster-config-file nodes.conf
+cluster-node-timeout 5000
+appendonly yes
+EOF
+
+cat > /data/7004/redis.conf<<EOF
+port 7004
+daemonize yes
+pidfile /data/7004/redis.pid
+loglevel notice
+logfile "/data/7004/redis.log"
+dbfilename dump.rdb
+dir /data/7004
+protected-mode no
+cluster-enabled yes
+cluster-config-file nodes.conf
+cluster-node-timeout 5000
+appendonly yes
+EOF
+
+cat > /data/7005/redis.conf<<EOF
+port 7005
+daemonize yes
+pidfile /data/7005/redis.pid
+loglevel notice
+logfile "/data/7005/redis.log"
+dbfilename dump.rdb
+dir /data/7005
+protected-mode no
+cluster-enabled yes
+cluster-config-file nodes.conf
+cluster-node-timeout 5000
+appendonly yes
+EOF
+
+启动节点：
+
+redis-server /data/7000/redis.conf 
+redis-server /data/7001/redis.conf 
+redis-server /data/7002/redis.conf 
+redis-server /data/7003/redis.conf 
+redis-server /data/7004/redis.conf 
+redis-server /data/7005/redis.conf 
+
+
+
+[root@db01 ~]# ps -ef |grep redis
+root       8854      1  0 03:56 ?        00:00:00 redis-server *:7000 [cluster]     
+root       8858      1  0 03:56 ?        00:00:00 redis-server *:7001 [cluster]     
+root       8860      1  0 03:56 ?        00:00:00 redis-server *:7002 [cluster]     
+root       8864      1  0 03:56 ?        00:00:00 redis-server *:7003 [cluster]     
+root       8866      1  0 03:56 ?        00:00:00 redis-server *:7004 [cluster]     
+root       8874      1  0 03:56 ?        00:00:00 redis-server *:7005 [cluster]  
+
+
+3、将节点加入集群管理
+
+redis-trib.rb create --replicas 1 127.0.0.1:7000 127.0.0.1:7001 \
+127.0.0.1:7002 127.0.0.1:7003 127.0.0.1:7004 127.0.0.1:7005
+
+
+4、集群状态查看
+
+集群主节点状态
+redis-cli -p 7000 cluster nodes | grep master
+集群从节点状态
+redis-cli -p 7000 cluster nodes | grep slave
+
+
+
+
+5、集群节点管理
+
+5.1 增加新的节点
+
+mkdir /data/7006
+mkdir /data/7007
+
+
+cat > /data/7006/redis.conf<<EOF
+port 7006
+daemonize yes
+pidfile /data/7006/redis.pid
+loglevel notice
+logfile "/data/7006/redis.log"
+dbfilename dump.rdb
+dir /data/7006
+protected-mode no
+cluster-enabled yes
+cluster-config-file nodes.conf
+cluster-node-timeout 5000
+appendonly yes
+EOF
+
+cat > /data/7007/redis.conf<<EOF 
+port 7007
+daemonize yes
+pidfile /data/7007/redis.pid
+loglevel notice
+logfile "/data/7007/redis.log"
+dbfilename dump.rdb
+dir /data/7007
+protected-mode no
+cluster-enabled yes
+cluster-config-file nodes.conf
+cluster-node-timeout 5000
+appendonly yes
+EOF
+
+redis-server /data/7006/redis.conf 
+redis-server /data/7007/redis.conf 
+
+5.2 添加主节点：
+redis-trib.rb add-node 127.0.0.1:7006  127.0.0.1:7000
+
+# 查看新添加的主节点未分配slot
+[root@db03 ~]# redis-cli -p 7000 cluster nodes |grep master
+2bfbffadde1af44b96e9b1e2adb091d43d47e68c 127.0.0.1:7006 master - 0 1672626387663 0 connected
+32cef43072cc9ea4e362217cbdf96cba0677fd5d 127.0.0.1:7000 myself,master - 0 0 1 connected 0-5460
+1af712efb561aac2bd629d51098544fb0de8e910 127.0.0.1:7001 master - 0 1672626388665 2 connected 5461-10922
+3cdb72a1f8050ef169e65ccc31cf5e6aa9fd4f9c 127.0.0.1:7002 master - 0 1672626389167 3 connected 10923-16383
+
+
+5.3 转移slot（重新分片）
+redis-trib.rb reshard 127.0.0.1:7000
+
+
+[root@db03 26380]# redis-trib.rb reshard 127.0.0.1:7000
+>>> Performing Cluster Check (using node 127.0.0.1:7000)
+M: 32cef43072cc9ea4e362217cbdf96cba0677fd5d 127.0.0.1:7000
+   slots:0-5460 (5461 slots) master
+   1 additional replica(s)
+M: 2bfbffadde1af44b96e9b1e2adb091d43d47e68c 127.0.0.1:7006
+   slots: (0 slots) master
+   0 additional replica(s)
+S: ca9f7c0cf3e73b40ca04407971cca1dea219a046 127.0.0.1:7003
+   slots: (0 slots) slave
+   replicates 32cef43072cc9ea4e362217cbdf96cba0677fd5d
+S: 25a201d2ac98109882296d1f17ac837a64c33586 127.0.0.1:7005
+   slots: (0 slots) slave
+   replicates 3cdb72a1f8050ef169e65ccc31cf5e6aa9fd4f9c
+S: 7e3cd66eb4670a2de266007656be41e75b88dbd5 127.0.0.1:7004
+   slots: (0 slots) slave
+   replicates 1af712efb561aac2bd629d51098544fb0de8e910
+M: 1af712efb561aac2bd629d51098544fb0de8e910 127.0.0.1:7001
+   slots:5461-10922 (5462 slots) master
+   1 additional replica(s)
+M: 3cdb72a1f8050ef169e65ccc31cf5e6aa9fd4f9c 127.0.0.1:7002
+   slots:10923-16383 (5461 slots) master
+   1 additional replica(s)
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+# 你想给新节点分配多少个slots 
+How many slots do you want to move (from 1 to 16384)? 4096 # 计算 16384/4=4096
+What is the receiving node ID? 2bfbffadde1af44b96e9b1e2adb091d43d47e68c #添加7006的节点id
+
+Please enter all the source node IDs.
+  Type 'all' to use all the nodes as source nodes for the hash slots.
+  Type 'done' once you entered all the source nodes IDs.
+Source node #1:all #从所有节点分别拿一部分slots给新节点
+
+
+5.4 添加从节点
+# id这填写主库7006的id
+redis-trib.rb add-node --slave --master-id 2bfbffadde1af44b96e9b1e2adb091d43d47e68c 127.0.0.1:7007 127.0.0.1:7000
+
+#查看
+[root@db03 26380]# redis-cli -p 7000 cluster nodes|grep slave
+
+
+6.删除节点
+
+6.1 将需要删除节点slot移动走
+
+redis-trib.rb reshard 127.0.0.1:7000
+
+[root@db03 26380]# redis-trib.rb reshard 127.0.0.1:7000
+How many slots do you want to move (from 1 to 16384)? 4096  #需要移动多少个slots
+What is the receiving node ID? 32cef43072cc9ea4e362217cbdf96cba0677fd5d #谁接收 目标节点
+Please enter all the source node IDs.
+  Type 'all' to use all the nodes as source nodes for the hash slots.
+  Type 'done' once you entered all the source nodes IDs.
+Source node #1:2bfbffadde1af44b96e9b1e2adb091d43d47e68c  #从哪移  源节点
+Source node #2:done                                     #有其他节点可继续添加
+
+
+删除一个节点
+删除master节点之前首先要使用reshard移除master的全部slot,然后再删除当前节点
+
+从节点删除：
+redis-trib.rb del-node 127.0.0.1:7007 4c3f6e9366f08a96eda22b20a32c5041ec37c7c4
+主节点删除：
+redis-trib.rb del-node 127.0.0.1:7006 2bfbffadde1af44b96e9b1e2adb091d43d47e68c
+
+
+```

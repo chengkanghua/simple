@@ -1,18 +1,19 @@
 第五阶段：Shell编程企业级实战
 
-
 ## 为什么需要学习Shell编程
+
     shell时linux底层核心
     linux运维工作常用工具
     自动化运维必备基础工具
-    
+
 ## 学好shell编程所需linux基础
+
     熟练使用vim
     熟悉使用Linux常用命令
     熟练使用三剑客及正则表达式
-    
 
 ## 什么是shell?
+
 Shell是一个命令解释器，它的作用是解释执行用户输入
 的命令及程序等，用户输入一条命令，Shell就解释执行
 一条。这种从键盘一输入命令，就可以立即得到回应的
@@ -23,8 +24,8 @@ Shell存在于操作系统的最外层，负责直接与用户对话，
 系统用户名和密码，登录到Linux后的所有操作都是由
 Shell解释并执行的
 
-
 ## 什么是shell脚本?
+
 了解了Shell后，理解Shell脚本就简单了。当命令或程序
 语句不在命令行下执行，而是通过一个程序文件执行
 时，该程序就被称为Shell脚本。如果在Shell脚本里内置
@@ -35,15 +36,15 @@ Shell解释并执行的
 这些命令、变量和流程控制语句等有机地结合起来就形
 成了一个功能强大的Shell脚本。
 
-
 ## shell脚本在linux运维工作中地位
+
 Shell脚本语言很擅长处理纯文本类型的数据，而Linux系统中几乎所有的
 配置文件、日志文件（如NFS、Rsync、Httpd、Nginx、LVS、MySQL
 等），以及绝大多数的启动文件都是纯文本类型的文件。自然学好Shell
 脚本语言，就可以利用它在Linux系统中发挥巨大的作用。
 
-
 ## 脚本的建立
+
 ```
 1.脚本的第一行
 一个规范的Shell脚本在第一行会指出由哪个程序（解释器）来执行脚本中的内容，这一行内容在Linux bash编程中一般为：
@@ -61,10 +62,10 @@ CentOS和Red Hat Linux下默认的Shell均为bash。因此，在
 语言标识，养成Shell编程规范。
 4.Shell脚本的注释
 #号后面表示注释，了解多行注释。
-
 ```
 
 ## 脚本的执行
+
 ```
 1. bash script-name或sh script-name
 这是当脚本文件本身没有可执行权限（即文件权限属性x
@@ -77,10 +78,10 @@ CentOS和Red Hat Linux下默认的Shell均为bash。因此，在
 
 3. source script-name 或 . script-name
 4. sh<script-name或cat scripts-name|sh
-
 ```
 
 ## 脚本例子  父shell 子shell
+
 ```
 [root@web03 ~]# cat test.sh
 user=`whoami`
@@ -90,9 +91,7 @@ user=`whoami`
 [root@web03 ~]# source ./test.sh  #在当前shell执行 和.*.sh类似
 [root@web03 ~]# echo $user
 root
-
 ```
-
 
 1.开头加脚本解释器
 2.附带作者及版权信息
@@ -102,9 +101,8 @@ root
 6.成对的符号一次书写完成
 7.循环格式一次性输入完成
 
-
-
 范例2_3：写一个包含命令、变量和流程控制语句的清除/var/log下messages日志文件的Shell脚本。
+
 ```
 #!/bin/bash
 LOG_DIR=/var/log
@@ -128,9 +126,10 @@ exit 0
 #第四关，通关或失败，给出相应提示（echo输出）。
 echo "Logs cleaned up fail."
 exit 1
-
 ```
+
 范例2_3：写一个包含命令、变量和流程控制语句的清除/var/log下messages日志文件的Shell脚本。
+
 ```
 #!/bin/bash
 #清除日志脚本, 版本 2
@@ -154,8 +153,8 @@ echo "Logs cleaned up."
 }
 echo "Logs cleaned up fail."
   exit 1
-
 ```
+
 对于范例2_3的脚本可以分成如下几关来设计：
 第一关，必须是root才能执行脚本，否则给出友好提示并终止脚本运行。
 第二关，成功切换目录（cd /var/log），否则给出友好提示并终止脚本运行。
@@ -166,6 +165,7 @@ echo "Logs cleaned up fail."
 
 方法1 行开头加 #
 方法2
+
 ```
 [root@web01 ~]# cat eric.sh
 #!/bin/bash
@@ -211,7 +211,6 @@ i 　[设置值]可以是数值，字符串或运算式。
 #echo $ab //显示变量内容56
 ```
 
-
 shell分类：
 环境变量（全局变量）
 系统中默认就存在得，作用是解决系统的一些必要的问题。
@@ -244,15 +243,13 @@ export eric=1
 环境变量取消
 unset eric
 
-
 环境变量的文件：
 全局文件
-	/etc/profile
-	/etc/bashrc
+    /etc/profile
+    /etc/bashrc
 用户环境变量文件
-	~/.bashrc
-	~/.bash_profile
-
+    ~/.bashrc
+    ~/.bash_profile
 
 ~/.bash_profile  4
 ~/.bashrc 3 
@@ -266,6 +263,7 @@ unset eric
 ## 变量的知识进阶
 
 特殊位置变量：
+
 ```
 $0  获取脚本的名字，如果脚本前面跟着路径的话，那就获取路径加上脚本名字。
 $n  取执行脚本的第n个参数值,n>9时候要用${10}, n=0时候表示取脚本的路径和文件名,
@@ -273,6 +271,7 @@ $#  脚本后面所有参数的个数
 $*  获取脚本的所有参数，“$1 $2 $3”
 $@  获取脚本的所有参数，"$1" "$2" "$3"
 ```
+
 ```
 [root@web01 scripts]# cat test.sh
 #!/bin/bash
@@ -282,6 +281,7 @@ test.sh
 [root@web01 scripts]# bash /server/scripts/test.sh 
 /server/scripts/test.sh
 ```
+
 企业应用;
 一般在启动脚本的结尾会使用$0获取脚本的路径和名字给用户提示用。
 /etc/init.d/crond
@@ -292,6 +292,7 @@ $2表示脚本后的第二个参数
 ....
 超过$9,${10}  #n大于9 则用{}括起来
 企业应用：
+
 ```
 #cat /etc/init.d/crond
 case "$1" in
@@ -301,9 +302,11 @@ case "$1" in
         ;;
     stop)
 ```
+
 $# 脚本后面所有参数的个数
 企业应用：
-```
+
+```bash
 [root@web01 scripts]# cat test.sh 
 #!/bin/bash
 #参数不等于2
@@ -313,13 +316,15 @@ then
    exit 1
 fi
 echo ok
-```       
+```
+
 $*  获取脚本的所有参数，“$1 $2 $3”
 $@  获取脚本的所有参数，"$1" "$2" "$3"
 
 当需要接收脚本后面所有参数时，但是又不知道参数个数就用这两个变量。
 
 区别:
+
 ```
 [root@web01 scripts]# cat test.sh 
 #!/bin/bash
@@ -344,6 +349,7 @@ make  #编译软件之后 查看前面是不是编译成功,查看$?
 echo $?
 
 特殊状态变量:
+
 ```
 $? 获取上一个命令的返回值，如果返回值为0就证明上一个命令执行正确，非0，就证明上一个命令执行失败的。 ***
 $$ 获取当前执行脚本的进程号
@@ -352,6 +358,7 @@ $_ 获取上一个执行脚本的最后一个参数 (了解)
 ```
 
 Shell变量子串
+
 ```
 表达式                           说明 
 ${parameter}                    变量值
@@ -385,14 +392,12 @@ I am eric I teach linux
 打印这些字符串中字符数小于3的单词。
 涉及知识点：取字符串长度，for,if。
 
-
 [root@web01 scripts]# echo ${eric:2} #从第2个字符开启取到结尾
 am eric
 [root@web01 scripts]# echo ${eric:2:2}
 am
 [root@web01 scripts]# echo ${eric:2:4}
 am o
-
 
 eric=abcABC123ABCabc
 [root@web01 scripts]# echo ${eric}
@@ -412,6 +417,7 @@ ABC123ABCabc
 [root@m01 ~]# echo ${eric##a*c}
 
 Shell特殊变量扩展知识
+
 ```
 result=${parameter:-word}  #变量值空或未赋值,返回word字符串给变量result
 result=${parameter:=word}  #变量值空或未赋值,设置parameter为word字符串并返回word字符串给变量result
@@ -428,7 +434,6 @@ word word
 [root@m01 ~]# result=${eric1:?word}  #无返回值
 bash: eric1: word
 
-
 [root@m01 ~]# eric2=2
 [root@m01 ~]# echo $eric2
 2
@@ -438,20 +443,19 @@ word
 [root@m01 ~]# echo $eric2
 2
 
-
 ## 变量的数值计算
 
 算数运算符                 意义
-+ -                       加法  减法
-* / %                     乘法  除法  取余(取模)
-**                        幂运算
-++ --                     增加  减少  (步长1) 
-! && ||                   非(取反)  与(and)  或(or)
-<  <= >  >=               小于  小于等于  大于 大于等于
-<< >>                     向左移位    向右移位
-~ | & ^                   按位取反   按位异或  按位与  按位或
-= += -= *= /= %=          赋值运算符 a+=1相当a=a+1
 
++ -                    加法  减法
+* / %                     乘法  除法  取余(取模)
+  **                        幂运算
+  ++ --                     增加  减少  (步长1) 
+  ! && ||                   非(取反)  与(and)  或(or)
+  <  <= >  >=               小于  小于等于  大于 大于等于
+  << >>                     向左移位    向右移位
+  ~ | & ^                   按位取反   按位异或  按位与  按位或
+  = += -= *= /= %=          赋值运算符 a+=1相当a=a+1
 
 数值运算命令：
 只适合整数运算
@@ -505,7 +509,6 @@ awk
 [root@web01 scripts]# echo 2.1 1.4|awk '{print $1*$2}'
 2.94
 
-
 [root@web01 scripts]# expr 2 + 2
 4
 [root@web01 scripts]# expr 2 + a
@@ -520,6 +523,7 @@ expr: non-numeric argument
 [root@web01 scripts]# expr 2 + $a &>/dev/null
 [root@web01 scripts]# echo $?
 2
+
 ```
 [root@web01 scripts]# cat judge1.sh
 #!/bin/bash
@@ -535,6 +539,7 @@ fi
 [root@web01 scripts]# bash judge1.sh ckhedu
 ckhedu 不是整数
 ```
+
 ```
 root@web01 scripts]# cat judge_kuozhan.sh 
 #!/bin/bash
@@ -554,6 +559,7 @@ peiqi.log 不是文本
 [root@web01 scripts]# sh judge_kuozhan.sh 老男孩老师.txt
 老男孩老师.txt 是文本
 ```
+
 ```
 [root@ckhedu scripts]# cat test.sh    
 #!/bin/bash
@@ -566,11 +572,13 @@ echo "a/b=$(($a/$b))"
 echo "a**b=$(($a**$b))"
 echo "a%b=$(($a%$b))"
 ```
+
 变量的赋值：
 1、定义法
 a=1
 
 2、传参法
+
 ```
 [root@web01 scripts]# cat test7.sh 
 #!/bin/bash
@@ -583,9 +591,11 @@ echo "a/b=$(($a/$b))"
 echo "a**b=$(($a**$b))"
 echo "a%b=$(($a%$b))"
 ```
+
 3、read读入，读取用户输入。
 -p 提示
 -t 等待用户输入的时间
+
 ```
 read -t 30 -p "请输入一个数字:"
 [root@web01 scripts]# read -t 30 -p "请输入一个数字:" a
@@ -596,8 +606,10 @@ read -t 30 -p "请输入一个数字:"
 [root@web01 scripts]# echo $a
 11
 ```
+
 read读入有什么作用
 和用户交互。
+
 ```
 [root@web01 scripts]# cat test6.sh
 #!/bin/bash
@@ -612,6 +624,7 @@ echo "a%b=$(($a%$b))"
 
 read企业应用
 [root@web01 scripts]# cat select1.sh
+
 ```
 #!/bin/bash
 cat <<EOF
@@ -655,8 +668,6 @@ fi
 语法5：(命令表达式) 
 语法6：`命令表达式`
 
-
-
 编程语法：
 [ <测试表达式> ] && 命令1
 如果前面表达式成功，那么就执行后面命令。
@@ -683,9 +694,7 @@ fi
 }
 如果前面表达式成功，那么就执行命令1，2，否则执行命令3,4。
 
-
 <测试表达式>有哪些：
-
 
 为什么需要文件测试表达式？
 操作一个对象，就要看对象条件是否满足，否则不要操作。
@@ -706,14 +715,11 @@ fi
 [ f1 -nt f2 ] nt newer than       f1比f2文件新  真 根据文件修改时间算  
 [ f1 -or f2 ] or older than       f1比f2文件旧 真  根据文件修改时间算
 
-
-
 字符串测试表达式
 [ -n "字符串" ]    字符串长度[不]为0，表达式为真。 not zero。
 [ -z "字符串" ]    字符串长度为0，表达式为真。 zero。
 [ "字符串1" == "字符串2" ]  两个字符串相同则为真。可用 =代替
 [ "字符串1" != "字符串2" ] 两个字符串不相同则为真。不可用 !== 代替 
-
 
 注意：
 1、字符串就用双引号
@@ -741,9 +747,9 @@ fi
 [root@web01 ~]# [ "dd" != "dd" ] && echo 1 || echo 0
 0
 
-
 企业应用：
 [root@db03 scripts]# cat yunsuan1.sh
+
 ```
 #!/bin/bash
 ##############################################################
@@ -795,8 +801,9 @@ echo "a%b=$(($a%$b))"
     大于
     等于
     小于
-	
+
 [root@web01 scripts]# cat com1.sh 
+
 ```
 #!/bin/bash
 read -p "请输入两个整数：" a b
@@ -830,9 +837,9 @@ expr $a + $b + 1 &>/dev/null
 echo "$a<$b"
 ```
 
-
-​	
+​    
 [root@db03 scripts]# cat comp.sh 
+
 ```
 #!/bin/bash
 ##############################################################
@@ -873,6 +880,7 @@ exit 0
 ```
 
 [root@db03 scripts]# cat comp.sh 
+
 ```
 #!/bin/bash
 ##############################################################
@@ -922,8 +930,6 @@ fi
 
 make && make install
 
-
-
 [root@db03 scripts]# [ 1 -eq 1 -a -f /etc/hosts ] && echo 1 || echo 0
 1
 [root@db03 scripts]# [ 1 -eq 2 -a -f /etc/hosts ] && echo 1 || echo 0
@@ -939,7 +945,6 @@ make && make install
 [root@db03 scripts]# [ ! -f /etc/hosts ] && echo 1 || echo 0
 0
 
-
 小题：如果/tmp/ckhedu.sh是普通文件，并且可执行，就执行改脚本。
 file="/tmp/ckhedu.sh"
 if [ -f $file ] && [ -x $file ]
@@ -947,24 +952,21 @@ then
     bash $file
 fi
 
-
 1. 单分支结构
-第一种语法：
-if  <条件表达式>
+   第一种语法：
+   if  <条件表达式>
     then
     指令
-fi
-第二种语法：
-if <条件表达式>; then
+   fi
+   第二种语法：
+   if <条件表达式>; then
     指令
-fi
-
+   fi
 
 如果 <你有房>
   那么
     我就嫁给你
 果如
-
 
 if条件句的双分支结构语法为：
 if <条件表达式>
@@ -994,7 +996,6 @@ elif <条件表达式3>
 else
     指令4...
 fi
-
 
 范例7_2：开发Shell脚本判断系统剩余内存的大小，如果低于100MB就邮件报警给系统管理员，
 并且将脚本加入系统定时任务，即每3分钟执行一次检查。
@@ -1044,6 +1045,7 @@ function 函数名{
 }
 
 简单函数执行:
+
 ```
 ckhedu() {
     echo "I am ckhedu."
@@ -1057,20 +1059,25 @@ test() {
 ckhedu
 oldgirl
 ```
+
 带参数函数
+
 ```
 ckhedu() {
     echo "I am $1."
 }
 ckhedu ckhedu
 ```
+
 将函数传参转为脚本传参
+
 ```
 ckhedu() {
     echo "I am $1."
 }
 ckhedu $1
 ```
+
 将函数体和函数执行分离成不同的文件。
 
 企业案例：通过脚本传参的方式，检查Web 网站URL是否正常。
@@ -1095,6 +1102,7 @@ curl命令：
 200
 
 不用函数的实现写法
+
 ```
 #!/bin/sh
 if [ $# -ne 1 ]
@@ -1110,7 +1118,9 @@ else
     echo "$1 is no."
 fi
 ```
+
 高端专业的函数写法：
+
 ```
 [root@ckhedu ~]# cat checkurl.sh 
 #!/bin/bash
@@ -1146,7 +1156,8 @@ main $*
 ```
 
 [root@ckhedu scripts]# cat 8_5_1.sh  
-``` 
+
+```
 #!/bin/sh
 function usage() {     #<==帮助函数
     echo $"usage:$0 url"
@@ -1212,9 +1223,6 @@ esac
 4.cherry
 当用户输入对应的数字选择水果的时候，告诉他选择的水果是什么，并给水果单词加上一种颜色（随意），要求用case语句实现。
 
-
-
-
 case条件句的使用总结
 (1)case语句和if条件句的适用性·
 case语句比较适合变量值较少且为固定的数字或字符串集合的情况（非不确定的内容，例
@@ -1226,7 +1234,6 @@ case主要是写服务的启动脚本，一般情况下，传参不同且具有�
 if就是取值判断、比较，应用比case更广。几乎所有的case语句都可以用if条件语句实现。
 (3)case语句的特点及优势.
 case语句就相当于多分支的if/elif/else语句，但是case语句的优势是更规范、易读。
-
 
 范例9_3：给内容加不同的颜色。
 内容的颜色用数字表示，范围为30-37，每个数字代表一种颜色。代码如下： 
@@ -1266,7 +1273,6 @@ kill 进程号
 /etc/init.d/rsyncd {start|stop|restart}
 case
 
-
 ## While循环语句
 
 While循环语法
@@ -1282,6 +1288,7 @@ While循环中文形象语法
 已做完
 
 范例10_1：每隔2秒输出一次系统负载（负载是系统性能的基础重要指标）情况。
+
 ```
 [root@ckhedu scripts]# cat 10_1_1.sh
 #!/bin/sh
@@ -1291,15 +1298,16 @@ do
     sleep 2
 done
 ```
-用法	            说明
-sh while1.sh &	    把脚本while1.sh放到后台执行（后台运行脚本时常用）*
-nohup while1.sh &	使用nohup把脚本while1.sh放到后台执行
-ctl+c	            停止执行当前脚本或任务
-ctl+z	            暂停执行当前脚本或任务
-bg	                把当前脚本或任务放到后台执行，bg可以理解为background
-fg	                把当前脚本或任务拿到前台执行，如果有多个任务，可以使用fg加任务编号调出对应脚本任务，如fg 2，调出第二个脚本任务，fg可以理解为frontground
-jobs 	            查看当前执行的脚本或任务
-kill	            关闭执行的脚本任务，即以“kill %任务编号”的形式关闭脚本，这个任务编号，可以通过jobs获得
+
+用法                说明
+sh while1.sh &        把脚本while1.sh放到后台执行（后台运行脚本时常用）*
+nohup while1.sh &    使用nohup把脚本while1.sh放到后台执行
+ctl+c                停止执行当前脚本或任务
+ctl+z                暂停执行当前脚本或任务
+bg                    把当前脚本或任务放到后台执行，bg可以理解为background
+fg                    把当前脚本或任务拿到前台执行，如果有多个任务，可以使用fg加任务编号调出对应脚本任务，如fg 2，调出第二个脚本任务，fg可以理解为frontground
+jobs                 查看当前执行的脚本或任务
+kill                关闭执行的脚本任务，即以“kill %任务编号”的形式关闭脚本，这个任务编号，可以通过jobs获得
 
 后台运行 &、nohup、screen（运维人员）
 
@@ -1314,6 +1322,7 @@ strace：跟踪一个进程的系统调用情况。
 ltrace：跟踪进程调用库函数的情况。
 
 范例10_2：请使用while循环对下面的脚本进行修改，使得当执行脚本时，每次执行完脚本以后不退出脚本了，而是继续提示用户输入。
+
 ```
 #!/bin/bash
 read -t 15 -p "please input two number:" a b
@@ -1324,6 +1333,7 @@ echo "a/b=$(($a/$b))"
 echo "a**b=$(($a**$b))"
 echo "a%b=$(($a%$b))"
 ```
+
 解答:
 
 ```bash
@@ -1381,29 +1391,30 @@ do
         echo "猜低了。"
     fi
 done
-
-
 ```
 
 范例10_8：分析Apache访问日志(access_2010-12-8.log)，把日志中每行的访问字节数对应字段数字相加，计算出总的访问量。给出实现程序，请用while循环实现。（3分钟）
 
 方式1：在while循环结尾done通过输入重定向指定读取的文件。
+
 ```
 while read line
 do
     cmd
 done<FILE
-
 ```
 
 方式2：使用cat读取文件内容，然后通过管道进入while循环处理。
+
 ```
 cat FILE_PATH|while read line
 do
     cmd
 done
 ```
+
 方式3：采用exec读取文件后，然后进入while循环处理。
+
 ```
 exec <FILE
 sum=0
@@ -1411,7 +1422,6 @@ while read line
 do
     cmd
 done
-
 ```
 
 While循环结构及相关语句综合实践小结
@@ -1429,7 +1439,6 @@ while多用于守护进程、无限循环（要加sleep,usleep控制频率）应
 case多用于服务启动脚本、打印菜单可用select语句，不过很少用，都用cat
 的here文档方法替代。
 函数用途主要是编码逻辑清晰，减少重复语句开发。·
-
 
 ## for循环语句
 
@@ -1485,6 +1494,7 @@ done
 ```
 
 ## 循环和条件句等的控制
+
 break（循环控制）、
 continue（循环控制）、
 exit（退出脚本）、
@@ -1495,14 +1505,14 @@ break、continue在条件语句及循环语句（for、while、if等）中用于
 而exit则用于终止所有语句并退出当前脚本，除此之外，exit还可以返回上一次程序或命令的执行状态值给当前Shell
 return类似exit，只不过return仅用于在函数内部返回函数执行的状态值。
 
-命令	        说明
-break n	        如果省略n表示跳出整个循环，n 表示跳出循环的层数
-continue n	    如果省略n表示跳过本次循环，忽略本次循环的剩余代码，进入循环的下一次循环。n 表示退到第n层继续循环
-exit n	        退出当前shell程序，n为上一次程序执行的状态返回值。n也可以省略，再下一个shell里可通过$?接收exit n的n值
-return n	    用于在函数里，作为函数的返回值，用于判断函数执行是否正确。
-
+命令            说明
+break n            如果省略n表示跳出整个循环，n 表示跳出循环的层数
+continue n        如果省略n表示跳过本次循环，忽略本次循环的剩余代码，进入循环的下一次循环。n 表示退到第n层继续循环
+exit n            退出当前shell程序，n为上一次程序执行的状态返回值。n也可以省略，再下一个shell里可通过$?接收exit n的n值
+return n        用于在函数里，作为函数的返回值，用于判断函数执行是否正确。
 
 ## shell数组
+
 什么是Shell数组
 简单地说，Shell的数组就是把有限个元素（变量或字符内容）用一个名字命名，
 然后用编号对它们进行区分的元素集合。这个名字就称为数组名，用于区分不
@@ -1568,6 +1578,7 @@ array=($(命令))
 3 4 ckhedu
 
 使用for循环打印数组元素
+
 ```
 array=(1 2 3 4 5)
 for n in ${array[*]}
@@ -1594,7 +1605,6 @@ b c d
 [root@ckhedu data]# echo ${array[@]:0:2}       #<==从下标为0的元素开始截取，共取2个数组元素。
 a b
 
-
 [root@ckhedu data]# array=(1 2 3 1 1)   
 [root@ckhedu data]# echo ${array[@]/1/b}    #<==把数组中的1替换成b，原数组未被修改,和sed很像。
 b 2 3 b b
@@ -1618,11 +1628,12 @@ one two three
 提示：数组也是变量，因此也适合于前面讲解过的变量的子串处理的功能应用。
 数组的其他相关知识通过man bash然后搜Arrays来了解。
 
-
 ## Shell数组脚本开发实践
+
 范例13_1：使用循环批量输出数组的元素。
 方法1：通过C语言型的for循环语句打印数组元素。
 [root@ckhedu scripts]# cat 13_1_1.sh
+
 ```
 #!/bin/sh
 array=(1 2 3 4 5)
@@ -1631,7 +1642,9 @@ do
     echo ${array[i]}            #<==打印数组元素。
 done
 ```
+
 方法2：通过普通for循环语句打印数组元素。
+
 ```
 [root@ckhedu scripts]# cat 13_1_2.sh
 #!/bin/sh
@@ -1641,7 +1654,9 @@ do
     echo $n           #<==这里就不是直接去数组里取元素了，而是变量n的值。
 done
 ```
+
 方法3：使用while循环语句打印数组元素。
+
 ```
 [root@ckhedu scripts]# cat 13_1_3.sh    
 #!/bin/sh
@@ -1653,7 +1668,9 @@ do
     ((i++))
 done
 ```
+
 范例13_2：通过竖向列举法定义数组元素并批量打印。
+
 ```
 [root@ckhedu scripts]# cat 13_2_1.sh
 #!/bin/sh
@@ -1689,6 +1706,7 @@ done
 ```
 
 ## Shell数组的重要命令
+
 ```
 1定义命令
 静态数组:
@@ -1768,6 +1786,7 @@ done
 ```
 
 方法2：使用for循环列举取值列表法
+
 ```bash
 for word in I am ckhedu teacher welcome to ckhedu training class  #<==看起来有点low吧。
 do
@@ -1783,13 +1802,13 @@ do
         echo $word
     fi
 done
-
 ```
+
 方法3：通过awk循环实现。
+
 ```bash
 chars="I am ckhedu teacher welcome to ckhedu training class"
 echo $chars|awk '{for(i=1;i<=NF;i++) if(length($i)<=6)print $i}'
-
 ```
 
 范例13_5：批量检查多个网站地址是否正常 
@@ -1857,13 +1876,13 @@ main(){                #<==定义主函数。
     done
 }
 main                   #<==优美的显示成功结果，调用主函数运行程序。
-
 ```
-提示：实际使用时，一些基础的函数脚本（例如：加颜色的函数）是放在函数文件里的（例如：放在/etc/init.d/functions里，与执行的脚本内容部分分离，看起来更清爽，大型的语言程序都是这样开发的），另外，特别注意wget命令后要接重试次数--tries参数，否则检查时会卡住。
 
+提示：实际使用时，一些基础的函数脚本（例如：加颜色的函数）是放在函数文件里的（例如：放在/etc/init.d/functions里，与执行的脚本内容部分分离，看起来更清爽，大型的语言程序都是这样开发的），另外，特别注意wget命令后要接重试次数--tries参数，否则检查时会卡住。
 
 范例13_6：开发一个守护进程脚本，每30秒监控MySQL主从复制是否异常（包括不同步以及延迟），如果异常，则发送短信并发送邮件给管理员存档（此为生产实战案例）。
 提示：如果没主从复制的环境，可以把下面的文本放到文件里读取来模拟主从复制状态：
+
 ```
 *************************** 1. row ***************************
                Slave_IO_State: Waiting for master to send event
@@ -1908,11 +1927,13 @@ Master_SSL_Verify_Server_Cert: No
 
 解题思路：
 1）判断主从复制是否异常，主要就是检测如下参数对应的值是否和如下一致。
+
 ```
        Slave_IO_Running: Yes  #<==IO线程状态必须为Yes。
             Slave_SQL_Running: Yes  #<==SQL线程状态必须为Yes。
        Seconds_Behind_Master: 0     #<==和主库比同步延迟的秒数，这个参数很重要。
 ```
+
 2）读取状态数据或状态文件，然后取出对应值，和正确时的值进行比对，如果不符合就表示故障了，即调用报警脚本报警。
 3）为了更专业，还可以在当主从不同步时，查看相应错误号，判断对应错误号以进行自动恢复主从复制故障（这些错误号也可以通过配置文件里配置参数实现自动忽略故障）。
 
@@ -1961,6 +1982,7 @@ Master_SSL_Verify_Server_Cert: No
 
 然后开发脚本，开发脚本有多种方法，下面分别给出。
 方法1：
+
 ```bash
 [root@ckhedu scripts]# awk -F ': ' '/_Running|_Behind/{print $NF}' slave.log
 #<==获取所有复制相关的状态值。
@@ -1983,6 +2005,7 @@ else
     echo "mysql replcation is sucess" #<==否则提示复制正常。
 fi
 ```
+
 测试结果如下：
 
 ```
@@ -1994,6 +2017,7 @@ mysql replcation is failed
 ```
 
 方法2：本方法和方法1实现的功能差不多，但是开发手法就更高大上一些。
+
 ```bash
 [root@ckhedu scripts]# cat 13_6_2.sh
 #!/bin/bash
@@ -2023,8 +2047,8 @@ do
 done
 }
 main
-
 ```
+
 测试结果如下：
 
 ```
@@ -2039,10 +2063,10 @@ mysql replcation is sucess
 mysql replcation is failed
 mysql replcation is failed
 ^C
-
 ```
 
 方法3（此为企业生产正式检查脚本）：
+
 ```bash
 [root@ckhedu scripts]# cat 13_6_3.sh
 #!/bin/bash
@@ -2151,7 +2175,6 @@ main
 13）TCP连接状态及IP统计报警脚本。
 14）批量创建用户并设置随机8位密码的脚本。
 
-
 ## shell实战企业面试题
 
 面试题 1：批量生成随机字符文件名案例
@@ -2202,9 +2225,8 @@ cut [-df] [file]
 -n ：取消分割多字节字符。仅和 -b 标志一起使用。如果字符的最后一个字节落在由 -b 标志的 List 参数指示的
 范围之内，该字符将被写出；否则，该字符将被排除
 
-
-
 3、for 循环创建
+
 ```bash
 [root@web01 eric_shell_14]# cat 03_01.sh
 #!/bin/bash
@@ -2222,7 +2244,6 @@ do
 random=`echo "eric$RANDOM"|md5sum|tr "0-9" "m-z"|cut -c 2-11`
 touch $path/${random}_eric.html
 done
-
 ```
 
 面试题 2：批量改名特殊案例
@@ -2233,6 +2254,7 @@ done
 思路分析：
 1、 要改所有，先缩小改一个。
 拼接的目标：mv arqordoamn_eric.html arqordoamn_oldgirl.HTML
+
 ```
 [root@web01 eric]# file=arqordoamn_eric.html
 [root@web01 eric]# echo $file
@@ -2241,9 +2263,11 @@ arqordoamn_eric.html
 arqordoamn_oldgirl.HTML
 [root@web01 eric]# mv $file `echo ${file/eric.html/oldgirl.HTML}`
 ```
+
 2、 如果修改所有那就用 for 循环
 方法 1：for 循环
 方法 2：拼接法：
+
 ```
 [root@web01 eric]# ls *.HTML|awk -F "oldgirl.HTML" '{print "mv",$0,$1"eric.html"}'|bash
 [root@web01 eric]# ls
@@ -2252,7 +2276,9 @@ arqordoamn_eric.html maoopfqrbv_eric.html smnbvqdtfo_eric.html
 bqfmsrvabs_eric.html perpcvaaor_eric.html sqnvmptfuu_eric.html
 ccrcpdovam_eric.html rmdqptfetm_eric.html
 ```
+
 方法 3：
+
 ```
 [root@web01 eric]# rename "eric.html" "oldgirl.HTML" *.html
 [root@web01 eric]# ls
@@ -2263,6 +2289,7 @@ ccrcpdovam_oldgirl.HTML rmdqptfetm_oldgirl.HTML test.sh
 ```
 
 for循环
+
 ```bash
 #!/bin/bash
 path=/eric
@@ -2277,10 +2304,11 @@ done
 批量创建 10 个系统帐号 eric01-eric10 并设置密码（密码为随机数，要求字符和数等
 混合）。
 不用 for 循环的实现思路参考:
+
 ```bash
 方法1：
 echo stu{01..10}|tr " " "\n"|sed -r 's#(.*)#useradd \1 ; pass=$((RANDOM+10000000)); echo "$pass"|passwd --stdin \1; echo -e "\1 \t `echo "$pass"`">>/tmp/eric.log#g'|bash
- 
+
 上述命令实际就是再拼N条下面的命令的组合，举一条命令stu01用户的过程拆解如下：
 useradd stu01 ;
 pass=$((RANDOM+10000000));
@@ -2331,6 +2359,7 @@ echo 密码|passwd --stdin
 eric01:passwd
 eric02:passwd
 4）for 循环
+
 ```bash
 #!/bin/bash
 ##############################################################
@@ -2347,7 +2376,6 @@ useradd eric$n
 echo $pass|passwd --stdin eric$n
 echo -e "eric$n\t$pass" >>/tmp/user.list
 done
-
 ```
 
 ```bash
@@ -2367,7 +2395,6 @@ useradd eric$n
 echo "eric$n:$pass" >>/tmp/chpasswd.log
 done
 chpasswd </tmp/chpasswd.log
-
 ```
 
 ```bash
@@ -2399,7 +2426,6 @@ else
 action "eric$n is exist." /bin/false
 fi
 done
-
 ```
 
 面试题 4：扫描网络内存活主机案例
@@ -2429,6 +2455,7 @@ nmap -sP 172.16.1.0/24
 172.16.1.254
 
 方法 2：
+
 ```bash
 [root@web01 eric_shell_14]# cat 14_04_01.sh
 #!/bin/bash
@@ -2470,6 +2497,7 @@ do
   } &
 done
 ```
+
 面试题 5：解决 DOS 攻击生产案例
 
 写一个 Shell 脚本解决 DOS 攻击生产案例。
@@ -2485,6 +2513,7 @@ iptables -I INPUT -s IP 地址 -j DROP。
 日志文件，netstat -an|grep -i est，排序去重。
 判断 pv 或者链接数大于 100，取出 Ip 让后封
 参考答案 1
+
 ```bash
 #!/bin/bash
 ##########################################
@@ -2509,6 +2538,7 @@ done</tmp/ip.log
 ```
 
 参考答案 2：
+
 ```bash
 #!/bin/bash
 ##########################################
@@ -2543,6 +2573,7 @@ done</tmp/ip.log
     mysqldump -B test|gzip >bak.sql.gz
 
 参考答案：
+
 ```bash
 #!/bin/bash
 ##############################################################
@@ -2587,6 +2618,7 @@ Shell 面试题 7：MySQL 数据库分库分表备份
     mysqldump oldgirl test3
 
 参考答案：
+
 ```bash
 [root@web01 eric_shell_14]# cat 14_06_01.sh
 #!/bin/bash
@@ -2610,7 +2642,6 @@ do
         fi
     done
 done
-
 ```
 
 面试题 8：筛选符合长度的单词案例
@@ -2619,6 +2650,7 @@ done
 I am eric teacher welcome to eric training class
 解答：
 数组部分有答案讲解，这里不给答案了。
+
 ```bash
 arr=(I am ckhedu teacher welcome to ckhedu training class)
 for ((i=0;i<${#arr[*]};i++))
@@ -2636,6 +2668,7 @@ do
     fi
 done
 ```
+
 面试题 9：比较整数大小经典案例
 
 综合实战案例：开发 shell 脚本分别实现以脚本传参以及 read 读入的方式比较 2 个整数大
@@ -2645,6 +2678,7 @@ done
 数不对给予提示。
 解答：
 见第二模块 Shell 考试题答案
+
 ```bash
 #!/bin/bash
 read -p "请输入两个数字：" a b
@@ -2673,12 +2707,13 @@ then
 else
     echo "$a<$b"
 fi
-
 ```
+
 面试题 10：菜单自动化软件部署经典案例
 
 综合实例：打印选择菜单，按照选择一键安装不同的 Web 服务。
 示例菜单：
+
 ```bash
 [root@eric scripts]# sh menu.sh
 1.[install lamp]
@@ -2686,6 +2721,7 @@ fi
 3.[exit]
 pls input the num you want:
 ```
+
 要求：
 1、当用户输入 1 时，输出“start installing lamp.提示”然后执行/server/scripts/lamp.sh，脚本
 内容输出"lamp is installed"后退出脚本，工作中就是正式 lamp 一键安装脚本；
@@ -2697,6 +2733,7 @@ pls input the num you want:
 尽量用上前面讲解的知识点。
 解答：
 见第二模块 Shell 考试题答案
+
 ```bash
 #!/bin/bash
 cat <<EOF
@@ -2729,7 +2766,6 @@ case $num in
         echo "Usage:$0 {1|2|3}"
         exit 1
 esac            
-
 ```
 
 面试题 11：破解 RANDOM 随机数案例
@@ -2743,6 +2779,7 @@ a3da1677
 890684b
 
 参考答案
+
 ```bash
 #!/bin/bash
 ##########################################
@@ -2786,6 +2823,7 @@ http://eric.blog.51cto.com
 http://10.0.0.7
 
 参考答案
+
 ```bash
 #!/bin/bash
 ##########################################
@@ -2828,8 +2866,6 @@ main(){
     done
 }
 main
-
-
 ```
 
 面试题 13：单词及字母去重排序案例
@@ -2867,8 +2903,6 @@ tr "[ ,.]" "\n"<eric.txt|awk '{for(i=1; i<=length($0); i++) ++S[substr($0,i,1)]}
 echo "the squid project provides a number of resources toassist users design,implement and support squid installations. Please browsethe documentation and support sections for more infomation"|sed 's# ##g'|sed -r 's#(.)#\1\n#g'|sort|uniq -c|sort -rn -k1
 
 echo "the squid project provides a number of resources toassist users design,implement and support squid installations. Please browsethe documentation and support sections for more infomation"|sed 's# ##g'|awk -F "" '{for(n=1;n<=NF;n++) print $n}'|sort|uniq -c|sort -k1 -nr
-
-
 ```
 
 面试题 14：企业批量管理和分发文件案例实战
@@ -2877,6 +2911,7 @@ echo "the squid project provides a number of resources toassist users design,imp
 （执行任意命令），批量分发本地任意文件到远端任意路径下。
 
 分发脚本：
+
 ```bash
 #!/bin/bash
 . /etc/init.d/functions
@@ -2896,10 +2931,10 @@ do
         action "10.0.0.$n is failure" /bin/false
     fi
 done
-
 ```
 
 查看脚本；
+
 ```bash
 #!/bin/bash
 if [ $# -ne 1 ]
@@ -2912,22 +2947,4 @@ do
     echo "--------10.0.0.$n---------"
     ssh 10.0.0.$n $1
 done
-
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

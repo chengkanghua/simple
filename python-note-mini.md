@@ -1,10 +1,11 @@
 
 
 ## python 国内下载地址
+
 https://mirrors.huaweicloud.com/python/
 https://www.python.org/downloads/release/python-390/
 
-
+                        
 ## 推荐教程地址
 
 [官方教程](https://docs.python.org/zh-cn/3/tutorial/index.html)
@@ -15,8 +16,8 @@ https://www.python.org/downloads/release/python-390/
 cd /Users/kanghua/env/
 $ python3.9 -m venv python3-base
 $ cd python3-base/
-python3-base kanghua$ source bin/activate
-(python3-base) kanghuadeMacBook-Pro:python3-base kanghua$
+python3-base kanghua$ source bin/activate   #激活
+
 ```
 
 ## python注释
@@ -35,6 +36,11 @@ python3-base kanghua$ source bin/activate
 print("string",end="")
 input('please username:')
 
+单行注释用#，多行注释可以用三对双引号“”” “””
+代码注释原则:
+1. 不用给全部代码加注释，只需要在自己觉得重要或不好理解的部分加注释即可
+2. 注释可以用中文或英文，但绝对不要拼音噢
+3. 注释不光要给自己看，还要给别人看，所以请认真写
 ```
 
 

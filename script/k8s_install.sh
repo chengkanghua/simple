@@ -141,6 +141,19 @@ cat > /etc/docker/daemon.json<<EOF
   ]
 }
 EOF
+
+# containerd镜像加速
+# mkdir -p /etc/containerd/certs.d/docker.io
+# cat >/etc/containerd/certs.d/docker.io/hosts.toml <<EOF
+# server = "https://docker.io"
+# [host."https://8xpk5wnt.mirror.aliyuncs.com"]
+#   capabilities = ["pull","resolve"]
+# [host."https://docker.mirrors.ustc.edu.cn"]
+#   capabilities = ["pull","resolve"]
+# [host."https://registry-1.docker.io"]
+#   capabilities = ["pull","resolve","push"]
+# EOF
+# systemctl restart containerd
 systemctl enable docker && systemctl start docker
 fi
 
@@ -280,13 +293,66 @@ do
 done
 
 }
+#---------------------------------------
+
+inst_registry(){
+if [ `docker ps |grep registry|wc -l` -eq 0 ];then
+# 创建 Docker Registry 认证文件目录
+mkdir /var/lib/registry_auth
+# 使用 htpasswd 来创建加密文件
+[ -f /usr/bin/htpasswd ] || yum install -y httpd-tools
+htpasswd -Bbn admin admin > /var/lib/registry_auth/htpasswd
+
+## 使用docker镜像启动镜像仓库服务
+docker run -p 5000:5000 \
+--restart=always \
+--name registry \
+-v /var/lib/registry:/var/lib/registry \
+-v /var/lib/registry_auth/:/auth/ \
+-e "REGISTRY_AUTH=htpasswd" \
+-e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" \
+-e "REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd" \
+-d registry
+
+localhost_ip=$(ifconfig eth0|grep 'inet.*netmask'|cut -d ' ' -f10)
+cat > /etc/docker/daemon.json<<EOF
+{
+  "insecure-registries": [
+     "${localhost_ip}:5000"
+  ]
+}
+EOF
+
+# 配置containerd 非安全私有仓库
+mkdir -p /etc/containerd/certs.d/${localhost_ip}:5000
+cat > /etc/containerd/certs.d/${localhost_ip}:5000/hosts.toml <<EOF
+server = "http://${localhost_ip}:5000"
+[host."http://${localhost_ip}:5000"]
+  capabilities = ["pull", "resolve", "push"]
+  skip_verify = true
+EOF
+systemctl restart containerd
+systemctl restart docker
+
+#配置同步node节点
+for host in $@
+do
+	scp /etc/docker/daemon.json $host:/etc/docker/daemon.json
+	scp -rp /etc/containerd/certs.d/${localhost_ip}\:5000 $host:/etc/containerd/certs.d/
+	ssh $host "systemctl restart containerd && systemctl restart docker"
+done
+
+fi
+
+}
+
 
 
 main(){
 # localhost_ip=$(ifconfig eth0|grep 'inet.*netmask'|cut -d ' ' -f10)
 # all_host=$localhost_ip' '$@
-	# dispense $@
-	# init_host $@
+	dispense $@
+	init_host $@
 	base_sys
 	inst_docker
 	init_cluster
@@ -300,8 +366,9 @@ do
 done
 
 	init_master $@
-	# sting_cluster
-	# inst_nerdctl $@
+	sting_cluster
+	inst_nerdctl $@
+	inst_registry $@
     echo "end"
 }
 	

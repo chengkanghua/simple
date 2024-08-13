@@ -693,7 +693,692 @@ gg：移动到文件的第一行。
 
 
 
+## 文件压缩及解压缩命令
+
+```bash
+tar  #用于打包和解包文件
+基本用法：
+-c：创建一个新的归档文件。
+-x：从归档文件中提取文件。
+-v：显示详细信息（verbose）。
+-f：指定归档文件的名称。
+-z：通过 gzip 进行压缩或解压缩。
+-j：通过 bzip2 进行压缩或解压缩。
+-J：通过 xz 进行压缩或解压缩。
+-t：列出归档文件中的内容，但不提取。
+-p：保持原文件的权限和属性。
+-P：保留绝对路径名。
+--exclude：在归档时排除指定的文件或目录。
+
+tar -cvf archive_name.tar /path/to/directory_or_file
+tar -xvf archive_name.tar  # 解包
+
+tar -czvf archive_name.tar.gz /path/to/directory_or_file  #使用gzip压缩
+tar -xzvf archive_name.tar.gz                                            #gzip 解压缩
+
+tar -cjvf archive_name.tar.bz2 /path/to/directory_or_file #bzip2压缩
+tar -xjvf archive_name.tar.bz2                                           #bzip2解压缩
+
+tar -cJvf archive_name.tar.xz /path/to/directory_or_file   #xz 压缩
+tar -xJvf archive_name.tar.xz											  #xz解压缩
+
+#备份目录
+tar -czvf /backup/directory/backup-$(date +%Y%m%d).tar.gz /path/to/important/directory
+#删除超过30天的备份文件
+find /backup/directory -name "*.tar.gz" -mtime +30 -exec rm {} \;
+# scp 命令安全地将 tar 文件传输到远程服务器。
+scp /path/to/archive.tar.gz user@remotehost:/path/to/destination
 
 
-以后linux 命令问题请按 介绍,基本用法,常用选项,示例,生产环境建议及常用组合命令
+unzip # 专门用于解压缩 .zip 格式的压缩文件
+unzip [选项] 压缩文件.zip
+常用选项
+-l：列出压缩文件中的内容，但不提取文件。
+-p：将解压缩的文件输出到标准输出（stdout），不保存到磁盘。
+-d：指定解压缩文件的目标目录。
+-o：覆盖已存在的文件而不提示。
+-n：不覆盖已存在的文件。
+-q：静默模式，不显示任何信息。
+-v：详细模式，显示解压缩过程中的详细信息。
+unzip file.zip
+unzip -v file.zip
+unzip file.zip -d /path/to/destination  #解压文件到指定目录
+unzip -l file.zip									   #查看一下不解压
+
+
+
+
+gzip # 用于压缩文件。它使用 Lempel-Ziv 编码（LZ77）算法，压缩效果通常很好，尤其适用于文本文件
+gzip [选项] 文件名
+常用选项
+-c：将输出写到标准输出（stdout），不删除原文件。
+-d：解压缩文件。
+-l：列出 .gz 文件的压缩信息。
+-9：使用最大压缩比，但压缩速度较慢。
+-1：使用最小压缩比，但压缩速度较快。
+gzip filename.txt  #压缩 filename.txt 文件，并删除原文件，压缩后的文件名为 filename.txt.gz
+gzip -c filename.txt > filename.txt.gz  #压缩文件并保留原文件
+gzip -d filename.txt.gz                          # 解压缩
+gzip -l filename.txt.gz                           #查看压缩信息
+
+# # 解压缩 filename.gz 文件，并将内容解压到指定目录
+gzip -cd filename.gz | tar -xv -C /path/to/destination 
+
+
+zip  # 创建压缩文件（通常称为 .zip 文件
+zip [选项] 压缩文件名.zip 文件或目录...
+常用选项
+-r：递归处理目录，包括子目录中的文件。
+-9：使用最大压缩比，但压缩速度较慢。
+-m：压缩完成后删除原文件。
+-e：创建加密的 .zip 文件。
+-j：忽略文件路径，仅存储文件名。
+-l：将 Unix 的换行符转换为 DOS 格式。
+-q：静默模式，不显示进度信息。
+
+zip archive.zip file.txt
+zip -r archive.zip directory/  # 压缩整个目录
+zip archive.zip file1.txt file2.txt directory/  #压缩多个文件和目录
+zip -rm archive.zip directory/   #解压完删除原目录(directory/)
+zip -e archive.zip file.txt            # 会提示你输入密码来创建一个加密的 archive.zip 文件
+unzip -l archive.zip                   #查看文件内容,而不实际解压
+
+
+```
+
+
+
+## 信息显示命令
+
+```bash
+uname # 用于显示系统信息
+-a：显示所有可用的信息。
+-s：显示内核名称（默认选项）。
+-n：显示网络节点的主机名。
+-r：显示内核发行版本号。
+-m：显示硬件平台名称。
+-p：显示处理器类型。
+-v：显示内核版本。
+-i：显示硬件平台的硬件名称。
+-o：显示操作系统名称。
+
+[root@m01 tmp]# uname
+Linux
+[root@m01 tmp]# uname -a
+Linux m01 3.10.0-1160.71.1.el7.x86_64 #1 SMP Tue Jun 28 15:37:28 UTC 2022 x86_64 x86_64 x86_64 GNU/Linux
+[root@m01 tmp]# uname -s
+Linux
+[root@m01 tmp]# uname -n
+m01
+[root@m01 tmp]# uname -r
+3.10.0-1160.71.1.el7.x86_64
+[root@m01 tmp]# uname -m
+x86_64
+[root@m01 tmp]# uname -p
+x86_64
+[root@m01 tmp]# uname -v
+#1 SMP Tue Jun 28 15:37:28 UTC 2022
+[root@m01 tmp]# uname -i
+x86_64
+[root@m01 tmp]# uname -o
+GNU/Linux
+
+
+hostname  # 用于显示或设置系统的主机名;主机名是一个网络节点的名称，用于标识网络中的设备。
+
+[root@m01 tmp]# hostname   #查看主机名
+m01
+[root@m01 tmp]# # sudo hostname new_hostname  #临时修改主机名
+[root@m01 tmp]# # vi /etc/hostname                        #永久修改主机名
+# hostnamectl set-hostname new_hostname  #命令永久修改主机名,会修改文件.
+
+
+
+
+dmesg # 用于查看和控制内核环形缓冲区（kernel ring buffer）。内核环形缓冲区记录了系统启动时的信息以及硬件和驱动程序的消息。
+dmesg | grep "特定文本"
+dmesg -wH   #查看实时内核消息：
+
+
+
+uptime  # 显示系统已经运行了多长时间，以及系统的平均负载情况。
+
+[root@m01 tmp]# uptime
+ 10:54:36 up 46 min,  1 user,  load average: 0.00, 0.01, 0.03
+10:54:36 当前时间  
+up 46 min  已经运行46分钟 
+1 user   当前登录系统的用户数
+load average: 0.00, 0.01, 0.03: 系统过去的 1 ,5 ,15 分钟的平均负载,理想情况下，这个值应该低于CPU核心数，表示系统负载正常。
+
+
+
+file  #用于确定文件类型
+常见选项
+-b 或 --brief：仅输出文件类型，不包括文件名。
+-i 或 --mime：输出文件的MIME类型。
+-z：尝试解压缩归档文件并分析其内容。
+-F 或 --separator：指定输出字段之间的分隔符。
+[root@m01 tmp]# file text.txt
+text.txt: ASCII text
+[root@m01 tmp]# file -b text.txt
+ASCII text
+[root@m01 tmp]# file -i text.txt
+text.txt: text/plain; charset=us-ascii
+[root@m01 tmp]# file -z archive.zip
+archive.zip: ASCII text (Zip archive data, at least v1.0 to extract)
+在生产环境中，file 命令可以用于：
+
+安全扫描：检查上传的文件类型，以防止恶意文件上传。
+自动化脚本：在自动化脚本中使用，以根据文件类型执行不同的操作。
+故障排查：当遇到文件相关的问题时，可以使用 file 命令来确认文件的格式和内容。
+
+
+
+stat  # 用于显示文件或文件系统状态的详细信息
+# 文件的元数据，如大小、块数、权限、最后访问、修改和改变时间等
+[root@m01 tmp]# stat file1
+  File: ‘file1’
+  Size: 14              Blocks: 8          IO Block: 4096   regular file
+Device: fd00h/64768d    Inode: 34280920    Links: 1
+Access: (0644/-rw-r--r--)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2024-08-12 20:08:45.000000000 +0800
+Modify: 2024-08-12 20:08:34.000000000 +0800
+Change: 2024-08-13 10:43:09.428983316 +0800
+ Birth: -
+字段解释
+File: 显示文件名。
+Size: 文件的大小，单位通常是字节。
+Blocks: 文件占用的512字节块的数量。现代系统可能使用更大的块大小（如4096字节），这取决于文件系统的配置。
+IO Block: 文件系统的IO块大小，这是文件系统用于读写操作的基本单位。
+regular file: 表明这是一个普通文件。其他可能的类型包括目录（directory）、字符设备（character device）、块设备（block device）等。
+Device: 文件所在的设备标识，通常以十六进制表示。
+Inode: 文件的inode编号。inode是文件系统中用于存储文件元数据（如权限、所有者、大小、时间戳等）的结构。
+Links: 文件的硬链接数。硬链接是文件系统中指向同一inode的多个文件名。
+Access: 文件的访问权限。这里显示的是八进制数（0644），以及对应的符号表示（-rw-r--r--）。
+Uid: 文件所有者的用户ID和用户名。
+Gid: 文件所属组的组ID和组名。
+Access: 文件最后一次被访问的时间。
+Modify: 文件内容最后一次被修改的时间。
+Change: 文件的元数据（如权限或所有权）最后一次被改变的时间。
+Birth: 文件创建时间。并非所有文件系统都记录这个时间，因此这里可能显示为“-”。
+
+
+
+du  # 用于估算文件和目录的磁盘使用空间
+常用选项
+-h: 以人类可读的格式（如KB、MB、GB）显示大小。
+-s: 显示总和，仅显示指定目录的总大小，不显示其子目录的大小。
+-a: 显示每个文件的大小。
+-c: 在输出的最后添加一个总和。
+-d: 指定深度，只显示到指定层级的目录大小。
+-x: 仅计算与指定文件系统相同的文件系统上的文件和目录。
+
+du -sh  #显示当前目录的总磁盘使用情况
+du -sh /path/to/directory  #指定目录
+du -ah /path/to/directory  #显示指定目录里每个文件的大小
+
+
+df  #用于报告文件系统的磁盘空间使用情况
+常用选项
+-h: 以人类可读的格式（如KB、MB、GB）显示大小。
+-T: 显示文件系统类型。
+-i: 显示inode使用情况，而不是块（block）使用情况。
+-t: 仅显示指定类型的文件系统。
+-x: 排除指定类型的文件系统。
+-P: 使用POSIX输出格式。
+df -h
+df -h /dev/sda1
+df -hT | grep ext4
+df -hi
+
+
+top #实时系统监控工具
+# 动态更新的视图，显示系统中进程的资源使用情况，包括CPU、内存、运行状态等信息
+常用功能和快捷键
+动态更新：top 默认每3秒更新一次显示的信息，
+交互式命令：
+h 或 ?：显示帮助信息。
+k：杀死一个进程。输入 k 后，系统会提示你输入要杀死的进程的PID。
+r：重新安排一个进程的优先级。输入 r 后，系统会提示你输入要重新安排优先级的进程的PID。
+M：按内存使用量排序进程。
+P：按CPU使用量排序进程。
+u：显示特定用户的进程。
+i：忽略闲置和僵尸进程。
+q：退出 top。
+
+top - 11:31:12 up  1:23,  2 users,  load average: 0.00, 0.01, 0.03
+Tasks:  96 total,   2 running,  94 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  0.0 us,  0.3 sy,  0.0 ni, 99.7 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
+KiB Mem :   995640 total,   571088 free,   129760 used,   294792 buff/cache
+KiB Swap:  2097148 total,  2097148 free,        0 used.   684904 avail Mem
+
+   PID USER      PR  NI    VIRT    RES    SHR S %CPU %MEM     TIME+ COMMAND
+   915 root      20   0  220772   7444   3420 S  0.3  0.7   0:00.47 rsyslogd
+     1 root      20   0   51732   3852   2576 S  0.0  0.4   0:01.30 systemd
+     2 root      20   0       0      0      0 S  0.0  0.0   0:00.00 kthreadd
+     4 root       0 -20       0      0      0 S  0.0  0.0   0:00.00 kworker/0:0H
+     5 root      20   0       0      0      0 S  0.0  0.0   0:00.08 kworker/u256:0
+     6 root      20   0       0      0      0 S  0.0  0.0   0:00.10 ksoftirqd/0
+     7 root      rt   0       0      0      0 S  0.0  0.0   0:00.00 migration/0
+
+第一行：提供系统总体状态信息。
+top：程序名称。
+16:20:01：当前系统时间。
+up 1:22：系统运行时间，此处表示系统已经运行了1小时22分钟。
+2 users：当前登录用户数。
+load average: 0.00, 0.01, 0.05：过去1分钟、5分钟和15分钟的平均负载。数值越低，表示系统负载越低。
+
+第二行：显示任务状态。
+Tasks: 206 total：系统中总共有多少个进程。
+1 running：正在运行的进程数。
+205 sleeping：处于睡眠状态的进程数。
+0 stopped：被停止的进程数。
+0 zombie：僵尸进程数（已经结束但其父进程尚未回收资源的进程）。
+     
+第三行：CPU状态。
+Cpu(s): 0.3%us：用户空间占用CPU的百分比。
+0.3%sy：内核空间占用CPU的百分比。
+0.0%ni：改变过优先级的进程占用CPU的百分比。
+99.3%id：空闲CPU百分比。
+0.0%wa：等待I/O的CPU时间百分比。
+0.0%hi：硬件中断请求占用CPU的百分比。
+0.0%si：软件中断请求占用CPU的百分比。
+0.0%st：虚拟机占用的CPU时间百分比（在虚拟化环境中）。  
+第四行：内存状态。
+Mem: 16275200k total：物理内存总量。
+15618080k used：已使用的内存总量。
+657120k free：空闲内存总量。
+124960k buffers：用作缓冲的内存总量。
+第五行：交换空间状态。
+Swap: 2097144k total：交换空间总量。
+0k used：已使用的交换空间总量。
+2097144k free：空闲交换空间总量。
+1561808k cached： :用作缓存的交换空间总量。
+ 684920 avail Mem :用作缓存的交换空间总量。
+
+2. 进程列表区域
+PID：进程ID。
+USER：进程所有者。
+PR：进程优先级。
+NI：nice值。负值表示较高的优先级，正值表示较低的优先级。
+VIRT：进程使用的虚拟内存总量。
+RES：进程使用的物理内存总量。
+SHR：进程使用的共享内存总量。
+S：进程状态（S表示睡眠，R表示运行，Z表示僵尸进程，等等）。
+%CPU：进程使用的CPU百分比。
+%MEM：进程使用的物理内存百分比。
+TIME+：进程自启动以来使用的CPU时间总量。
+COMMAND：启动进程的命令名。
+
+
+# 扩展  
+# htop  (top升级版)
+# atop  (监控CPU、内存、磁盘I/O、网络I/O、进程等)
+# dstat(vmstat, iostat, netstat, ifstat,的结合)
+
+
+
+free #显示系统中空闲和已使用的物理及交换内存总量
+
+free -m  # 以MB为单位显示
+free -g  # 以GB为单位显示
+free -h
+
+[root@m01 tmp]# free -h
+                     total        used        free      shared  buff/cache   available
+Mem:           972M        126M     557M        7.6M        287M        668M
+Swap:           2.0G           0B        2.0G
+
+total：表示系统安装的总内存大小。
+used：表示当前被系统使用的内存总量，包括了缓存和缓冲区的内存。
+free：表示当前未被使用的内存总量。
+shared：表示被多个进程共享的内存总量（在某些系统上可能不准确或不显示）。
+buff/cache：表示被内核用作文件系统缓存的内存总量。
+available：表示估计的可用于启动新应用的内存总量，它考虑了当前的缓存和缓冲区，但不包括交换空间。
+
+
+
+date #用于显示和设置系统的日期和时间
+date -u                                                # 显示当前的UTC时间：
+sudo date -s "2023-12-31 12:00:00"  # 设置系统时间为特定的UTC时间：
+sudo date 123112002023  #时间设置为2023年12月31日中午12点，
+sudo date MMDDhhmmYYYY
+
+[root@m01 tmp]# date +%s  #当前时间戳
+1723521301
+[root@m01 tmp]# date -d "2023-01-01 12:00:00" +%s  #显示指定时间戳
+1672545600
+
+cal  #显示日历
+cal
+cal 2023
+cal 9 2023
+cal -my 2023
+选项
+-3：显示前一个月、当前月和下一个月的日历。
+-m：将星期一作为一周的第一天（默认情况下，cal 将星期日作为一周的第一天）。
+-j：显示儒略日（Julian day），即从年初开始的天数。
+-y：显示整年的日历。
+```
+
+
+
+## 搜索文件命令
+
+```bash
+which # 确定可执行文件的位置
+[root@m01 tmp]# which python
+/usr/bin/python
+[root@m01 tmp]# which ls
+alias ls='ls --color=auto'
+        /usr/bin/ls
+
+
+
+find # 文件系统中搜索文件和目录
+find [路径] [条件] [动作]
+路径：指定开始搜索的目录，默认是当前目录。
+条件：指定搜索的条件，如文件名、大小、类型、修改时间等。
+动作：对找到的文件执行的操作，如打印文件名、删除文件等。
+常用选项
+-name：按文件名搜索。
+-type：按文件类型搜索，如 f 表示普通文件，d 表示目录。
+-size：按文件大小搜索，如 +100k 表示大于100KB的文件。
+-mtime：按文件最后修改时间搜索，如 -mtime -7 表示最后7天内修改过的文件。
+-empty：搜索空文件或目录。
+-inum：按inode号搜索文件。
+-user：按文件所有者搜索。
+-group：按文件所属组搜索。
+
+find . -name example.txt  #当前目录根据文件名查找
+find . -type f -size +1M    # 找大于1M的文件
+find . -type d -empty -delete  #当前目录下所有的空目录 找到删除
+find . -user john                       #找john用户的文件
+find . -mtime -7 -print       # 打印 最近7天内修改过的文件
+
+# 查找当前目录及其子目录下所有包含空格的文件，并使用 rm 命令删除它们
+find . -type f -print0 | xargs -0 rm
+-print0  # 使用 NUL 字符（\0）作为输出项之间的分隔符
+xargs 命令用于构建并执行命令行。-0 选项告诉 xargs 使用 NUL 字符作为输入项之间的分隔符，
+
+find . -type f -name "*.txt" -size +1M
+find . ! -user john
+find . -type f -name "*.txt" -exec cat {} \;
+find . -type f -name "*.txt" -exec grep "search_text" {} \;
+find . -type f -name "*.txt" -ok rm {} \;
+find . -inum 12345 -print   #查找特定inode号文件
+
+#  -path "./node_modules" -prune   避免进入特定目录
+find . -path "./node_modules" -prune -o -type f -print
+# 查找所有比文件 reference.txt 更新的文件：
+find . -newer reference.txt
+find . -type d -empty  #查找空目录
+
+
+whereis  #快速查找二进制文件、源代码和手册页的位置
+
+whereis [选项] 命令名
+常用选项
+-b：仅查找二进制文件。
+-s：仅查找源代码文件。
+-m：仅查找手册页。
+-B：指定搜索二进制文件的目录。
+-M：指定搜索手册页的目录。
+-S：指定搜索源代码的目录。
+whereis gcc
+whereis -b gcc
+
+locate  #快速查找文件和目录的位置
+# 使用一个预先构建的数据库（通常由 updatedb 命令维护）来快速定位文件。
+# 这使得 locate 在速度上通常比 find 快得多，
+# 但它的缺点是不能找到在数据库更新之后新创建或修改的文件。
+yum install -y locate
+
+
+locate [选项] 模式
+常用选项
+-i：忽略大小写。
+-c：仅输出匹配文件的总数，不显示文件路径。
+-r 或 --regexp：使用正则表达式进行搜索。
+-S 或 --statistics：显示数据库统计信息，如数据库大小、文件数量等。
+-q：静默模式，不显示任何错误信息。
+locate example.txt
+locate -r 'config$'              #查找所有以 config 结尾的文件：
+locate -c example.txt         #仅显示匹配文件的总数
+locate -i httpd                    #查找所有包含 httpd 的文件路径：
+
+locate 依赖于数据库的特性,确保数据库是最新的,或者需要查找心文件时使用find命令
+
+
+
+```
+
+
+
+## 用户管理命令
+
+```bash
+useradd
+useradd [选项] 用户名
+常用选项
+-m：创建用户的家目录。如果指定此选项，useradd 会创建一个与用户名同名的目录在 /home 下。
+-d：指定家目录的路径。如果使用此选项，-m 选项将被忽略。
+-s：指定用户的登录shell。默认情况下，许多系统使用 /bin/bash。
+-g：指定用户的初始登录组。如果未指定，通常会创建一个与用户名同名的组。
+-G：指定用户的附加组。用户将同时成为指定的附加组成员。
+-u：指定用户的UID（用户ID）。如果未指定，系统会自动分配一个唯一的UID。
+-p：设置用户的密码。通常，密码会通过 passwd 命令单独设置。
+-c：添加用户账户的注释信息，如用户的全名或联系信息。
+-e：设置账户的过期日期。日期格式为 YYYY-MM-DD。
+
+useradd -m -s /bin/bash newuser  #创建新用户,指定家目录和登录shell
+# 指定初始组和附加组
+useradd -g users -G wheel,developers newuser
+# 指定UID和账户过期日期
+useradd -u 1010 -e 2023-12-31 newuser
+
+usermod #用于修改已存在的用户账户属性
+# usermod 来更改用户的登录信息、家目录、所属组等属性
+usermod [选项] 用户名
+常用选项
+-l：更改用户的登录名。
+-d：更改用户的家目录。如果指定此选项，usermod 会将用户的家目录更改为指定的路径。
+-m：移动用户旧的家目录到新的位置（与 -d 选项一起使用）。
+-s：更改用户的登录shell。
+-g：更改用户的初始登录组。
+-G：更改用户的附加组列表。用户将成为指定的附加组成员，原有的附加组成员资格将被替换。
+-a：与 -G 选项一起使用，用于向用户的附加组列表中添加新的组，而不是替换它们。
+-L：锁定用户账户，使其无法登录。
+-U：解锁用户账户，允许用户登录。
+-e：设置账户的过期日期。日期格式为 YYYY-MM-DD。
+usermod -l newname oldname   #修改登录名
+usermod -d /new/home/dir -m oldname  #更改用户的家目录并移动旧的家目录：
+usermod -s /bin/zsh oldname    #更改shell
+usermod -g newgroup oldname  #更改组
+usermod -a -G newgroup oldname  #添加新组
+# 锁定和解锁用户
+usermod -L oldname  
+usermod -U oldname
+usermod -e 2023-12-31 oldname  #设置账户过期日期
+
+
+
+userdel   #删除用户账户
+userdel [选项] 用户名
+常用选项
+-r：删除用户的同时，删除与该用户相关的家目录和邮件目录。
+-f：强制删除用户，即使用户当前登录或有未删除的文件。
+userdel username
+userdel -r username
+
+groupadd   #，用于创建新的用户组
+groupadd [选项] 组名
+常用选项
+-g GID：指定新创建的组的组ID（GID）。如果未指定，系统会自动分配一个唯一的GID。
+-r：创建一个系统组。系统组的GID通常低于1000（这个值可能因系统而异）。
+-f：如果组已经存在，强制创建该组而不报错。
+
+groupadd newgroup
+groupadd -g 1010 newgroup
+groupadd -r systemgroup
+
+
+
+passwd   #，用于更改用户账户的密码
+选项
+-l：锁定用户账户，使其无法登录。
+-u：解锁用户账户。
+-d：删除用户的密码，使其无需密码登录（不推荐）。
+-e：强制用户下次登录时更改密码。
+-S：显示用户账户的状态。
+passwd  #普通用户更改自己的密码
+sudo passwd 用户名 # 系统管理员为其他用户设置或更改密码
+sudo passwd -l john #锁定用户
+sudo passwd -u john # 解锁用户
+sudo passwd -e john #强制用户 john 在下次登录时更改密码
+
+
+
+
+chage #用于管理用户密码过期信息
+chage [选项] 用户名
+选项
+-l：列出指定用户的密码过期信息。
+-d：设置上次密码更改的日期。日期格式通常是 YYYY-MM-DD。
+-m：设置密码的最小使用天数。
+-M：设置密码的最大使用天数。
+-W：设置密码过期前的警告天数。
+-I：设置密码过期后账户被禁用的天数。
+-E：设置账户过期的日期。日期格式通常是 YYYY-MM-DD。
+sudo chage -l john         #查看用户 john 的密码过期信息
+sudo chage -M 60 john  #设置用户 john 的密码最大使用天数为60天
+sudo chage -W 7 john    # 设置用户 john 在密码过期前7天开始警告
+sudo chage -I 30 john     #设置用户 john 的密码过期后账户禁用30天：
+sudo chage -d 0 john      # 强制用户 john 在下次登录时更改密码：
+
+
+
+
+id   #显示当前用户或指定用户的用户ID（UID）、组ID（GID）以及所属的其他组信息
+id [选项] [用户名]
+如果不指定用户名，id 命令将显示当前用户的ID信息。
+如果指定了用户名，id 将显示该用户的ID信息。
+选项
+-u：仅显示用户的UID。
+-g：仅显示用户的主组ID（GID）。
+-G：显示用户所属的所有组的GID。
+-n：显示名称而非数字ID（与 -u, -g, -G 一起使用时有效）。
+-r：显示实际的UID和GID，而非有效UID和GID
+显示当前用户的ID信息：
+id   #这将显示当前用户的UID、GID以及所属的其他组。
+仅显示当前用户的UID：
+id -u
+仅显示当前用户的主组ID：
+id -g
+显示当前用户所属的所有组的GID：
+id -G
+显示指定用户的ID信息（例如用户 john）：
+id john
+
+
+
+su  # 切换当前用户身份到另一个用户
+su [选项] [用户名]
+如果不指定用户名，su 默认切换到root用户。
+如果指定了用户名，su 将切换到该用户。
+选项
+-：切换用户时，同时加载该用户的环境变量（如PATH、HOME等）。
+-c：执行一个命令后立即退出，不切换到新用户。
+-l 或 --login：模拟登录shell，加载用户的登录环境。
+
+su -   #切换到root用户
+su -c 'command'  #以root身份执行单个命令
+su -c 'tail -f /var/log/syslog'  #以root身份查看日志文件
+su - john   #切换john 用户并加载john的环境变量
+
+
+
+
+
+
+visudo  #用于编辑 /etc/sudoers 文件
+# etc/sudoers 文件定义了哪些用户和用户组可以使用 sudo 命令，以及他们可以执行哪些命令
+/etc/sudoers 文件通常包含以下部分：
+
+1.别名（Aliases）：定义了用户别名、主机别名、命令别名和运行时别名，用于简化配置。
+2.用户权限：指定哪些用户或用户组可以使用 sudo。
+3.主机权限：指定哪些主机可以使用 sudo。
+4.命令权限：指定用户可以使用 sudo 执行哪些命令。
+5.默认设置：定义了 sudo 的默认行为，如是否需要密码、是否记录命令等。
+
+#允许用户 john 无密码使用 sudo 执行所有命令
+john ALL=(ALL) NOPASSWD: ALL
+# 允许用户组 developers 中的任何用户使用 sudo 执行特定命令
+%developers ALL=(ALL) /usr/bin/apt-get, /usr/bin/systemctl
+# 限制用户 jane 只能在 webserver 主机上使用 sudo 执行 service 命令：
+jane webserver=(ALL) NOPASSWD: /usr/sbin/service
+
+
+conf-----------------------------------------------
+# 用户别名
+User_Alias ADMINS = alice, bob
+
+# 主机别名
+Host_Alias SERVERS = server1, server2
+
+# 命令别名
+Cmnd_Alias SYSTEMCTL = /usr/bin/systemctl
+
+# 默认设置
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# 用户权限
+ADMINS ALL=(ALL:ALL) ALL
+
+# 特定命令权限
+alice SERVERS=(root) SYSTEMCTL
+
+
+
+sudo  #它允许用户以另一个用户的身份（通常是超级用户root）执行命令
+sudo [选项] 命令
+选项
+-u 用户名：以指定的用户身份执行命令，不指定时默认为root。
+-s：启动指定用户的shell。
+-l：列出当前用户可以使用 sudo 执行的命令。
+-v：如果用户是 sudoers 文件中的用户，这个选项将延长其密码的有效时间。
+-k：清除用户密码的有效时间，下次使用 sudo 时需要重新输入密码。
+
+sudo ls /root  #以root用户身份执行命令
+sudo -u john /bin/ls /home/john  #以特定用户执行命令
+sudo -s                                           # 启动root用户shell
+sudo -l                                            #列出当前用户可执行的sudo命令
+sudo -v
+
+
+
+sudo和su有什么区别？
+1. 目的和使用场景
+su (substitute user)：用于切换当前用户到另一个用户，通常用于切换到root用户。使用 su 时，你将获得新用户的完整环境和权限，直到你退出该用户会话。
+sudo (substitute user do)：允许你以另一个用户（通常是root）的身份执行单个命令，而不需要切换到该用户的登录会话。使用 sudo 时，你通常需要输入自己的密码（除非配置了免密码执行特定命令）。
+2. 权限和安全性
+su：当你使用 su 切换到root用户时，你将拥有系统上所有权限，这可能带来安全风险。如果操作不当，可能会对系统造成严重损害。
+sudo：sudo 提供了更细粒度的权限控制。管理员可以配置哪些用户或用户组可以使用 sudo 执行哪些命令。此外，sudo 通常会记录所有使用情况，便于审计和追踪。
+3. 使用便捷性
+su：需要输入目标用户的密码，除非当前用户已经配置为无密码切换到该用户。
+sudo：通常只需要输入当前用户的密码，这使得执行需要提升权限的命令更加方便快捷。
+4. 配置
+su：不需要特别的配置，任何用户都可以使用 su 切换到其他用户，前提是他们知道目标用户的密码。
+sudo：需要在 /etc/sudoers 文件中进行配置，指定哪些用户或用户组可以使用 sudo，以及他们可以执行哪些命令。这需要管理员权限。
+5. 日志记录
+su：通常不会记录切换用户的活动，除非系统管理员特别配置了日志记录。
+sudo：所有使用 sudo 执行的命令都会被记录在 /var/log/auth.log 或 /var/log/secure 等日志文件中，这有助于系统审计和安全检查。
+
+```
+
+
+
+
+
+以后linux 命令问题请按 介绍,语法,常用选项,示例,生产环境建议及常用组合命令
 

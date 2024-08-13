@@ -1376,7 +1376,491 @@ sudo：所有使用 sudo 执行的命令都会被记录在 /var/log/auth.log 或
 
 ```
 
+## 基础网络操作命令
 
+```bash
+telnet  #是一个网络协议，用于通过网络连接到远程服务器
+telnet [选项] 主机名 [端口]
+常用选项
+-l 用户名：指定登录时使用的用户名。
+-a：尝试自动登录。
+-f：保存从远程主机接收到的认证信息到本地主机的 .netrc 文件中（不推荐使用，因为不安全）。
+主机名：远程服务器的主机名或IP地址。
+端口：远程服务器上监听的端口号，默认通常是23。
+
+telnet example.com
+telnet example.com 8080
+安全性：由于 telnet 不加密传输数据，因此不应在传输敏感信息（如密码、个人数据等）时使用。建议使用SSH替代 telnet。
+网络调试：telnet 可用于网络调试，例如检查特定端口是否开放。
+特定服务测试：在某些情况下，telnet 可用于测试特定服务是否正常运行，如测试HTTP服务是否响应。
+
+
+
+ssh  #（Secure Shell）是一种网络协议，用于在不安全的网络中为计算机之间提供安全的加密通信
+ssh [选项] 用户名@主机名 [远程命令]
+用户名：远程服务器上的用户名。
+主机名：远程服务器的主机名或IP地址。
+远程命令：可选，指定在远程服务器上执行的命令。
+常用选项
+-p 端口：指定连接的端口号，默认是22。
+-i 私钥文件：指定用于身份验证的私钥文件。
+-l 用户名：指定登录时使用的用户名。
+-L 本地端口:远程主机:远程端口：本地端口转发。
+-R 远程端口:本地主机:本地端口：远程端口转发。
+-D 动态端口转发：动态端口转发，用于SOCKS代理。
+
+ssh username@remote_host
+ssh -p 2222 username@remote_host
+ssh -i /path/to/private_key username@remote_host
+ssh username@remote_host 'ls -l'
+
+
+# SSH密钥认证比密码认证更安全。生成密钥对（公钥和私钥），将公钥添加到服务器的 ~/.ssh/authorized_keys 文件中，然后使用私钥进行认证。
+ssh-keygen
+ssh-copy-id username@remote_host
+
+# 本地端口转发：
+# 将本地的3306端口转发到 example.com 上的3306端口。现在，你可以通过本地的3306端口安全地访问远程MySQL服务，就像它在本地运行一样。
+ssh -L [本地绑定地址:]本地端口:远程主机:远程端口 用户名@SSH服务器
+[本地绑定地址:] 是可选的，用于指定本地端口绑定的地址，默认是 localhost
+ssh -L 3306:localhost:3306 username@example.com
+
+
+
+# 远程端口转发
+#将 example.com 上的8080端口转发到本地计算机的80端口。现在，你可以通过 example.com 的8080端口访问本地的HTTP服务。
+ssh -R [远程绑定地址:]远程端口:本地主机:本地端口 用户名@SSH服务器
+ssh -R 8080:localhost:80 username@example.com
+
+# 使用SSH隧道 
+# SSH隧道通常是指通过SSH连接建立的加密通道，用于保护通过该通道传输的数据。这个术语强调的是数据传输的安全性。
+# 创建一个隧道，将本地的3306端口转发到 ssh_host 上的3306端口。
+ssh -fNg -L 3306:localhost:3306 username@ssh_host
+
+# 使用SSH多路复用
+#可以使用 ssh -S /tmp/sshsocket 来复用这个连接
+ssh -N -f -M -S /tmp/sshsocket username@ssh_host
+
+
+# ssh的socks代理 
+-----------------------------------------------------------------------------------
+#服务器端 保证有ssh服务端口开通  端口转发功能打开(默认开)
+ssh-keygen
+ssh-copy-id root@10.0.0.3
+
+nohup ssh -D 1080 root@10.0.0.3 & #放后台 ,目前不成功
+yum install screen
+screen   #启动一个新的screen会话
+ssh -D 1080 root@10.0.0.3 
+# ctrl+A 然后再按D  返回原始的终端会话
+# screen -r  再回到screen  会话
+
+检查端口是否启动
+netstat -tulnp |grep 1080
+lsof -i :1080
+# 测试代理是否正常工作
+curl --socks5 localhost:1080 https://www.baidu.com
+
+操作系统设置 代理   手动设置代理  
+代理ip地址写 localhost
+端口 1080
+--------------------------------------------------------------------------------
+
+scp  #（secure copy）是一个用于在本地主机和远程主机之间，或者远程主机之间安全地复制文件的命令行工具。
+# 它使用SSH协议来保证数据传输的安全性
+
+scp [选项] 源文件 目标文件
+常用选项
+-P 端口：指定远程主机的端口号。
+-r：递归复制整个目录。
+-p：保留原文件的修改时间和访问权限。
+-i 私钥文件：指定用于身份验证的私钥文件。
+
+# 从本地复制文件到远程主机
+scp local_file.txt username@remote_host:/path/to/remote/directory
+# 从远程主机复制文件到本地
+scp username@remote_host:/path/to/remote/file.txt /path/to/local/directory
+
+scp -P 2222 local_file.txt username@remote_host:/path/to/remote/directory
+# 递归复制目录
+scp -r local_directory username@remote_host:/path/to/remote/directory
+
+# 使用私钥文件进行身份验证
+scp -i /path/to/private_key local_file.txt username@remote_host:/path/to/remote/directory安全性：scp 使用SSH进行加密传输，因此比使用FTP等非加密协议更安全。
+权限和所有权：复制文件时，文件的所有权和权限可能会改变。使用 -p 选项可以保留原文件的权限和时间戳。
+网络要求：scp 需要能够访问远程主机的SSH服务。确保远程主机的SSH服务正在运行，并且端口没有被防火墙阻塞。
+性能：对于大文件或大量文件的传输，scp 可能会比较慢。考虑使用 rsync 或其他文件同步工具来提高效率。
+
+注意: 
+安全性：scp 使用SSH进行加密传输，因此比使用FTP等非加密协议更安全。
+权限和所有权：复制文件时，文件的所有权和权限可能会改变。使用 -p 选项可以保留原文件的权限和时间戳。
+性能：对于大文件或大量文件的传输，scp 可能会比较慢。考虑使用 rsync 或其他文件同步工具来提高效率。
+
+
+
+
+wget # 用于从网络上下载文件
+wget [选项] URL
+常用选项
+-O：指定下载文件的保存名称。
+-c：继续未完成的下载任务。
+-b：后台下载模式。
+-r：递归下载，用于下载整个网站或目录。
+-np：不下载父目录，仅用于递归下载。
+-nc：如果文件已存在，不覆盖现有文件。
+-A：指定要下载的文件类型。
+-limit-rate：限制下载速度。
+-i：从文件中读取URL进行下载。
+
+wget http://example.com/file.zip
+wget -O mydownload.zip http://example.com/file.zip
+wget -c http://example.com/largefile.zip
+wget -b http://example.com/file.zip
+##下载 http://example.com/ 网站的所有内容，但不会下载父目录中的内容
+wget -r -np http://example.com/  
+
+axel  #多线程下载工具
+sudo yum install axel  # CentOS 7 及以下版本
+axel -n 线程数 URL
+
+
+
+
+ping  #测试网络连接 
+# 它通过发送ICMP（Internet Control Message Protocol）回显请求消息到目标主机，并等待接收回显应答
+ping [选项] 目标主机
+常用选项
+-c：指定发送的回显请求数量。
+-i：设置发送回显请求之间的时间间隔（秒）。
+-s：指定数据包的大小（字节）。
+-W：设置等待回显应答的超时时间（秒）。
+
+ping example.com
+#发送4个回显请求到 example.com，然后显示结果并退出
+ping -c 4 example.com
+# 超时时间2秒
+ping -W 2 example.com
+# 设置数据包大小 1000字节
+ping -s 1000 example.com
+
+[root@kh1 tmp]# ping -c 4 www.bing.com
+PING a-0001.a-msedge.net (204.79.197.200) 56(84) bytes of data.
+64 bytes from a-0001.a-msedge.net (204.79.197.200): icmp_seq=1 ttl=128 time=59.1 ms
+64 bytes from a-0001.a-msedge.net (204.79.197.200): icmp_seq=2 ttl=128 time=57.8 ms
+64 bytes from a-0001.a-msedge.net (204.79.197.200): icmp_seq=3 ttl=128 time=58.2 ms
+64 bytes from a-0001.a-msedge.net (204.79.197.200): icmp_seq=4 ttl=128 time=58.7 ms
+
+--- a-0001.a-msedge.net ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3021ms
+rtt min/avg/max/mdev = 57.898/58.526/59.162/0.514 ms
+
+输出详细说明
+1 .(204.79.197.200)  : 域名对应的ip地址
+2. 56(84) : 表示发送了56字节的数据，但IP头部额外增加了28字节，所以总共是84字节。
+3. ICMP序列号：icmp_seq=1 表示这是序列号为1的ICMP回显请求和应答。
+4. TTL（Time To Live）：ttl=128 表示数据包在网络中可以存活的最大跳数。每经过一个路由器，TTL值减1，直到为0时数据包被丢弃。
+5. 往返时间（RTT）：time=59.1 ms 表示从发送回显请求到接收回显应答的往返时间是59.1毫秒。这个时间可以反映网络延迟。
+6. 统计信息：显示了发送的数据包数量、接收到的数据包数量、丢包率、总时间以及最小、平均、最大往返时间等统计信息。
+packets transmitted：发送的数据包数量。
+packets received：接收到的数据包数量。
+packet loss：丢包率，如果为0%，表示没有丢包。
+time：测试的总时间。
+rtt min/avg/max/mdev：最小、平均、最大往返时间以及标准偏差（mdev），标准偏差越小表示网络延迟越稳定。
+
+
+
+route #显示和修改IP路由表
+选项说明
+-n：以数字形式显示地址，而不是尝试将它们解析为主机名。
+add：添加一条新的路由规则。
+del：删除一条现有的路由规则。
+-net：指定目标是一个网络。
+-host：指定目标是一个主机。
+netmask：指定目标网络的子网掩码。
+gw：指定路由的网关地址。
+
+route -n  #查看路由表
+# 添加一条路由规则：
+sudo route add -net 目标网络 netmask 子网掩码 gw 网关地址
+# 删除一条路由规则
+sudo route del -net 目标网络 netmask 子网掩码 gw 网关地址
+
+[root@kh1 tmp]# route -n
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         	10.0.0.254      0.0.0.0               UG    0         0        0    eth0
+10.0.0.0        	0.0.0.0           255.255.255.0   U       0         0        0    eth0
+169.254.0.0      0.0.0.0           255.255.0.0       U     1002     0        0    eth0
+Destination：目标网络或主机。
+Gateway：网关地址，数据包将通过这个地址转发。
+Genmask：子网掩码。
+Flags：路由标志，如 U 表示路由是活动的，G 表示使用网关。
+Metric：路由的度量值，用于选择最佳路由。
+Ref：路由条目的引用数。
+Use：路由条目的使用次数。
+Iface：数据包将通过的网络接口。
+
+# 添加一条路由规则，使得所有发往 192.168.2.0/24 网络的数据包通过 192.168.1.2 网关：
+sudo route add -net 192.168.2.0 netmask 255.255.255.0 gw 192.168.1.2
+# 删除之前添加的路由规则：
+sudo route del -net 192.168.2.0 netmask 255.255.255.0 gw 192.168.1.2
+
+#注意
+# 使用 ip 命令代替：在许多现代Linux发行版中，route 命令已被 ip 命令取代。
+
+常见的路由标志
+U (Up)：表示该路由是活动的，即它当前是可用的。
+G (Gateway)：表示该路由使用网关。如果设置了这个标志，说明到达目标网络的数据包需要通过指定的网关转发。
+H (Host)：表示目标是一个主机。如果没有设置这个标志，目标通常是一个网络。
+D (Dynamic)：表示该路由是动态添加的，例如通过 routed 守护进程或 metricom 程序。
+M (Modified)：表示该路由被 metricom 程序修改过。
+! (Reject)：表示该路由是一个被拒绝的路由。所有不符合其他路由规则的数据包都会被发送到这个路由，通常用于实现默认路由的“拒绝”行为。
+R：表示对该路由进行动态更新（例如，通过路由协议）
+
+
+ifconfig  # 用于配置和显示网络接口参数
+ifconfig -a  # 查看所有网络接口状态
+选项说明
+-a：显示所有网络接口的状态，包括那些未激活的接口。
+-s：显示网络接口的简短摘要信息。
+eth0：指定要配置的网络接口名称。在Linux中，网络接口通常以 eth 开头，例如 eth0、eth1 等。在一些现代Linux发行版中，接口可能以 enp 或其他前缀开头。
+
+sudo ifconfig eth0 192.168.1.10 netmask 255.255.255.0 up
+sudo ifconfig eth0 down
+
+
+[root@kh1 tmp]# ifconfig -a
+eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 10.0.0.4  netmask 255.255.255.0  broadcast 10.0.0.255
+        inet6 fe80::20c:29ff:fe92:d070  prefixlen 64  scopeid 0x20<link>
+        ether 00:0c:29:92:d0:70  txqueuelen 1000  (Ethernet)
+        RX packets 2559  bytes 289676 (282.8 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 1983  bytes 294883 (287.9 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10<host>
+        loop  txqueuelen 1000  (Local Loopback)
+        RX packets 107  bytes 33923 (33.1 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 107  bytes 33923 (33.1 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+字段解释: 
+eth0: 网络接口的名称
+flags=4163<UP,BROADCAST,RUNNING,MULTICAST>: 接口状态标志。UP 表示接口已启用，BROADCAST 表示接口支持广播，RUNNING 表示接口正在运行，MULTICAST 表示接口支持多播。
+
+mtu 1500: 最大传输单元（MTU）为1500字节。
+
+inet 10.0.0.4 netmask 255.255.255.0 broadcast 10.0.0.255: IPv4地址为10.0.0.4，子网掩码为255.255.255.0，广播地址为10.0.0.255。
+
+inet6 fe80::20c:29ff:fe92:d070 prefixlen 64 scopeid 0x20<link>: IPv6地址为fe80::20c:29ff:fe92:d070，前缀长度为64位，作用范围为链路本地（link-local）。
+
+ether 00:0c:29:92:d0:70: 接口的MAC地址。
+
+txqueuelen 1000: 发送队列长度为1000。
+
+RX packets 2559 bytes 289676 (282.8 KiB): 接收到2559个数据包，总字节数为289676字节（约282.8 KiB）。
+
+RX errors 0 dropped 0 overruns 0 frame 0: 接收错误数为0，丢弃的数据包数为0，溢出数为0，帧对齐错误数为0。
+
+TX packets 1983 bytes 294883 (287.9 KiB): 发送了1983个数据包，总字节数为294883字节（约287.9 KiB）。
+
+TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0: 发送错误数为0，丢弃的数据包数为0，溢出数为0，载波错误数为0，冲突数为0。
+
+lo 接口信息
+flags=73<UP,LOOPBACK,RUNNING>: 接口状态标志。UP 表示接口已启用，LOOPBACK 表示是本地回环接口，RUNNING 表示接口正在运行。
+mtu 65536: 最大传输单元（MTU）为65536字节，这是本地回环接口的标准MTU值。
+inet 127.0.0.1 netmask 255.0.0.0: IPv4地址为127.0.0.1，子网掩码为255.0.0.0。这是本地回环地址，用于本机通信。
+inet6 ::1 prefixlen 128 scopeid 0x10<host>: IPv6地址为::1，前缀长度为128位，作用范围为宿主（host）。
+loop: 表示这是一个本地回环接口。
+RX packets 107 bytes 33923 (33.1 KiB): 接收到107个数据包，总字节数为33923字节（约33.1 KiB）。
+RX errors 0 dropped 0 overruns 0 frame 0: 接收错误数为0，丢弃的数据包数为0，溢出数为0，帧对齐错误数为0。
+TX packets 107 bytes 33923 (33.1 KiB): 发送了107个数据包，总字节数为33923字节（约33.1 KiB）。
+TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0: 发送错误数为0，丢弃的数据包数为0，溢出数为0，载波错误数为0，冲突数为0。
+
+flags=4163 字段的数值。下面是每个标志对应的位和数值：
+UP: 二进制的第0位，十进制的1。
+BROADCAST: 二进制的第1位，十进制的2。
+RUNNING: 二进制的第3位，十进制的8。
+MULTICAST: 二进制的第4位，十进制的16。
+将这些数值相加（1 + 2 + 8 + 16），我们得到4163。因此，flags=4163 实际上是这些标志组合的数值表示。
+
+flags=73 字段的数值。下面是每个标志对应的位和数值：
+UP: 二进制的第0位，十进制的1。
+LOOPBACK: 二进制的第7位，十进制的128。
+RUNNING: 二进制的第3位，十进制的8。
+将这些数值相加（1 + 128 + 8），我们得到73。因此，flags=73 实际上是这些标志组合的数值表示。
+
+
+
+
+ifup  # 用于激活（启动）网络接口
+选项
+-a：激活所有未激活的网络接口。
+--allow-auto=yes/no：允许或禁止自动配置接口。
+--force：强制激活接口，即使它已经被激活。
+--no-act：不实际激活接口，只是显示将要执行的操作。
+
+sudo ifup eth0
+
+
+
+
+ifdown #用于关闭（停用）网络接口
+选项
+-a：停用所有已激活的网络接口。
+--exclude=interface：排除特定的接口，不对其进行停用操作。
+--allow-auto=yes/no：允许或禁止自动配置接口。
+--no-act：不实际停用接口，只是显示将要执行的操作。
+
+sudo ifdown eth0
+
+
+netstat  # 用于显示网络连接、路由表、接口统计、伪装连接和多播成员
+netstat [选项]
+常用选项
+-t 或 --tcp：显示TCP连接。
+-u 或 --udp：显示UDP连接。
+-n：以数字形式显示地址和端口号，而不是尝试解析为主机名和服务名。
+-l 或 --listening：仅显示监听状态的套接字。
+-p 或 --program：显示套接字所属的进程ID和名称。
+-r 或 --route：显示内核路由表。
+-i 或 --interfaces：显示网络接口列表。
+
+netstat -t   		#显示所有tcp连接
+netstat -u         #显示所有udp连接
+netstat -tuln     # 显示监听状态的TCP和UDP端口
+netstat -tulpn   #显示每个套接字的进程ID和名称：
+netstat -r          # 显示路由表
+netstat -i           # 显示网络接口统计信息
+
+
+netstat 的输出通常包含以下列：
+
+Proto：协议类型（TCP或UDP）。
+Recv-Q：接收队列中的字节数。
+Send-Q：发送队列中的字节数。
+Local Address：本地地址和端口。
+Foreign Address：远程地址和端口。
+State：连接的状态（例如，LISTEN、ESTABLISHED、TIME_WAIT等）。
+PID/Program name：与套接字关联的进程ID和名称（如果使用 -p 选项）。
+MSS（Maximum Segment Size，最大报文段长度
+Window  是一种流量控制和拥塞控制的机制
+IRTT（Initial Round Trip Time，初始往返时间
+
+state 网络连接状态:
+LISTEN:  监听 ;表示服务器程序正在等待连接进入
+ESTABLISHED: 已经建立连接;
+SYN_SENT: 
+  -客户端已发送 SYN（同步）数据包来发起连接，但尚未收到对方的 SYN-ACK（同步确认）数			据包。这是在 TCP 三次握手过程中的一个中间状态。
+	-当客户端尝试连接到服务器时，首先发送 SYN 包，此时客户端的连接状态就是SYN_SENT。
+SYN_RECV:
+   -服务器接收到了客户端的 SYN 数据包，并已发送 SYN-ACK 数据包，但尚未收到客户端的 ACK（确认）数据包。在服务器端，当接收到新的连接请求时，会进入这个状态。
+  -例如，Web 服务器在接收到 HTTP 请求时，在建立连接的过程中可能会出现这个状态。
+
+FIN_WAIT1
+  -表示一方已经发送了 FIN（结束）数据包来终止连接，但仍在等待对方的 ACK 数据包。通常是主   动关闭连接的一方首先进入这个状态。
+  -比如，一个客户端完成数据传输后，主动发起关闭连接操作，就会进入 FIN_WAIT1 状态。
+
+FIN_WAIT2
+-已经收到对方的 ACK 数据包，正在等待对方的 FIN 数据包。在 FIN_WAIT1 状态收到 ACK 后，  会进入 FIN_WAIT2 状态。
+- 继续以上的例子，客户端在 FIN_WAIT1 状态收到服务器的 ACK 后，进入 FIN_WAIT2 状态，等待服务器关闭连接。
+
+TIME_WAIT
+- 在关闭连接后，主动关闭的一方会进入这个状态一段时间，以确保所有的数据都已经被接收方处理完毕，防止出现“已关闭的连接上的数据”问题。
+-这是 TCP 连接关闭过程中的一个重要状态，通常会持续一段时间（通常是 2 倍的最大段生存期，即 2MSL）。
+
+CLOSE_WAIT
+-表示收到了对方的 FIN 数据包，但本地应用程序尚未关闭连接。在被动关闭连接的一方收到 FIN 后，会进入这个状态。
+-例如，服务器在接收到客户端的关闭请求后，如果还有数据未处理完，就会处于 CLOSE_WAIT 状态。
+
+LAST_ACK
+-被动关闭的一方在发送了 FIN 数据包后，等待对方的 ACK 数据包来确认连接的完全关闭。通常是服务器在所有数据处理完毕并发送 FIN 后进入这个状态。
+-例如，在 FTP 会话结束时，服务器在关闭连接之前会进入 LAST_ACK 状态，等待客户端的最终确认。
+
+CLOSED
+- 连接已经完全关闭，资源已释放。这是连接的最终状态，当两端都完成了关闭操作后，连接就会进入 CLOSED 状态。
+- 一旦进入这个状态，相关的套接字资源会被系统回收
+
+
+
+[root@kh1 tmp]# netstat -i
+Kernel Interface table
+Iface             MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
+eth0             1500     2690      0          0               0          2129      0          0          0    BMRU
+lo                 65536      107      0         0                0           107      0          0          0    LRU
+输出解释
+当运行 netstat -i 命令时，输出通常包含以下列：
+Iface: 网络接口的名称，例如 eth0、wlan0 等。
+MTU: 最大传输单元，表示接口可以发送的最大数据包大小（以字节为单位）。
+RX-OK: 成功接收的数据包数量。
+RX-ERR: 接收时发生错误的数据包数量。
+RX-DRP: 接收时被丢弃的数据包数量。
+RX-OVR: 接收时的溢出数据包数量。
+TX-OK: 成功发送的数据包数量。
+TX-ERR: 发送时发生错误的数据包数量。
+TX-DRP: 发送时被丢弃的数据包数量。
+TX-OVR: 发送时的溢出数据包数量。
+Flg: 接口的状态标志，例如 B 表示接口处于广播模式，L 表示接口处于混杂模式，U 表示接口处于激活状态。M：表示该接口已设置为监测（monitor）模式,R：表示该接口正在运行（running）
+
+
+
+
+```
+
+
+
+## 深入网络操作命令
+
+```bash
+nmap #开源的网络探测和安全审核工具，广泛用于网络发现和安全审计
+nmap [扫描类型] [选项] 目标
+常用扫描类型
+-sT：TCP connect()扫描。这是最基本的TCP扫描类型，它尝试与目标主机的每个端口建立完整的TCP连接。
+-sS：TCP SYN扫描。也称为半开放扫描，它发送一个SYN数据包，然后等待响应。如果收到SYN/ACK响应，则端口被认为是开放的。
+-sU：UDP扫描。用于发现哪些UDP端口是开放的。
+-sP：Ping扫描。仅用于确定哪些主机在网络上是活跃的。
+-sV：版本探测。尝试确定开放端口上运行的服务和版本信息。
+-O：操作系统探测。尝试确定目标主机的操作系统类型。
+常用选项
+-p：指定要扫描的端口范围。例如 -p 80,110,443。
+-A：启用高级和版本探测。
+-v：增加冗余度，显示扫描过程中的详细信息。
+-T：设置时间模板，控制扫描速度和效率。例如 -T4 表示快速扫描。
+-oN：将扫描结果保存到一个名为 nmap-output 的文件中。
+-oX：将扫描结果保存为XML格式。
+
+nmap -sP 192.168.1.0/24    #快速扫描本地网络中活跃的主机：
+nmap -sT 192.168.1.1         #扫描特定主机的开放端口：
+nmap -sU -p 53 192.168.1.1 #扫描特定端口
+nmap -O -sV 192.168.1.1     #进行操作系统探测和版本探测
+nmap -A 192.168.1.1  #对 192.168.1.1 进行高级探测，包括操作系统探测、版本探测等
+nmap -sV 192.168.1.1 #对 192.168.1.1 进行版本探测，尝试确定开放端口上运行的服务和版本信息
+
+
+# 于对一个子网进行快速扫描，并保存结果到文件
+nmap -sP 192.168.1.0/24 -oN network_scan_results.txt
+
+# 对活跃的主机进行详细扫描
+nmap -sV -O -T4 --max-parallelism 10 -p 21,22,80,443 192.168.1.1-254 -oN detailed_scan_results.txt
+
+
+
+
+lsof
+route
+mail
+mutt
+nslookup
+dig
+host
+traceroute
+tcpdump
+
+```
 
 
 

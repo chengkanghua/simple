@@ -3690,6 +3690,29 @@ grep （egrep ） sed  awk find
 
 
 
+## linux bash快捷键
+
+```bash
+Tab          自动补全
+Ctrl + a  把光标移动到行首
+Ctrl + e  把光标移动到行尾
+Ctrl + c  取消 cancel
+Ctrl + d  退出当前用户
+Ctrl + l  清屏
+Ctrl + u  把光标所在位置到行首的内容删除（剪切）
+Ctrl + k  把光标所在位置到行尾的内容删除（剪切）
+ctrl + y  粘贴
+ctrl+s     锁屏
+ctrl+q/c   解锁
+Ctrl + r   搜索最近使用的命令 不对继续按ctrl+r
+```
+
+
+
+
+
+
+
 
 
 以后linux 命令问题请按 介绍,语法,常用选项,示例,生产环境建议及常用组合命令

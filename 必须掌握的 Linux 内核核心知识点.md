@@ -1097,3 +1097,104 @@ namespace
   - 限制 CPU 最多用多少
   - 限制内存最大多少
   - 限制磁盘 IO 速度
+
+
+
+### 核心操作 （了解）
+
+```BASH
+Linux 有 6 种 Namespace，网络 Namespace（netns） 是你最常用的（配合之前学的 ip 命令）。
+1. 基础查看命令
+# 查看系统所有 Namespace（最通用）
+lsns
+
+# 只查看 网络 Namespace（专用命令，最常用）
+ip netns list
+
+
+2. 网络 Namespace 实操（必学）
+
+# 1. 创建一个网络命名空间（名字：testns）
+ip netns add testns
+
+# 2. 进入这个命名空间执行命令（比如查看网卡）
+ip netns exec testns ip a
+
+# 3. 直接进入命名空间的 shell（交互式操作）
+ip netns exec testns bash
+
+exit #退出这个bash
+
+# 4. 删除网络命名空间
+ip netns del testns
+
+# 5. 查看命名空间里的进程
+ip netns pids testns
+3. 临时创建 Namespace（隔离进程 / 网络）
+unshare 命令：快速创建临时隔离环境
+# 隔离进程 + 挂载 + 网络（创建一个极简隔离环境）
+unshare --pid --net --mount --fork --mount-proc /bin/bash
+--pid	隔离进程命名空间
+--net	隔离网络命名空间
+--mount	隔离挂载命名空间
+--fork	必须加！创建新进程，修复 fork 报错
+--mount-proc	必须加！自动挂载 /proc，让 ps 命令正常工作
+/bin/bash	进入隔离后的 shell
+
+
+
+4. 查看进程属于哪个 Namespace
+# 查看 PID=1 的所有 Namespace
+lsns -p 1
+exit
+
+二、Linux Cgroup 常用操作
+核心作用：限制进程 / 进程组的资源（CPU 使用率、内存上限、磁盘 IO、带宽等）。
+分两个版本：
+Cgroup V1：CentOS 7 默认
+Cgroup V2：CentOS 8+ / Ubuntu 20+ 默认
+
+1. 最实用：查看 Cgroup 资源占用
+# 实时查看系统 cgroup 资源（类似 top，必用！）
+systemd-cgtop
+2. Cgroup V1 命令操作（CentOS 7）
+需要安装工具：
+yum install libcgroup-tools -y
+常用命令
+# 1. 创建一个控制组（名字：testcg，限制CPU/内存）
+cgcreate -g cpu,memory:/testcg
+
+# 2. 限制：testcg 组最多用 50% CPU
+cgset -r cpu.cfs_quota_us=50000 /testcg
+
+# 3. 限制：testcg 组最多用 512M 内存
+cgset -r memory.limit_in_bytes=512M /testcg
+
+# 4. 查看配置
+cgget -r cpu.cfs_quota_us /testcg
+
+# 5. 将 某个进程(PID=1234) 加入这个控制组
+cgclassify -g cpu,memory:/testcg 1234
+
+# 6. 直接启动命令并限制资源
+cgexec -g cpu,memory:/testcg top
+
+# 7. 删除控制组
+cgdelete -g cpu,memory:/testcg
+
+3. Cgroup V2 直接操作文件（现代系统）
+CentOS 8+ 直接操作系统目录 /sys/fs/cgroup/
+# 1. 创建限制组（文件夹就是组）
+mkdir /sys/fs/cgroup/testcg
+
+# 2. 限制 50% CPU
+echo 50000 > /sys/fs/cgroup/testcg/cpu.max
+
+# 3. 限制 512M 内存
+echo 512M > /sys/fs/cgroup/testcg/memory.max
+
+# 4. 将PID=1234加入组
+echo 1234 > /sys/fs/cgroup/testcg/cgroup.procs
+
+```
+

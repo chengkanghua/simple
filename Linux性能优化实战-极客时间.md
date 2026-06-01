@@ -1673,6 +1673,1548 @@ iostat -d -x 1
 
 
 
+# 案例篇：为什么我的磁盘IO延迟很高？
+
+
+
+```bash
+docker run --name=app -p 10000:80 -itd feisky/word-pop
+
+
+#另一个客户端访问
+curl http://10.0.0.51:10000/
+
+# 这个接口居然这么长时间都没响应，究竟是怎么回事呢？
+curl http://10.0.0.51:10000/popularity/word	  
+
+while true; do time curl http://10.0.0.51:10000/popularity/word; sleep 1; done	
+
+
+
+#服务端排查
+df
+top
+ps aux | grep app.py
+iostat -d -x 1
+pidstat -d 1
+
+strace -p 1174
+strace -p 1174 2>&1 | grep write	
+trace -p PID后加上-f，多进程和多线程都可以跟踪。
+strace -fp 1174 2>&1|grep write  #这样能跟踪到写操作
+
+
+Linux 进程默认打开3 个文件描述符：
+0 = 标准输入（stdin）
+1 = 标准输出（stdout，正常打印信息）
+2 = 标准错误（stderr，报错信息）
+>&：重定向绑定语法
+2>&1 就是把错误信息重定向到标准输出
+
+
+
+# 安装filetop工具
+# 基于Linux内核的eBPF（extended Berkeley Packet Filters 机制,主要跟踪内核中文件的读写情况，并输出线程ID（TID）、读写大小、读写类型以及文件名称
+sudo apt-get install bpfcc-tools linux-headers-$(uname -r)
+
+# -C 选项表⽰输出新内容时不清空屏幕
+filetop-bpfcc -C
+# T 显示线程号spid
+ ps -efT
+
+# 第四列显示线程号 LWP
+ps -efL
+ 
+#动态跟踪内核中的open系统调用。 看到文件路径
+opensnoop-bpfcc
+
+# 发现文件路径不存在  这些目录都是应用程序动态生成的，用完就删了。
+ls /tmp/0115cb94-5b36-11f1-b4f4-0242ac110002/| wc -l
+
+# docker cp app:/app.py .
+# cat app.py   #查看源码 修改优化代码
+```
+
+
+
+# 案例篇：一个SQL查询要15秒，这是怎么回事？
+
+
+
+```BASH
+git clone https://github.com/feiskyer/linux-perf-examples
+cd linux-perf-examples/mysql-slow
+$ make run     #下面三个容器会自动运行了
+# 注意下⾯的随机字符串是容器ID，每次运⾏均会不同，并且你不需要关注它，因为我们只会⽤到名字
+docker run --name=mysql -itd -p 10000:80 -m 800m feisky/mysql:5.6
+docker run --name=dataservice -itd --privileged feisky/mysql-dataservice
+docker run --name=app --network=container:mysql -itd feisky/mysql-slow
+
+-----------------------------
+docker ps 
+docker logs -f mysql
+curl http://127.0.0.1:10000/
+
+$ make init  #初始化数据库，并插入10000条商品信息。这个过程比较慢，
+
+
+# 切换到客户端访问
+curl http://10.0.0.51:10000/products/geektime
+while true; do curl http://10.0.0.51:10000/products/geektime; sleep 5; done
+#查询数据是空的 反应特别慢， 
+
+#服务器端排查问题
+top
+iostat -d -x 1
+pidstat -d 1
+
+strace -fp `pidof mysqld`
+lsof -p `pidof mysqld`
+
+
+# -t表⽰显⽰线程，-a表⽰显⽰命令⾏参数   
+# 看mysqld有多少线程
+$ pstree -t -a -p `pidof mysqld`
+
+docker exec -it mysql ls -l /var/lib/mysql/test/
+
+# 查看数据的存储路径
+docker exec -i -t mysql mysql -e 'show global variables like "%datadir%";' 
+
+docker exec -i -t mysql mysql
+> show full processlist;
+# 多执行几次  能看到select 的语句
+
+# 切换到test库
+mysql> use test;
+# 执⾏explain命令
+mysql> explain select * from products where productName='geektime';
+
+mysql> explain select * from products where productName='geektime';
++----+-------------+----------+------+---------------+------+---------+------+-------+-------------+
+| id | select_type | table    | type | possible_keys | key  | key_len | ref  | rows  | Extra       |
++----+-------------+----------+------+---------------+------+---------+------+-------+-------------+
+|  1 | SIMPLE      | products | ALL  | NULL          | NULL | NULL    | NULL | 10000 | Using where |
++----+-------------+----------+------+---------------+------+---------+------+-------+-------------+
+
+select_type	表示查询类型，而这里的SIMPLE	表示此查询不包括	UNION	查询或者子查询；
+table	表示数据表的名字，这里是	products；
+type	表示查询类型，这里的	ALL	表示全表查询，但索引查询应该是	index	类型才对；
+possible_keys	表示可能选用的索引，这里是	NULL；
+key	表示确切会使用的索引，这里也是	NULL；
+rows	表示查询扫描的行数，这里是	10000。
+
+根据这些信息，我们可以确定，这条查询语句压根儿没有使用索引，所以查询时，会扫描全表，并且扫描行
+数高达	10000	行。响应速度那么慢也就难怪了
+
+mysql> show create tableproducts;
+mysql> CREATE INDEX products_index ON products(productName);
+ERROR 1170 (42000): BLOB/TEXT column 'productName' used in key specification without a key length
+mysql> CREATE INDEX products_index ON products(productName(64));
+
+
+
+
+DataService 是一个严重影响 MySQL 性能的干扰应用。抛开上述索引优化方法不说，这个案例还
+有一种优化方法，也就是停止 DataService 应用。
+
+# 删除索引
+$ docker exec -i -t mysql mysql
+mysql> use test;
+mysql> DROP INDEX products_index ON products;
+
+#	停⽌	DataService	应⽤
+$ docker rm -f dataservice
+
+```
+
+# 案例篇：Redis响应严重延迟，如何解决？
+
+
+
+
+
+```bash
+#server 
+# 注意下⾯的随机字符串是容器ID，每次运⾏均会不同，并且你不需要关注它
+docker run --name=redis -itd -p 10000:80 feisky/redis-server
+docker run --name=app --network=container:redis -itd feisky/redis-app
+
+docker ps
+
+curl http://10.0.0.51:10000/
+
+# 案例插⼊5000条数据，在实践时可以根据磁盘的类型适当调整，⽐如使⽤SSD时可以调⼤，⽽HDD可以适当调⼩
+curl http://10.0.0.51:10000/init/50000
+
+
+curl http://10.0.0.51:10000/get_cache
+while true; do curl http://10.0.0.51:10000/get_cache; done  #客户端访问
+
+#服务端排查
+top
+iostat -d 1 
+pidstat -d 1
+#	-f表⽰跟踪⼦进程和⼦线程，-T表⽰显⽰系统调⽤的时⻓，-tt表⽰显⽰跟踪时间
+strace -f -T -tt -p `pidof redis-server`
+lsof -p `pidof redis-server`
+
+strace -f -p `pidof redis-server` -T -tt -e	fdatasync
+参数	全称 / 含义
+-p 	--pid，附着到指定进程 PID 跟踪
+-f	--follow-forks，跟踪 fork/clone 产生的子进程 / 子线程
+-T	显示每个系统调用的执行耗时（单位：秒）
+-tt	每行开头输出精确到微秒的时间戳
+-e  fdatasync	过滤规则：只捕获 fdatasync 系统调用，忽略其他调用
+
+
+# 由于这两个容器共享同⼀个⽹络命名空间，所以我们只需要进⼊app的⽹络命名空间即可
+PID=$(docker inspect --format {{.State.Pid}} app)
+# -i表⽰显⽰⽹络套接字信息
+nsenter --target $PID --net -- lsof -i
+参数	说明
+nsenter	进入指定进程的命名空间执行命令，容器 / 网络隔离场景专用
+--target $PID	以 $PID 进程为目标，继承它的命名空间
+--net	只进入网络命名空间（隔离网卡、IP、路由、端口、套接字）
+--	分隔符，后面接要执行的命令
+lsof -i	查看当前网络套接字、监听端口、网络连接
+
+
+# 更改redis配置
+docker exec -it redis redis-cli config set appendfsync everysec
+
+#还有一个问题修改源码了
+https://github.com/feiskyer/linux-perf-examples/blob/master/redis-slow/app.py
+
+#修改代码的接口  这个接口来访问它。
+curl  http://10.0.0.51:10000/get_cache_data 
+
+docker rm -f app redis
+```
+
+
+
+# 套路篇：如何迅速分析出系统IO的瓶颈在哪里？
+
+
+
+
+
+根据指标找工具（文件系统和磁盘 I/O）
+
+| 性能指标                                                     | 工具                       | 说明                                           |
+| ------------------------------------------------------------ | -------------------------- | ---------------------------------------------- |
+| 文件系统空间容量、使用量以及剩余空间                         | df                         | 详细文档见 info coreutils ’df invocation’      |
+| 索引节点容量、使用量以及剩余量                               | df                         | 使用 -i 选项                                   |
+| 页缓存和可回收 Slab 缓存                                     | /proc/meminfo、sar、vmstat | 使用 sar -r 选项                               |
+| 缓冲区                                                       | /proc/meminfo、sar、vmstat | 使用 sar -r 选项                               |
+| 目录项、索引节点以及文件系统的缓存                           | /proc/slabinfo、slabtop    | slabtop 更直观                                 |
+| 磁盘 I/O 使用率、IOPS、吞吐量、响应时间、I/O 平均大小以及等待队列长度 | iostat、sar、dstat         | 使用 iostat -d -x 或 sar -d 选项               |
+| 进程 I/O 大小以及 I/O 延迟                                   | pidstat、iotop             | 使用 pidstat -d 选项                           |
+| 块设备 I/O 事件跟踪                                          | blktrace                   | 示例：`blktrace -d /dev/sda -o-| blkparse -i-` |
+| 进程 I/O 系统调用跟踪                                        | strace                     | 通过系统调用跟踪进程的 I/O                     |
+| 进程块设备 I/O 大小跟踪                                      | biosnoop、biotop           | 需要安装 bcc 软件包                            |
+
+
+
+根据工具查指标（文件系统和磁盘 I/O）
+
+| 性能工具        | 性能指标                                                     |
+| --------------- | ------------------------------------------------------------ |
+| iostat          | 磁盘 I/O 使用率、IOPS、吞吐量、响应时间、I/O 平均大小以及等待队列长度 |
+| pidstat         | 进程 I/O 大小以及 I/O 延迟                                   |
+| sar             | 磁盘 I/O 使用率、IOPS、吞吐量以及响应时间                    |
+| dstat           | 磁盘 I/O 使用率、IOPS 以及吞吐量                             |
+| iotop           | 按 I/O 大小对进程排序                                        |
+| slabtop         | 目录项、索引节点以及文件系统的缓存                           |
+| /proc/slabinfo  | 目录项、索引节点以及文件系统的缓存                           |
+| /proc/meminfo   | 页缓存和可回收 Slab 缓存                                     |
+| /proc/diskstats | 磁盘的 IOPS、吞吐量以及延迟                                  |
+| /proc/pid/io    | 进程 IOPS、I/O 大小以及 I/O 延迟                             |
+| vmstat          | 缓存和缓冲区用量汇总                                         |
+| blktrace        | 跟踪块设备 I/O 事件                                          |
+| biosnoop        | 跟踪进程的块设备 I/O 大小                                    |
+| biotop          | 跟踪进程块 I/O 并按 I/O 大小排序                             |
+| strace          | 跟踪进程的 I/O 系统调用                                      |
+| perf            | 跟踪内核中的 I/O 事件                                        |
+| df              | 磁盘空间和索引节点使用量和剩余量                             |
+| mount           | 文件系统的挂载路径以及挂载参数                               |
+| du              | 目录占用的磁盘空间大小                                       |
+| tune2fs         | 显示和设置文件系统参数                                       |
+| hdparam         | 显示和设置磁盘参数                                           |
+
+
+
+如何迅速分析I/O的性能瓶颈
+
+1.	 先用iostat发现磁盘I/O性能瓶颈；
+2.	 再借助pidstat，定位出导致瓶颈的进程；
+3.	 随后分析进程的I/O行为；
+4.	 最后，结合应用程序的原理，分析这些I/O的来源
+
+iostat、vmstat、pidstat	是最核心的几个性能工具，
+
+
+
+# Linux 系统 IO 瓶颈快速分析指南
+
+## 一、核心性能指标（分文件系统 + 磁盘）
+
+### 1. 文件系统 I/O 性能指标
+
+| 指标类别       | 核心指标                | 异常阈值             | 说明                                      |                |
+| :------------- | :---------------------- | :------------------- | :---------------------------------------- | :------------- |
+| **空间容量**   | 磁盘使用率              | >85% 预警，>95% 严重 | `df -h` 查看                              |                |
+|                | 索引节点 (inode) 使用率 | >80% 预警            | `df -i` 查看，小文件过多会耗尽 inode      |                |
+| **缓存性能**   | Page Cache 命中率       | <90% 异常            | 读性能差的核心原因                        |                |
+|                | Slab 缓存占用           | 超过可用内存 30%     | `slabtop` 查看，目录项 / 索引节点缓存泄露 |                |
+|                | 脏页占比                | >10% 会触发刷盘抖动  | `cat /proc/vmstat                         | grep nr_dirty` |
+| **IO 延迟**    | 文件系统读写延迟        | 读 > 20ms，写 > 50ms | 包含内核缓存、文件系统开销                |                |
+| **元数据性能** | 元数据操作耗时          | stat/ls 命令卡顿     | 目录项过多、文件系统碎片导致              |                |
+
+### 2. 磁盘 I/O 性能指标（最核心）
+
+| 指标                          | 异常阈值               | 说明                                                         |
+| :---------------------------- | :--------------------- | :----------------------------------------------------------- |
+| **% util（磁盘繁忙率）**      | HDD>80%，NVMe>90%      | 磁盘处理 IO 的时间占比；**注意：NVMe 多队列盘 100% 不一定饱和** |
+| **await（平均 IO 等待时间）** | >10ms 拥堵，>50ms 严重 | 包含队列等待 + 磁盘处理时间，最直观的延迟指标                |
+| **r_await/w_await**           | 读 > 10ms，写 > 20ms   | 区分读写延迟，定位是读瓶颈还是写瓶颈                         |
+| **aqu-sz（平均队列长度）**    | >2 拥堵，>5 严重       | 等待处理的 IO 请求数，队列越长阻塞越严重                     |
+| **IOPS**                      | 低于磁盘标称值         | HDD 随机 IOPS≈100-200，SATA SSD≈1 万 - 5 万，NVMe≈10 万 +    |
+| **吞吐量**                    | 低于磁盘标称带宽       | HDD≈100-200MB/s，SATA SSD≈500MB/s，NVMe≈3-7GB/s              |
+| **rrqm/s/wrqm/s**             | 合并率 < 30%           | 说明大量随机小 IO，内核无法有效合并                          |
+
+## 二、核心性能工具速查（按排查顺序）
+
+### 1. 全局磁盘 IO 概览（第一步必用）
+
+| 工具   | 常用命令         | 能查什么                                       |
+| :----- | :--------------- | :--------------------------------------------- |
+| iostat | `iostat -d -x 1` | 所有磁盘的使用率、IOPS、吞吐量、延迟、队列长度 |
+| vmstat | `vmstat 1`       | 全局 IO 等待（% iowait）、缓存、块设备读写总量 |
+| sar    | `sar -d 1`       | 历史 IO 数据回放，排查周期性问题               |
+
+### 2. 进程级 IO 定位（找到哪个进程在搞事）
+
+| 工具    | 常用命令       | 能查什么                                 |
+| :------ | :------------- | :--------------------------------------- |
+| iotop   | `iotop -o`     | 实时按 IO 大小排序进程，显示磁盘读写速率 |
+| pidstat | `pidstat -d 1` | 每个进程的 IO 读写量、IO 延迟、IO 使用率 |
+| lsof    | `lsof -p PID`  | 查看进程打开的文件、套接字、设备句柄     |
+
+### 3. 内核级 IO 跟踪（深入底层行为）
+
+| 工具       | 常用命令                                               | 能查什么                                        |                                            |
+| :--------- | :----------------------------------------------------- | :---------------------------------------------- | :----------------------------------------- |
+| strace     | `strace -f -p PID -e trace=read,write,fsync,fdatasync` | 跟踪进程的 IO 系统调用，统计调用次数和耗时      |                                            |
+| blktrace   | `blktrace -d /dev/sda -o-                              | blkparse -i-`                                   | 跟踪块设备层所有 IO 事件，分析 IO 队列行为 |
+| bcc 工具集 | `biosnoop`/`biotop`/`filetop`                          | 精确跟踪每个进程的块设备 IO、文件 IO 大小和延迟 |                                            |
+| perf       | `perf trace -e syscalls:*read* -p PID`                 | 低开销跟踪内核 IO 事件                          |                                            |
+
+### 4. 文件系统专用工具
+
+| 工具    | 常用命令        | 能查什么                                       |
+| :------ | :-------------- | :--------------------------------------------- |
+| df      | `df -h`/`df -i` | 磁盘空间和 inode 使用率                        |
+| du      | `du -sh *`      | 目录占用磁盘空间大小                           |
+| slabtop | `slabtop`       | 内核 Slab 缓存使用情况，定位元数据缓存泄露     |
+| mount   | `mount`         | 查看文件系统挂载参数（如 noatime、barrier 等） |
+
+## 三、标准 IO 瓶颈分析流程（5 步走）
+
+### 第一步：确认系统是否存在 IO 瓶颈
+
+1. 执行 vmstat   1，看 %iowait列
+   - % iowait > 30%：系统存在明显 IO 瓶颈
+   - % iowait > 50%：IO 严重阻塞，CPU 大部分时间在等磁盘
+2. 同时看 procs b列（阻塞在 IO 的进程数）
+   - 持续大于 CPU 核心数：IO 队列严重拥堵
+
+### 第二步：定位哪个磁盘有问题
+
+执行 `iostat -d -x 1`，重点看：
+
+1. 哪个磁盘的 **%util** 最高
+2. 该磁盘的 **await**、**aqu-sz** 是否超标
+3. 区分是读瓶颈（r_await 高）还是写瓶颈（w_await 高）
+4. 看 **rrqm/s/wrqm/s**，判断是随机 IO 还是顺序 IO
+
+### 第三步：找到占用 IO 最多的进程
+
+1. 执行 `iotop -o`，实时看哪个进程的 **DISK READ/DISK WRITE** 最高
+2. 执行 `pidstat -d 1`，统计每个进程的 IO 读写量和延迟
+3. 记录高 IO 进程的 PID
+
+### 第四步：分析进程的 IO 行为
+
+1. 查看进程打开的文件：`lsof -p PID`
+
+2. 跟踪进程的 IO 系统调用：
+
+   ```
+   # 跟踪读写和刷盘调用，统计耗时
+   strace -f -p PID -T -tt -e trace=read,write,fsync,fdatasync
+   ```
+
+3. 查看进程的 IO 统计：`cat /proc/PID/io`
+
+### 第五步：深入内核层验证
+
+如果需要更精确的底层数据：
+
+- 用 `biosnoop` 查看每个 IO 请求的进程、大小、延迟
+- 用 `blktrace` 分析块设备层的 IO 队列和调度行为
+- 用 `slabtop` 检查是否存在元数据缓存泄露
+
+## 四、常见 IO 瓶颈的典型特征
+
+| 瓶颈类型       | 典型指标异常                            | 常见原因                               |
+| :------------- | :-------------------------------------- | :------------------------------------- |
+| 随机小 IO 瓶颈 | await 高、% util 高、IOPS 低、rrqm/s 低 | 数据库随机读写、大量小文件操作         |
+| 顺序大 IO 瓶颈 | 吞吐量跑满、% util 高、await 正常       | 备份、日志切割、大文件拷贝             |
+| 写刷盘抖动     | w_await 突然飙升、% util 瞬间 100%      | 脏页集中刷盘、fsync/fdatasync 频繁调用 |
+| 缓存命中率低   | 读 IOPS 高、Page Cache 命中率低         | 冷数据访问、缓存配置不合理             |
+| 元数据瓶颈     | ls/stat 命令卡顿、slab 占用高           | 目录下文件过多、inode 缓存泄露         |
+| 磁盘硬件故障   | % util 持续 100%、await>1000ms、IO 错误 | 磁盘坏道、阵列卡故障、线缆问题         |
+
+
+
+
+
+# 磁盘io 优化的几个思路
+
+
+
+## fio（Flexible I/O Tester）正是最常用的文件系统和磁盘I/O性能基准测试工具
+
+```bash
+#	Ubuntu
+apt-get	install	-y fio
+#	CentOS
+yum	install	-y fio	
+
+
+# 随机读
+fio -name=randread -direct=1 -iodepth=64 -rw=randread -ioengine=libaio -bs=4k -size=1G -numjobs=1 -runtime=1000 -group_reporting -filename=/dev/sdb
+# 随机写
+fio -name=randwrite -direct=1 -iodepth=64 -rw=randwrite -ioengine=libaio -bs=4k -size=1G -numjobs=1 -runtime=1000 -group_reporting -filename=/dev/sdb
+# 顺序读
+fio -name=read -direct=1 -iodepth=64 -rw=read -ioengine=libaio -bs=4k -size=1G -numjobs=1 -runtime=1000 -group_reporting -filename=/dev/sdb
+# 顺序写
+fio -name=write -direct=1 -iodepth=64 -rw=write -ioengine=libaio -bs=4k -size=1G -numjobs=1 -runtime=1000 -group_reporting
+
+
+direct，表示是否跳过系统缓存。上面示例中，我设置的 1 ，就表示跳过系统缓存。
+iodepth，表示使用异步 I/O（asynchronous I/O，简称AIO）时，同时发出的 I/O 请求上限。在上面的示例中，我设置的是 64。
+rw，表示 I/O 模式。我的示例中， read/write 分别表示顺序读/写，而 randread/randwrite 则分别表示随机读/写。
+ioengine，表示 I/O 引擎，它支持同步（sync）、异步（libaio）、内存映射（mmap）、网络（net）等各种 I/O 引擎。上面示例中，我设置的 libaio 表示使用异步 I/O。
+bs，表示 I/O 的大小。示例中，我设置成了 4K（这也是默认值）。
+filename，表示文件路径，当然，它可以是磁盘路径（测试磁盘性能），也可以是文件路径（测试文件系统性能）。示例中，我把它设置成了磁盘 /dev/sdb。不过注意，用磁盘路径测试写，会破坏这个磁盘中的文件系统，所以在使用前，你一定要事先做好数据备份。
+
+#	使⽤blktrace跟踪磁盘I/O，注意指定应⽤程序正在操作的磁盘
+blktrace /dev/sdb
+#	查看blktrace记录的结果
+#	ls
+sdb.blktrace.0		sdb.blktrace.1
+#	将结果转化为⼆进制⽂件
+blkparse sdb -d sdb.bin
+#	使⽤fio重放⽇志
+fio --name=replay --filename=/dev/sdb --direct=1 --read_iolog=sdb.bin	
+
+```
+
+
+
+## 应用程序I/O 优化（7 条精简版）
+
+1. 优先使用**追加写**替代随机写，减少磁盘寻址开销，提升写入效率。
+2. 合理利用操作系统缓存，减少下发到物理磁盘的 I/O 次数。
+3. 自建应用缓存或引入 Redis 等外部缓存，自主管理缓存生命周期，避免其他程序抢占系统缓存影响性能；优先使用 `fopen/fread` 等带库缓存的函数，而非直接调用 `open/read` 系统调用。
+4. 针对同一片区域频繁读写的场景，用 `mmap` 替代 `read/write`，减少内存数据拷贝。
+5. 同步写场景下合并零散写请求，使用 `fsync()` 代替 `O_SYNC`，避免单次请求频繁落盘。
+6. 多应用共享磁盘时，通过 **cgroups IO 子系统** 限制进程 / 进程组的 IOPS 和吞吐量，防止 IO 资源被独占。
+7. 磁盘使用 CFQ 调度器时，借助 `ionice` 调整进程 I/O 优先级；该工具包含 Idle、Best-effort、Realtime 三类优先级，后两者支持 0~7 分级，**数值越小优先级越高**。
+
+
+
+## 文件系统 I/O 优化 精简总结
+
+1. **按需选型文件系统**：根据负载选择适配类型，ext4 支持分区收缩，xfs 支持超大分区与海量文件，无法收缩。
+
+2. **调整文件系统配置**：通过 `tune2fs` 修改文件系统特性，借助 `mount` 或 `/etc/fstab` 调整日志模式、挂载参数（如 `noatime`）。
+
+3. **优化内核缓存参数**：修改脏页刷新频率、占用阈值相关参数；调整 `vfs_cache_pressure`，控制目录项、索引节点缓存的回收力度。
+
+   ```
+   比如，你可以优化pdflush	脏页的刷新频率（比如设置dirty_expire_centisecs	和 dirty_writeback_centisecs）以及脏页的限额（比如调整dirty_background_ratio和dirty_ratio等）。
+   
+   还可以优化内核回收目录项缓存和索引节点缓存的倾向，即调整vfs_cache_pressure（/proc/sys/vm/vfs_cache_pressure，默认值100），数值越大，就表示越容易回收。
+   ```
+
+   
+
+4. **使用内存文件系统**：无需数据持久化时，采用 `tmpfs`（如 `/dev/shm`），数据存放于内存，大幅提升 I/O 性能。
+
+## 磁盘层 I/O 优化（7 条精简版）
+
+1. 升级硬件，使用 **SSD** 替换传统机械盘 HDD，从底层提升读写性能。
+
+2. 搭建 **RAID 磁盘阵列**，同时实现数据冗余备份与整体 I/O 性能提升。
+
+3. 根据磁盘类型与业务负载选择适配的 I/O 调度算法，SSD / 虚拟机磁盘推荐 `noop`，数据库场景推荐 `deadline`。
+
+4. 做磁盘资源隔离，将日志、数据库等高 I/O 业务部署在独立磁盘，避免相互争抢资源。
+
+5. 顺序读居多的场景，调大磁盘预读大小，优化读取效率。
+
+   ```
+   调整内核选项 /sys/block/sdb/queue/read_ahead_kb，默认大小是 128 KB，单位为KB。
+   
+   使用 blockdev 工具设置，比如 blockdev --setra 8192 /dev/sdb，注意这里的单位是 512B（0.5KB），所以它的数值总是 read_ahead_kb 的两倍
+   ```
+
+   
+
+6. 调整内核块设备参数，修改磁盘队列长度 `nr_requests`，权衡吞吐量与 I/O 延迟。
+
+   ```
+   调整磁盘队列的长度
+   /sys/block/sdb/queue/nr_requests，适当增大队列长度，可以提升磁盘的吞吐量（当然也会致 I/O 延迟增大）
+   ```
+
+   
+
+7. 定期检测磁盘硬件与文件系统故障，通过 `dmesg`、`smartctl`、`badblocks`、`fsck` 等工具排查并修复问题
+
+
+
+# 关于Linux网络，你必须知道这些
+
+开放式系统互联通信参考模型（Open System Interconnection ReferenceModel），
+
+简称为OSI网络模型。
+
+- 应用层，负责为应用程序提供统一的接口。
+- 表示层，负责把数据转换成兼容接收系统的格式。
+- 会话层，负责维护计算机之间的通信连接。
+- 传输层，负责为数据加上传输表头，形成数据包。
+- 网络层，负责数据的路由和转发。
+- 数据链路层，负责MAC寻址、错误侦测和改错。
+- 物理层，负责在物理网络中传输数据帧。
+
+
+
+在Linux中，使用的是另一个更实用的四层模型，即TCP/IP网络模型。
+
+- 应用层，负责向用户提供一组应用程序，比如	HTTP、FTP、DNS	等。
+- 传输层，负责端到端的通信，比如	TCP、UDP	等。
+- 网络层，负责网络包的封装、寻址和路由，比如 IP、ICMP 等。
+- 网络接口层，负责网络包在物理网络中的传输，比如 MAC 寻址、错误侦测以及通过网卡传输网络帧等。
+
+| OSI 模型 |            | TCP/IP 模型 |            |
+| -------- | ---------- | ----------- | ---------- |
+| 层级     | 层名称     | 层级        | 层名称     |
+| 7        | 应用层     | 4           | 应用层     |
+| 6        | 表示层     | -           | -          |
+| 5        | 会话层     | -           | -          |
+| 4        | 传输层     | 3           | 传输层     |
+| 3        | 网络层     | 2           | 网络层     |
+| 2        | 数据链路层 | 1           | 网络接口层 |
+| 1        | 物理层     | -           | -          |
+
+
+
+### 网络四大核心指标（精简版）
+
+1. **带宽**：链路理论最大传输速率，单位 b/s（比特 / 秒）。
+2. **吞吐量**：单位时间实际成功传输的数据量，单位 b/s 或 B/s，受带宽约束；吞吐量 / 带宽 = 网络使用率。
+3. **延时**：请求发出到收到响应的耗时，常见包含 TCP 握手时延、数据包往返时间（RTT）。
+4. **PPS**：**全称**：**Packets Per Second** **中文**：**每秒数据包数** 每秒转发数据包数量，用于衡量设备报文转发能力，Linux 转发性能易受包大小影响。
+
+
+
+网络配置
+
+```bash
+ifconfig和ip	分别属于软件包	net-tools和iproute2，iproute2	是net-tools的下一代
+ifconfig ens33
+ip -s addr show dev ens33
+
+errors 表示发生错误的数据包数，比如校验错误、帧同步错误等；
+dropped 表示丢弃的数据包数，即数据包已经收到了 Ring Buffer，但因为内存不足等原因丢包；
+overruns 表示超限数据包数，即网络 I/O 速度过快，导致 Ring Buffer 中的数据包来不及处理（队列满）而导致的丢包；
+carrier 表示发生 carrirer 错误的数据包数，比如双工模式不匹配、物理电缆出现问题等；
+collisions 表示碰撞数据包数。
+
+
+ifconfig 和 ip 只显示了网络接口收发数据包的统计信息
+netstat 或者 ss ，来查看套接字、网络栈、网络接口以及路由表的信息
+
+推荐使用ss来查询网络的连接信息，因为它比netstat提供了更好的性能（速度更快）。
+#	-l	表⽰只显⽰监听套接字
+#	-t	表⽰只显⽰	TCP	套接字
+#	-n	表⽰显⽰数字地址和端⼝(⽽不是名字)
+#	-p	表⽰显⽰进程信息
+ss -ltnp | head -n 3
+
+
+
+
+# 协议栈统计信息
+root@ubuntu:~# netstat -s
+Ip:
+    Forwarding: 1                  # 已开启IP转发功能，本机可作为路由转发数据包
+    392 total packets received     # 本机网卡累计接收IP数据包总数 392 个
+    0 forwarded                    # 转发出去的IP数据包数量为 0
+    0 incoming packets discarded  # 入站IP包无丢弃
+    392 incoming packets delivered # 接收的IP包全部递交给上层协议处理
+    245 requests sent out          # 本机主动发出的IP请求包共 245 个
+    20 outgoing packets dropped   # 出站IP包被丢弃 20 个
+
+Icmp:
+    40 ICMP messages received      # 累计接收 ICMP 报文 40 个
+    0 input ICMP message failed    # 接收 ICMP 报文无解析/处理错误
+    ICMP input histogram: # 直译：ICMP 接收报文类型统计直方图 ，简单理解：按报文类型，统计本机收到的各类 ICMP 报文数量。
+        destination unreachable: 40 # 收到 40 个「目标不可达」类型 ICMP 报文
+    40 ICMP messages sent          # 累计发送 ICMP 报文 40 个
+    0 ICMP messages failed        # 发送 ICMP 报文无失败
+    ICMP output histogram:
+        destination unreachable: 40 # 向外发送 40 个「目标不可达」ICMP 应答
+
+IcmpMsg:
+        InType3: 40                # 接收 Type3（目标不可达）ICMP 报文 40 条
+        OutType3: 40               # 发送 Type3（目标不可达）ICMP 报文 40 条
+
+Tcp:
+    0 active connection openings   # 主动发起的 TCP 连接数 0
+    1 passive connection openings   # 被动监听并接受的 TCP 连接数 1
+    0 failed connection attempts   # TCP 连接尝试失败次数 0
+    0 connection resets received   # 收到 TCP 连接重置报文次数 0
+    1 connections established      # 成功建立的 TCP 连接总数 1
+    246 segments received          # 接收 TCP 数据分片共 246 个
+    151 segments sent out          # 发送 TCP 数据分片共 151 个
+    0 segments retransmitted      # TCP 报文重传次数 0（链路无丢包抖动）
+    0 bad segments received        # 收到损坏/非法 TCP 分片数 0
+    0 resets sent                  # 主动发送 TCP 连接重置报文数 0
+
+Udp:
+    14 packets received            # 接收 UDP 数据包共 14 个
+    40 packets to unknown port received # 收到 40 个访问本机未监听UDP端口的报文
+    0 packet receive errors        # UDP 报文接收错误数 0
+    54 packets sent                # 发送 UDP 数据包共 54 个
+    0 receive buffer errors        # UDP 接收缓冲区无溢出/异常错误
+    0 send buffer errors           # UDP 发送缓冲区无溢出/异常错误
+    IgnoredMulti: 52               # 忽略的组播数据包数量 52
+
+UdpLite:                           # 未启用 UDP Lite 协议，无统计数据
+# 轻量化 UDP，仅做部分校验，多用于流媒体；你当前机器无相关流量。
+
+TcpExt:   #TCP Extended Statistics（TCP 扩展统计）
+    1 delayed acks sent            # 发送延迟应答（Delayed ACK）次数 1
+    73 packet headers predicted    # 内核预测报文头，优化接收效率的次数 73
+    24 acknowledgments not containing data payload received # 收到纯ACK报文24 个
+    101 predicted acknowledgments  # 内核预测应答，提升传输效率次数 101
+    TCPOrigDataSent: 151           # TCP 原始数据报文发送总数 151
+
+IpExt:
+    InBcastPkts: 52                # 接收广播包总数 52 个
+    InOctets: 29266                # 入站IP数据总字节数 29266
+    OutOctets: 27503               # 出站IP数据总字节数 27503
+    InBcastOctets: 5113            # 接收广播数据总字节数 5113
+    InNoECTPkts: 392               # 不支持显式拥塞标记(ECT)的入站IP包总数 392
+
+
+root@ubuntu:~# ss -s
+Total: 515 (kernel 1886)                     
+# 用户态视角套接字总数 515 个；内核层面统计网络套接字及关联结构共 1886 个（内核统计包含底层附属结构，数值更大）
+TCP:   5 (estab 1, closed 0, orphaned 0, synrecv 0, timewait 0/0), ports 0  
+# TCP 套接字总计 5 个；
+# 已建立连接(estab)1个，已关闭连接0个，孤儿连接0个，半连接(synrecv)0个，TIME_WAIT状态连接0个；当前无监听端口占用统计
+
+Transport Total     IP        IPv6          # 表头：传输类型 | 总数量 | IPv4 数量 | IPv6 数量
+*         1886      -         -             # 所有内核网络结构合计 1886 个，不区分 IPv4/IPv6
+RAW       1         0         1             # 原始套接字(RAW)共 1 个；IPv4 RAW 0 个，IPv6 RAW 1 个
+UDP       1         1         0             # UDP 套接字共 1 个；IPv4 UDP 1 个，IPv6 UDP 0 个
+TCP       5         4         1             # TCP 套接字共 5 个；IPv4 TCP 4 个，IPv6 TCP 1 个
+INET      7         5         2             # 全称：Internet Domain（互联网域） 互联网域套接字(TCP/UDP/RAW统称)合计 7 个；IPv4 总计 5 个，IPv6 总计 2 个
+FRAG      0         0         0             # 全称：IP Fragment（IP 分片） IP 分片重组相关资源数量，当前全为 0，无分片任务
+
+补充关键字段说明（方便排障）
+estab：TCP 正常已连接状态，业务正常通信依赖该状态
+orphaned：孤儿连接，异常断开、内核未正常回收的 TCP 连接，非 0 代表存在连接泄露
+synrecv：TCP 半连接（收到客户端 SYN、未完成三次握手），数量持续走高大概率遭遇 SYN 攻击
+timewait 0/0：timewait 数量 / 系统阈值，大量 TIME_WAIT 会占用端口与内核资源
+RAW 套接字：常用于抓包、网络调试、自定义协议，普通业务极少使用
+
+
+网络吞吐和 PPS
+# 数字1表⽰每隔1秒输出⼀组数据
+# 比如网络接口（DEV）、网络接口错误（EDEV）、TCP、UDP、ICMP 等等
+sar -n DEV 1
+
+root@ubuntu:~# sar -n DEV 1
+Linux 4.15.0-156-generic (ubuntu)       05/29/26        _x86_64_        (2 CPU)
+21:08:14        IFACE   rxpck/s   txpck/s    rxkB/s    txkB/s   rxcmp/s   txcmp/s  rxmcst/s   %ifutil
+# 时间          网卡名    接收PPS    发送PPS    接收流量   发送流量  接收压缩包  发送压缩包 接收组播包   网卡利用率
+21:08:15           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+21:08:15        ens33      0.99      0.00      0.06      0.00      0.00      0.00      0.00      0.00
+
+字段	   全称 / 含义	                  解释
+IFACE	Interface（网络接口）	          网卡名称（lo = 本地回环网卡，ens33 = 物理网卡）
+rxpck/s	receive packets per second	  每秒接收的数据包数（接收 PPS）
+txpck/s	transmit packets per second	  每秒发送的数据包数（发送 PPS）
+rxkB/s	receive KB per second	      每秒接收的数据量（单位：KB）
+txkB/s	transmit KB per second	      每秒发送的数据量（单位：KB）
+rxcmp/s	receive compressed packets	  每秒接收的压缩数据包数（几乎不用）
+txcmp/s	transmit compressed packets	  每秒发送的压缩数据包数（几乎不用）
+rxmcst/s	receive multicast packets 每秒接收的组播数据包数
+%ifutil	interface utilization	      网卡带宽使用率
+
+
+
+root@ubuntu:~# ethtool ens33
+Settings for ens33:                 # ens33 网卡的配置详情
+        Supported ports: [ TP ]     # 支持的端口类型：TP = 双绞线（普通网线口）
+        Supported link modes:       # 网卡硬件支持的速率+双工模式
+                                10baseT/Half 10baseT/Full  # 支持10M半双工、10M全双工
+                                100baseT/Half 100baseT/Full # 支持100M半双工、100M全双工
+                                1000baseT/Full              # 支持1000M(1G)全双工
+        Supported pause frame use: No  # 不支持流量控制暂停帧
+        Supports auto-negotiation: Yes # 硬件支持【速率自动协商】
+        Supported FEC modes: Not reported # 不支持前向纠错(FEC)
+        Advertised link modes:      # 网卡对外广播的支持模式（和上面一致）
+                                10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Full
+        Advertised pause frame use: No  # 对外声明不使用暂停帧
+        Advertised auto-negotiation: Yes # 对外声明开启自动协商
+        Advertised FEC modes: Not reported # 对外声明不支持FEC
+        Speed: 1000Mb/s             # 当前网卡速率：1000兆（1Gbps）****
+        Duplex: Full                # 当前双工模式：全双工（可同时收发数据） *****
+        Port: Twisted Pair          # 端口类型：双绞线（普通网线）
+        PHYAD: 0                    # 物理层地址（驱动内部参数，无需管）
+        Transceiver: internal       # 收发器：内置集成在网卡上
+        Auto-negotiation: on        # 速率自动协商：开启（正常默认状态）
+        MDI-X: off (auto)           # 网线线序自动翻转：关闭（自动模式）
+        Supports Wake-on: d         # 支持网络唤醒功能：d=禁用
+        Wake-on: d                  # 当前网络唤醒状态：禁用
+        Current message level: 0x00000007 (7) # 网卡日志级别
+                               drv probe link # 日志包含：驱动、探测、链路状态
+        Link detected: yes          # 链路状态：已连接（网线插好、正常连通）  *****
+
+
+连通性和延时
+#	-c3表⽰发送三次ICMP包后停⽌
+ping -c3 114.114.114.114
+
+# 执行ping命令，-c3 表示只发送3个探测包，目标IP 223.5.5.5（阿里云公共DNS）
+root@ubuntu:~# ping -c3 223.5.5.5  
+PING 223.5.5.5 (223.5.5.5) 56(84) bytes of data. # 开始ping，目标IP 223.5.5.5，发送56字节数据（总报文84字节）
+64 bytes from 223.5.5.5: icmp_seq=1 ttl=128 time=34.2 ms # 收到第1个响应包：64字节，ICMP序号1，TTL=128，延迟34.2毫秒
+64 bytes from 223.5.5.5: icmp_seq=2 ttl=128 time=34.4 ms # 收到第2个响应包：64字节，ICMP序号2，TTL=128，延迟34.4毫秒
+64 bytes from 223.5.5.5: icmp_seq=3 ttl=128 time=34.5 ms # 收到第3个响应包：64字节，ICMP序号3，TTL=128，延迟34.5毫秒
+
+icmp_seq：数据包序号（1/2/3 代表第几个包）
+ttl：数据包生存时间（不用深究，代表网络路由层级）
+time=34.2ms：网络延迟，数值越小网速越快
+
+
+
+
+```
+
+
+
+# 基础篇：C10K和C1000K回顾
+
+C10K和C1000K的首字母C是Client的缩写。
+
+C10K就是单机同时处理1万个请求（并发连接1万）的问题,
+
+C1000K也就是单机支持处理100万个请求（并发连接100万）的问题。
+
+## 一、C10K 问题
+
+**定义**：解决 **Linux 单机同时处理 10000 个网络连接** 的性能瓶颈问题
+
+核心痛点：传统 I/O 模型 + 工作模型，资源占用极高，无法支撑万级并发
+
+### 1. I/O 模型优化（核心）
+
+抛弃低效率的阻塞 I/O，转向**高性能 I/O 方案**：
+
+1. 非阻塞 I/O + I/O 多路复用
+2. 淘汰低效的 `select/poll`（连接数受限、遍历开销大）
+3. 使用 **epoll**（Linux 专属，事件通知、无遍历损耗，支撑万级连接）
+
+### 2. 工作模型优化
+
+抛弃高开销的多进程 / 多线程模型：
+
+1. 单线程 **Reactor 事件驱动模型**（Nginx、Redis 核心架构）
+2. 线程池协程化，避免线程上下文切换损耗
+3. 一个线程管理海量连接，仅在有 I/O 事件时处理
+
+------
+
+## 二、C1000K 问题
+
+**定义**：解决 **Linux 单机同时处理 1000000 个网络连接** 的进阶问题
+
+核心：C10K 仅优化应用层，C1000K 需要**应用 + 内核 + 网络 + 硬件**全栈优化
+
+### 核心优化方向
+
+1. 内核参数极致调优
+
+   调整端口范围、TCP 队列、Socket 缓冲区、文件句柄上限，突破系统限制
+
+2. 网卡与中断优化
+
+   网卡多队列、RPS/RFS 负载均衡、CPU 中断绑定，消除单核瓶颈
+
+3. I/O 模型极致优化
+
+   epoll 边缘触发（ET）、零拷贝技术，减少数据拷贝与内核开销
+
+4. 内核旁路技术
+
+   DPDK、XDP 直接绕过内核协议栈，由用户态直接处理网卡数据
+
+5. 工作模型升级
+
+   主从 Reactor、多线程 Reactor，利用多核 CPU 并行处理
+
+6. 硬件升级
+
+   多核 CPU、万兆网卡、大内存，支撑百万级连接的资源消耗
+
+------
+
+## 三、一句话总结
+
+- **C10K**：解决**万级并发**，核心是 **epoll + 事件驱动**，优化应用层 I/O
+- **C1000K**：解决**百万级并发**，核心是 **全栈优化**（内核 + 网卡 + 应用 + 硬件）
+
+
+
+
+
+# 怎么评估系统的网络性能？
+
+
+
+性能指标回顾
+
+第一： 带宽，表示链路的最大传输速率，单位是b/s（比特/秒）。在你为服务器选购网卡时，带宽就是最核
+心的参考指标。常用的带宽有1000M、10G、40G、100G等。
+第二，吞吐量，表示没有丢包时的最大数据传输速率，单位通常为b/s（比特/秒）或者B/s（字节/秒）。吞吐量受带宽的限制，吞吐量/带宽也就是该网络链路的使用率。
+第三，延时，表示从网络请求发出后，一直到收到远端响应，所需要的时间延迟。这个指标在不同场景中可
+能会有不同的含义。它可以表示建立连接需要的时间（比如TCP握手延时），或者一个数据包往返所需时
+间（比如RTT）。
+需要用	XDP	方式，在内核协议栈之前，先处理网络包。
+或基于	DPDK	，直接跳过网络协议栈，在用户空间通过轮询的方式处理。
+
+第四： PPS  是 Packet Per Second（包/秒）的缩写，表示以网络包为单位的传输速率。PPS 通常用来评估
+网络的转发能力，而基于 Linux 服务器的转发，很容易受到网络包大小的影响（交换机通常不会受到太大影
+响，即交换机可以线性转发）。
+
+
+
+##转发性能
+
+```BASH
+ Linux内核自带的高性能网络测试工具pktgen
+root@ubuntu:~# modprobe pktgen
+root@ubuntu:~# ps -ef |grep pktgen | grep -v grep
+root        970      2  0 10:22 ?        00:00:00 [kpktgend_0]
+root        971      2  0 10:22 ?        00:00:00 [kpktgend_1]
+root@ubuntu:~# ls /proc/net/pktgen/
+kpktgend_0  kpktgend_1  pgctrl
+
+
+#	定义⼀个⼯具函数，⽅便后⾯配置各种测试选项
+function pgset() {
+    local result
+    echo $1 > $PGDEV
+    result=`cat $PGDEV | fgrep "Result: OK:"`
+    if [ "$result" = "" ]; then
+    cat $PGDEV | fgrep Result:
+    fi
+}
+# 为0号线程绑定ens33⽹卡
+PGDEV=/proc/net/pktgen/kpktgend_0
+pgset "rem_device_all" # 清空⽹卡绑定
+pgset "add_device ens33" # 添加eth0⽹卡
+# 配置ens33⽹卡的测试选项
+PGDEV=/proc/net/pktgen/ens33
+pgset "count 1000000" # 总发包数量
+pgset "delay 5000" # 不同包之间的发送延迟(单位纳秒)
+pgset "clone_skb 0" # SKB包复制
+pgset "pkt_size 64" # ⽹络包⼤⼩
+pgset "dst 10.0.0.51" # ⽬的IP
+pgset "dst_mac 00:0c:29:51:5c:47" # ⽬的MAC
+# 启动测试
+PGDEV=/proc/net/pktgen/pgctrl
+pgset "start"
+
+root@ubuntu:~# cat /proc/net/pktgen/ens33
+# 查看 ens33 网卡的内核发包工具 pktgen 配置、运行状态、测试结果
+
+Params: count 1000000  min_pkt_size: 64  max_pkt_size: 64
+     # 测试参数：计划发送 100万个 数据包，数据包大小固定为 64字节
+     frags: 0  delay: 5000  clone_skb: 0  ifname: ens33
+     # 分片数：0；发包间隔延迟：5000微秒；不克隆数据包；测试网卡：ens33
+     flows: 0 flowlen: 0
+     # 网络流数量：0，流长度：0（单流测试）
+     queue_map_min: 0  queue_map_max: 0
+     # 使用网卡队列：0号队列（单队列测试）
+     dst_min: 10.0.0.51  dst_max:
+     # 目标IP地址：固定为 10.0.0.51
+     src_min:   src_max:
+     # 未指定源IP范围
+     src_mac: 00:0c:29:76:7c:11 dst_mac: 00:0c:29:51:5c:47
+     # 源MAC地址、目标MAC地址
+     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
+     # UDP源端口、目标端口：均固定为 9
+     src_mac_count: 0  dst_mac_count: 0
+     # 源/目标MAC地址不动态变化
+     Flags:
+     # 无额外测试标记
+
+Current:
+     # 当前测试运行实时状态
+     pkts-sofar: 1000000  errors: 0
+     # 已成功发送 100万个 数据包，发包错误数：0
+     started: 252328463us  stopped: 257330409us idle: 137971us
+     # 测试开始时间、结束时间（内核微秒），空闲等待时间：137971微秒
+     seq_num: 1000001  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
+     # 下一个数据包序号：1000001，MAC地址无偏移
+     cur_saddr: 10.0.0.52  cur_daddr: 10.0.0.51
+     # 当前实际源IP：10.0.0.52，目标IP：10.0.0.51
+     cur_udp_dst: 9  cur_udp_src: 9
+     # 当前使用的UDP端口：源/目标均为9
+     cur_queue_map: 0
+     # 当前使用网卡队列：0号
+     flows: 0
+     # 实时网络流数：0
+
+Result: OK: 5001945(c4863974+d137971) usec, 1000000 (64byte,0frags)
+     # 测试结果：成功；总耗时5001945微秒，发送100万个64字节无分片数据包
+  199922pps 102Mb/sec (102360064bps) errors: 0
+     # 核心性能：每秒发包199922个(PPS)，吞吐量102Mb/秒，无任何发包错误
+```
+
+## TCP/UDP	性能
+
+
+
+```bash
+iperf和netperf都是最常用的网络性能测试工具，测试TCP和UDP的吞吐量。
+
+#	Ubuntu
+apt-get	install	iperf3
+#	CentOS
+yum	install	iperf3
+
+
+#  在目标机器10.0.0.52上启动	iperf	服务端：
+# -s表⽰启动服务端，-i表⽰汇报间隔，-p表⽰监听端⼝
+iperf3 -s -i 1 -p 10000
+
+
+#	-c表⽰启动客⼾端，10.0.0.52为⽬标服务器的IP
+#	-b表⽰⽬标带宽(单位是bits/s)
+#	-t表⽰测试时间
+#	-P表⽰并发数，-p表⽰⽬标服务器监听端⼝
+iperf3 -c 10.0.0.52 -b 1G -t 15 -P 2 -p 10000
+
+
+# 执行命令：iperf3客户端 连接10.0.0.52服务端，限速1G，测试15秒，2条并发流，端口10000
+root@ubuntu:~# iperf3 -c 10.0.0.52 -b 1G -t 15 -P 2 -p 10000
+
+Connecting to host 10.0.0.52, port 10000          # 正在连接服务端 10.0.0.52:10000
+[  4] local 10.0.0.51 port 58774 connected to 10.0.0.52 port 10000  # 并发流4：本地连接成功
+[  6] local 10.0.0.51 port 58776 connected to 10.0.0.52 port 10000  # 并发流6：本地连接成功
+
+# 表头：线程ID | 时间区间 | 传输总量 | 带宽 | 重传数 | 拥塞窗口
+[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+
+# ----------- 每秒实时统计 -----------
+[  4]   0.00-1.00   sec  57.7 MBytes   484 Mbits/sec    0    189 KBytes  # 流4：1秒传57.7MB，带宽484Mbps
+[  6]   0.00-1.00   sec  57.6 MBytes   483 Mbits/sec    0    201 KBytes  # 流6：1秒传57.6MB，带宽483Mbps
+[SUM]   0.00-1.00   sec   115 MBytes   968 Mbits/sec    0               # 总流量：1秒968Mbps，0重传
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[  4]   1.00-2.00   sec  71.0 MBytes   595 Mbits/sec    0    209 KBytes  # 流4：第2秒带宽595Mbps
+[  6]   1.00-2.00   sec  70.8 MBytes   594 Mbits/sec    0    201 KBytes  # 流6：第2秒带宽594Mbps
+[SUM]   1.00-2.00   sec   142 MBytes  1.19 Gbits/sec    0               # 总带宽：1.19Gbps
+# 中间每秒统计逻辑完全一致，省略重复注释
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[  4]  14.00-15.00  sec  67.5 MBytes   566 Mbits/sec    0    259 KBytes  # 流4：最后1秒带宽566Mbps
+[  6]  14.00-15.00  sec  67.5 MBytes   566 Mbits/sec    0    293 KBytes  # 流6：最后1秒带宽566Mbps
+[SUM]  14.00-15.00  sec   135 MBytes  1.13 Gbits/sec    0               # 最后1秒总带宽1.13Gbps
+
+# ----------- 15秒最终汇总统计 -----------
+[  4]   0.00-15.00  sec  1.02 GBytes   586 Mbits/sec    0             sender  
+# 流4：发送端总数据1.02GB，0重传
+[  4]   0.00-15.00  sec  1.02 GBytes   586 Mbits/sec                  receiver  
+# 流4：接收端统计一致
+[  6]   0.00-15.00  sec  1.02 GBytes   587 Mbits/sec    0             sender  
+# 流6：发送端总数据1.02GB，0重传
+[  6]   0.00-15.00  sec  1.02 GBytes   586 Mbits/sec                  receiver  
+# 流6：接收端统计一致
+[SUM]   0.00-15.00  sec  2.05 GBytes  1.17 Gbits/sec    0             sender  
+# 【核心结果】总发送：2.05GB，1.17Gbps
+[SUM]   0.00-15.00  sec  2.05 GBytes  1.17 Gbits/sec                  receiver 
+# 接收端总带宽与发送端一致
+
+iperf Done.  # 带宽测试完成
+
+核心结果总结（最重要）
+测试场景：双线程、15 秒、千兆带宽压力测试
+总性能：1.17 Gbps（跑满千兆网卡，性能优异）
+网络质量：0 重传、0 丢包、0 错误
+结论：虚拟机 / 物理机之间的网络链路完全正常、性能拉满
+```
+
+### HTTP 性能
+
+```bash
+# Ubuntu
+apt-get install -y apache2-utils
+# CentOS
+$ yum install -y httpd-tools
+
+# 目标机器运行
+docker run -p 80:80 -itd nginx
+
+# 另一台客户端测试
+# -c表⽰并发请求数为1000，-n表⽰总的请求数为10000
+ab -c 1000 -n 10000 http://10.0.0.51/
+
+# 执行压测命令：并发1000个请求，总发送10000个请求，测试 http://10.0.0.51/ 页面
+root@ubuntu:~# ab -c 1000 -n 10000 http://10.0.0.51/
+
+# ab工具版本信息
+This is ApacheBench, Version 2.3 <$Revision: 1807734 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+# 开始压测 10.0.0.51 服务器（请等待）
+Benchmarking 10.0.0.51 (be patient)
+Completed 1000 requests  # 已完成1000个请求
+Completed 2000 requests  # 已完成2000个请求
+Completed 3000 requests
+Completed 4000 requests
+Completed 5000 requests
+Completed 6000 requests
+Completed 7000 requests
+Completed 8000 requests
+Completed 9000 requests
+Completed 10000 requests # 已完成全部10000个请求
+Finished 10000 requests  # 压测结束
+
+# 服务器基础信息
+Server Software:        nginx/1.31.1  # 服务器软件：Nginx 1.31.1
+Server Hostname:        10.0.0.51     # 服务器IP
+Server Port:            80           # 服务器端口：HTTP默认80
+
+Document Path:          /            # 测试的页面路径：根目录
+Document Length:        896 bytes     # 页面大小：896字节
+
+# 压测核心统计
+Concurrency Level:      1000          # 并发数：1000（同时发送1000个请求）
+Time taken for tests:   1.776 seconds # 压测总耗时：1.776秒
+Complete requests:      10000         # 成功完成的请求数：10000
+Failed requests:        0             # 失败请求数：0（无失败、无报错）
+Total transferred:      11290000 bytes # 总传输数据量：11290000字节
+HTML transferred:       8960000 bytes  # 页面正文传输量：8960000字节
+
+# 最核心性能指标
+Requests per second:    5631.72 [#/sec] (mean) # **QPS：每秒处理5631个请求**
+Time per request:       177.566 [ms] (mean)    # 单个并发组的平均请求时间：177ms
+Time per request:       0.178 [ms] (mean, across all concurrent requests) # 单请求平均耗时：0.178ms
+Transfer rate:          6209.19 [Kbytes/sec] received # 传输速率：6209 KB/s
+
+# 连接耗时统计（单位：毫秒）
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    1   2.4      0      11  # 连接耗时：最小0，平均1，最大11
+Processing:     4   55 222.6      9    1758  # 处理耗时：最小4，平均55，最大1758
+Waiting:        4   55 222.6      9    1757  # 等待耗时：最小4，平均55，最大1757
+Total:          4   56 224.1      9    1766  # 总耗时：最小4，平均56，最大1766
+
+# 响应时间分布（关键：多少比例的请求在指定时间内完成）
+Percentage of the requests served within a certain time (ms)
+  50%      9    # 50%的请求 ≤9ms完成
+  66%     10    # 66%的请求 ≤10ms完成
+  75%     10    # 75%的请求 ≤10ms完成
+  80%     11    # 80%的请求 ≤11ms完成
+  90%     18    # 90%的请求 ≤18ms完成
+  95%     40    # 95%的请求 ≤40ms完成
+  98%    892    # 98%的请求 ≤892ms完成
+  99%    907    # 99%的请求 ≤907ms完成
+ 100%   1766 (longest request) # 100%请求完成，最长耗时1766ms
+
+```
+
+## 应用负载性能
+
+用iperf或者ab等测试工具，得到TCP、HTTP等的性能数据后，这些数据是否就能表示应用程序的实际性能呢？我想，你的答案应该是否定的。
+
+为了得到应用程序的实际性能，就要求性能工具本身可以模拟用户的请求负载，而iperf、ab这类工具就无能为力了。幸运的是，我们还可以用wrk、TCPCopy、Jmeter或者LoadRunner等实现这个目标
+
+✅ **开源免费（随便用、无版权、免费）**
+
+1. **wrk**
+2. **TCPCopy**
+3. **JMeter**
+
+💰 **商业收费（付费软件，极贵，企业专用）**
+
+1. **LoadRunner**
+
+以 wrk 为例，它是一个 HTTP 性能测试工具，内置了 LuaJIT，方便你根据实际需求，生成所需的请求负载，
+
+或者自定义响应的处理方法。
+
+```BASH
+# https://github.com/wg/wrk
+git clone https://github.com/wg/wrk.git
+cd wrk
+apt-get install build-essential unzip -y
+make
+cp wrk /usr/local/bin/
+
+
+# -c表⽰并发连接数1000，-t表⽰线程数为2
+# 用 wrk 压测：2线程，1000并发连接，测试 http://10.0.0.51/，默认压10秒
+root@ubuntu:~# wrk -c 1000 -t 2 http://10.0.0.51/
+
+Running 10s test @ http://10.0.0.51/     # 压测 10 秒钟
+  2 threads and 1000 connections         # 2个压测线程，1000个并发连接
+
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    # 线程统计：平均   标准差    最大值   正态分布比例
+    Latency    50.74ms   83.41ms   1.98s    98.90%
+    # 响应延迟：平均 50ms，最大 1.98s，98.9% 请求延迟很稳定
+
+    Req/Sec     9.04k     3.38k   16.11k    67.50%
+    # 每个线程每秒处理：平均 9040 请求
+
+  179940 requests in 10.05s, 194.60MB read
+  # 10秒总共处理：179940 个请求，传输 194MB
+
+  Socket errors: connect 0, read 0, write 0, timeout 311
+  # 套接字错误：连接0/读0/写0，超时 311 个（少量超时）
+
+Requests/sec:  17906.16
+# **核心性能：QPS = 17906**（每秒近 1.8 万请求）
+
+Transfer/sec:     19.36MB   #吞吐量
+# 每秒带宽：19.36 MB
+```
+
+
+
+# DNS解析时快时慢，我该怎么办？
+
+
+
+```bash
+root@ubuntu:~# nslookup time.geekbang.org
+Server:         223.5.5.5
+Address:        223.5.5.5#53
+
+Non-authoritative answer:
+Name:   time.geekbang.org
+Address: 39.106.233.176
+
+
+#  +trace：强制从根服务器开始，逐级追踪完整的DNS解析链路
+#	+nodnssec表⽰禁⽌DNS安全扩展
+
+root@ubuntu:~# dig +trace +nodnssec time.geekbang.org
+该命令用于完整追踪DNS域名解析全过程，从根服务器逐级查询到最终IP地址
+
+【第一阶段：查询根域名服务器（DNS顶层）】
+; <<>> DiG 9.11.3-1ubuntu1.15-Ubuntu <<>> +trace +nodnssec time.geekbang.org
+# dig工具版本信息与本次执行的完整命令
+;; global options: +cmd
+# dig工具的全局配置选项
+.                       3433    IN      NS      i.root-servers.net.
+# . 代表根域名，3433是DNS缓存TTL秒数，IN为互联网标准记录，NS为域名服务器记录，i.root-servers.net是根域名服务器
+.                       3433    IN      NS      g.root-servers.net.
+# 全球根域名服务器g
+.                       3433    IN      NS      b.root-servers.net.
+# 全球根域名服务器b
+.                       3433    IN      NS      c.root-servers.net.
+# 全球根域名服务器c
+.                       3433    IN      NS      e.root-servers.net.
+# 全球根域名服务器e
+.                       3433    IN      NS      h.root-servers.net.
+# 全球根域名服务器h
+.                       3433    IN      NS      f.root-servers.net.
+# 全球根域名服务器f
+.                       3433    IN      NS      l.root-servers.net.
+# 全球根域名服务器l
+.                       3433    IN      NS      m.root-servers.net.
+# 全球根域名服务器m
+.                       3433    IN      NS      j.root-servers.net.
+# 全球根域名服务器j
+.                       3433    IN      NS      k.root-servers.net.
+# 全球根域名服务器k
+.                       3433    IN      NS      d.root-servers.net.
+# 全球根域名服务器d
+.                       3433    IN      NS      a.root-servers.net.
+# 全球根域名服务器a（DNS全球共13台根域名服务器）
+;; Received 444 bytes from 223.5.5.5#53(223.5.5.5) in 33 ms
+# 从阿里云公共DNS 223.5.5.5的53端口获取根服务器列表，数据大小444字节，查询耗时33毫秒
+
+【第二阶段：根服务器指引查询org顶级域名服务器】
+org.                    172800  IN      NS      a2.org.afilias-nst.info.
+# org为顶级域名，172800是缓存TTL秒数，NS为org域名的权威管理服务器
+org.                    172800  IN      NS      b2.org.afilias-nst.org.
+# org后缀的顶级域名管理服务器
+org.                    172800  IN      NS      d0.org.afilias-nst.org.
+# org后缀的顶级域名管理服务器
+org.                    172800  IN      NS      a0.org.afilias-nst.info.
+# org后缀的顶级域名管理服务器
+org.                    172800  IN      NS      b0.org.afilias-nst.org.
+# org后缀的顶级域名管理服务器
+org.                    172800  IN      NS      c0.org.afilias-nst.info.
+# org后缀的顶级域名管理服务器
+;; Received 448 bytes from 198.41.0.4#53(a.root-servers.net) in 205 ms
+# 从根服务器a.root-servers.net的53端口获取org顶级域服务器列表，数据大小448字节，耗时205毫秒
+
+【第三阶段：org顶级域服务器指引查询geekbang.org权威DNS】
+geekbang.org.           3600    IN      NS      dns10.hichina.com.
+# geekbang.org为目标主域名，3600是缓存TTL秒数，NS为其官方权威DNS服务器（阿里云万网）
+geekbang.org.           3600    IN      NS      dns9.hichina.com.
+# geekbang.org的备用官方权威DNS服务器
+;; Received 96 bytes from 199.19.54.1#53(b0.org.afilias-nst.org) in 201 ms
+# 从org顶级域服务器b0.org.afilias-nst.org的53端口获取geekbang权威DNS，数据大小96字节，耗时201毫秒
+
+【第四阶段：权威DNS返回最终IP地址，解析完成】
+time.geekbang.org.      600     IN      A       39.106.233.176
+# time.geekbang.org为查询的完整域名，600是缓存TTL秒数，A记录为IPv4地址记录，39.106.233.176是域名最终解析IP
+;; Received 62 bytes from 39.96.153.41#53(dns10.hichina.com) in 37 ms
+# 从阿里云dns10.hichina.com的53端口获取最终IP，数据大小62字节，查询耗时37毫秒
+
+【核心术语解释】
+NS记录：域名服务器记录，作用是逐级指引DNS查询方向
+A记录：IPv4地址记录，存储域名对应的真实服务器IP地址
+TTL：缓存生存时间，单位为秒，代表DNS记录的有效缓存时长
+
+
+
+```
+
+
+
+
+
+案例
+
+```BASH
+docker pull feisky/dnsutils
+
+root@ubuntu:~# egrep -v '^#|^$' /etc/resolv.conf
+nameserver 223.5.5.5
+
+# 进⼊案例环境的SHELL终端中
+docker run -it --rm -v $(mktemp):/etc/resolv.conf feisky/dnsutils bash
+root@0794adb09619:/# nslookup time.geekbang.org 
+#命令阻塞很久后，还是失败了，报了 connection timed out 和 no servers could bereached 错误。
+
+ping 223.5.5.5 #是通的
+root@0794adb09619:/#  nslookup -debug time.geekbang.org
+;; Connection to 127.0.0.1#53(127.0.0.1) for time.geekbang.org failed: connection refused.
+;; Connection to ::1#53(::1) for time.geekbang.org failed: address not available.
+root@0794adb09619:/# cat /etc/resolv.conf
+root@0794adb09619:/# echo "nameserver 223.5.5.5">/etc/resolv.conf
+
+
+```
+
+案例2 dns不稳定
+
+```BASH
+root@ubuntu:~# docker run -it --rm --cap-add=NET_ADMIN --dns 8.8.8.8 feisky/dnsutils bash
+root@e6741ceae6b1:/# time nslookup time.geekbang.org
+Server:         8.8.8.8
+Address:        8.8.8.8#53
+
+Non-authoritative answer:
+Name:   time.geekbang.org
+Address: 39.106.233.176
+
+
+real    0m1.019s  #用了1秒， 有时间要10秒，有时候;; connection timed out; no servers could be reached
+user    0m0.000s
+sys     0m0.015s
+
+root@e6741ceae6b1:/# ping -c3 8.8.8.8
+PING 8.8.8.8 (8.8.8.8): 56 data bytes
+64 bytes from 8.8.8.8: icmp_seq=0 ttl=127 time=251.171 ms  #延时比较大
+64 bytes from 8.8.8.8: icmp_seq=1 ttl=127 time=246.636 ms
+64 bytes from 8.8.8.8: icmp_seq=2 ttl=127 time=244.618 ms
+--- 8.8.8.8 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max/stddev = 244.618/247.475/251.171/2.740 ms
+root@feb138ba0702:/# ping 223.5.5.5
+root@feb138ba0702:/# echo 'nameserver 223.5.5.5' > /etc/resolv.conf
+root@feb138ba0702:/# time nslookup time.geekbang.org
+Server:         223.5.5.5
+Address:        223.5.5.5#53
+
+Non-authoritative answer:
+Name:   time.geekbang.org
+Address: 39.106.233.176
+
+
+real    0m0.156s
+user    0m0.000s
+sys     0m0.011s
+
+root@feb138ba0702:/# /etc/init.d/dnsmasq start
+ * Starting DNS forwarder and DHCP server dnsmasq    
+ # DNS 服务器改为 dnsmasq 的监听地址，这儿是 127.0.0.1。接
+root@feb138ba0702:/#  echo nameserver 127.0.0.1 > /etc/resolv.conf
+
+root@feb138ba0702:/# time nslookup time.geekbang.org
+Server:         127.0.0.1
+Address:        127.0.0.1#53
+
+Non-authoritative answer:
+Name:   time.geekbang.org
+Address: 39.106.233.176
+
+
+real    0m1.144s
+user    0m0.009s
+sys     0m0.000s
+root@feb138ba0702:/# time nslookup time.geekbang.org
+Server:         127.0.0.1
+Address:        127.0.0.1#53
+
+Non-authoritative answer:
+Name:   time.geekbang.org
+Address: 39.106.233.176
+
+
+real    0m0.008s  #第二次走了dns缓存
+user    0m0.007s
+sys     0m0.000s
+```
+
+
+
+
+
+# 怎么使用tcpdump和Wireshark分析网络流量？
+
+
+
+
+
+```BASH
+#	Ubuntu
+apt-get	install	tcpdump	wireshark
+#	CentOS
+yum	install	-y	tcpdump	wireshark
+
+wireshark是图形化界面，推荐在win11上安装  https://www.wireshark.org/
+
+
+# ping 3 次（默认每次发送间隔1秒）
+# 假设DNS服务器还是上⼀期配置的223.5.5.5
+ping -c3 time.geekbang.org
+
+
+# 禁⽌接收从DNS服务器发送过来并包含googleusercontent的包
+
+# 禁⽌接收从DNS服务器发送过来并包含googleusercontent的包
+iptables -I INPUT -p udp --sport 53 -m string --string googleusercontent --algo bm -j DROP
+
+time nslookup geektime.org
+
+tcpdump -nn udp port 53 or host 39.106.233.176
+
+ping -n -c3 time.geekbang.org
+
+iptables -D INPUT -p udp --sport 53 -m string --string googleusercontent --algo bm -jDROP
+```
+
+
+
+ wireshark 分析
+
+```bash
+
+tcpdump -nn udp port 53 or host 39.106.233.176 -w ping.pcap
+
+ping -c3 time.geekbang.org
+
+
+# 把文件复制到win11 上，然后导入wireshark分析
+scp root@10.0.0.51:/root/ping.pcap ./
+
+-------------------------------------------------------------
+root@ubuntu:~# dig +short example.com
+172.66.147.243
+104.20.23.154
+
+
+tcpdump -nn host 172.66.147.243 -w web.pcap
+
+curl http://example.com
+
+scp root@10.0.0.51:/root/web.pcap ./
+
+
+
+No. Time       Source          Destination     Protocol Length Info
+1   0.000000   10.0.0.51       104.20.23.154  TCP      74     39346 → 80 [SYN] Seq=0 Win=64240 Len=0 MSS=1460 SACK_PERM TSval=2083205146 TSecr=0 WS=64
+# 客户端发起TCP连接请求（SYN包），序号从0开始，协商MSS、SACK、时间戳和窗口缩放
+
+2   0.123537   104.20.23.154   10.0.0.51      TCP      60     80 → 39346 [SYN, ACK] Seq=0 Ack=1 Win=64240 Len=0 MSS=1460
+# 服务器回复SYN+ACK包，确认客户端连接请求，同时发起自己的连接请求，序号从0开始，确认号为1
+
+3   0.124600   10.0.0.51       104.20.23.154  TCP      54     39346 → 80 [ACK] Seq=1 Ack=1 Win=64240 Len=0
+# 客户端回复ACK包，确认服务器的SYN请求，三次握手完成，连接正式建立
+
+4   0.125161   10.0.0.51       104.20.23.154  HTTP     129    GET / HTTP/1.1
+# 客户端发送HTTP GET请求，请求访问根路径/，使用HTTP/1.1协议
+
+5   0.125831   104.20.23.154   10.0.0.51      TCP      60     80 → 39346 [ACK] Seq=1 Ack=76 Win=64240 Len=0
+# 服务器回复ACK包，确认收到客户端的HTTP请求，确认号为76（序号1 + 数据长度75）
+
+6   0.406475   104.20.23.154   10.0.0.51      HTTP     896    HTTP/1.1 200 OK  (text/html)
+# 服务器返回HTTP 200响应，内容类型为text/html，响应体长度896字节
+
+7   0.406551   10.0.0.51       104.20.23.154  TCP      54     39346 → 80 [ACK] Seq=76 Ack=843 Win=63992 Len=0
+# 客户端回复ACK包，确认收到服务器的HTTP响应，确认号为843（序号1 + 响应数据长度842）
+
+8   0.407278   10.0.0.51       104.20.23.154  TCP      54     39346 → 80 [FIN, ACK] Seq=76 Ack=843 Win=63992 Len=0
+# 客户端发送FIN+ACK包，主动关闭连接，告知服务器客户端已无数据要发送
+
+9   0.408184   104.20.23.154   10.0.0.51      TCP      60     80 → 39346 [ACK] Seq=843 Ack=77 Win=64239 Len=0
+# 服务器回复ACK包，确认收到客户端的FIN请求，确认号为77（序号76 + 1）
+
+10  0.529955   104.20.23.154   10.0.0.51      TCP      60     80 → 39346 [FIN, PSH, ACK] Seq=843 Ack=77 Win=64239 Len=0
+# 服务器发送FIN+PSH+ACK包，关闭服务器端连接，同时确认客户端的FIN请求（合并确认和关闭步骤）
+
+11  0.530016   10.0.0.51       104.20.23.154  TCP      54     39346 → 80 [ACK] Seq=77 Ack=844 Win=63992 Len=0
+# 客户端回复ACK包，确认收到服务器的FIN请求，四次挥手完成，连接正式关闭
+```
+
+
+
+# 怎么缓解DDoS攻击带来的性能下降问题？
+
+DDoS（Distributed Denial of Service）分布式拒绝服务攻击
+
+DDoS的前身是DoS（Denail of Service），即拒绝服务攻击，指利用大量的合理请求，来占用过多的目标
+
+资源，从而使目标服务无法响应正常请求
+
+DDoS	可以分为下面几种类型。
+第一种，耗尽带宽。无论是服务器还是路由器、交换机等网络设备，带宽都有固定的上限。带宽耗尽后，就
+会发生网络拥堵，从而无法传输其他正常的网络报文。
+第二种，耗尽操作系统的资源。网络服务的正常运行，都需要一定的系统资源，像是CPU、内存等物理资
+源，以及连接表等软件资源。一旦资源耗尽，系统就不能处理其他正常的网络连接。
+第三种，消耗应用程序的运行资源。应用程序的运行，通常还需要跟其他的资源或系统交互。如果应用程序
+一直忙于处理无效请求，也会导致正常请求的处理变慢，甚至得不到响应。
+
+```bash
+apt-get	install	hping3 tcpdump curl
+
+三台虚拟机vm
+vm1 10.0.0.51  nginx+php
+vm2 10.0.0.52  dos攻击
+vm3 10.0.0.53  curl正常客户端
+
+-----vm1
+#	运⾏Nginx服务并对外开放80端⼝
+#	--network=host表⽰使⽤主机⽹络（这是为了⽅便后⾯排查问题）
+docker run -itd --name=nginx --network=host nginx
+
+
+--vm3
+# -w表⽰只输出HTTP状态码及总时间，-o表⽰将响应重定向到/dev/null
+root@ubuntu:~# curl -s -w 'Http code: %{http_code}\nTotal time:%{time_total}s\n' -o /dev/null http://10.0.0.51/
+Http code: 200
+Total time:0.002067s
+
+--vm2
+#模拟dos攻击
+#	-S参数表⽰设置TCP协议的SYN（同步序列号），-p表⽰⽬的端⼝为80
+#	-i	u10表⽰每隔10微秒发送⼀个⽹络帧
+hping3 -S -p 80 -i u10 10.0.0.51
+#上面没效果，改成u1 或者这条语句
+hping3 -S -p 80 --flood 10.0.0.51
+
+--vm3
+#	--connect-timeout表⽰连接超时时间
+root@ubuntu:~# curl -w 'Http code:%{http_code}\nTotaltime:%{time_total}s\n' -o /dev/null --connect-timeout 10 http://10.0.0.51
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   896  100   896    0     0    185      0  0:00:04  0:00:04 --:--:--   246
+Http code:200
+Totaltime:4.839046s
+
+----vm1
+root@ubuntu:~# sar -n DEV 1
+Linux 4.15.0-156-generic (ubuntu)       05/31/26        _x86_64_        (2 CPU)
+
+02:24:41        IFACE   rxpck/s   txpck/s    rxkB/s    txkB/s   rxcmp/s   txcmp/s  rxmcst/s   %ifutil
+02:24:42      docker0      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+02:24:42        ens33 135424.00  99080.00   7935.00   5806.29      0.00      0.00      0.00      6.50
+02:24:42           lo      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+
+
+# -i eth0 只抓取eth0⽹卡，-n不解析协议名和主机名
+# tcp port 80表⽰只抓取tcp协议并且端⼝号为80的⽹络帧
+tcpdump -i ens33 -n tcp port 80
+
+
+Flags [S] 表示这是一个 SYN 包。大量的 SYN 包表明，这是一个 SYN Flood 攻击。
+
+# -n表⽰不解析名字，-p表⽰显⽰连接所属进程
+# 查看 TCP 半开连接
+netstat -n -p | grep SYN_REC
+
+netstat -n -p | grep SYN_REC | wc -l
+
+# 拦截来自 10.0.0.52 的所有 TCP 入站请求，主动回包拒绝连接。
+iptables -I INPUT -s 10.0.0.52 -p tcp -j REJECT
+
+#	限制syn并发数为每秒1次
+iptables -A INPUT -p tcp --syn -m limit --limit 1/s -j ACCEPT
+#	限制单个IP在60秒新建⽴的连接数为10
+iptables -I INPUT -p tcp --dport 80 --syn -m recent --name SYN_FLOOD --update --seconds 60 --hitcount 10 -j REJECT
+
+# 默认的半连接容量
+root@ubuntu:~# sysctl net.ipv4.tcp_max_syn_backlog
+net.ipv4.tcp_max_syn_backlog = 128
+
+sysctl -w net.ipv4.tcp_max_syn_backlog=1024
+# 连接每个 SYN_RECV 时，如果失败的话，内核还会自动重试，并且默认的重试次数是5次,减少到1次
+sysctl -w net.ipv4.tcp_synack_retries=1
+
+
+# TCP SYN Cookies 也是一种专门防御 SYN Flood 攻击的方法。
+sysctl -w net.ipv4.tcp_syncookies=1
+
+
+#配置持久化
+$ cat /etc/sysctl.conf
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_synack_retries = 1
+net.ipv4.tcp_max_syn_backlog = 1024
+
+sysctl -p
 
 
 
@@ -1680,62 +3222,909 @@ iostat -d -x 1
 
 
 
+```
+
+
+
+# 案例篇：网络请求延迟变大了，我该怎么办？
+
+很多网络服务会把 ICMP 禁止掉，这也就导致我们无法用 ping ，来测试网络服务的可用性和往返延时。
+
+
+
+```BASH
+# -c表⽰发送3次请求，-S表⽰设置TCP SYN，-p表⽰端⼝号为80
+hping3 -c 3 -S -p 80 baidu.com
+
+root@ubuntu:~# hping3 -c 3 -S -p 80 baidu.com
+# hping3 发送3个TCP SYN包，探测百度80端口
+HPING baidu.com (ens33 124.237.177.164): S set, 40 headers + 0 data bytes
+# 目标IP：124.237.177.164，仅发SYN标记包，无数据载荷
+
+len=46 ip=124.237.177.164 ttl=128 id=34227 sport=80 flags=SA seq=0 win=64240 rtt=47.5 ms
+# 报文长46字节，TTL=128，源端口80，标记SA(SYN+ACK)，端口开放，往返延迟47.5ms
+
+id=34227 # IP 首部标识字段，内核用来区分不同 IP 分片，仅系统内部使用，日常无需关注。
+win=64240 #TCP 接收窗口大小（单位：字节），代表对方当前可接收的数据缓冲区上限，用于 TCP 流量控制，数值越大单次可传输数据越多。
+
+
+# --tcp表⽰使⽤TCP协议，-p表⽰端⼝号，-n表⽰不对结果中的IP地址执⾏反向域名解析
+root@ubuntu:~# traceroute --tcp -p 80 -n baidu.com
+# TCP模式追踪路由，探测80端口，-n 不解析域名，最大30跳，包长60字节
+traceroute to baidu.com (124.237.177.164), 30 hops max, 60 byte packets
+ 1  10.0.0.254  0.134 ms  0.085 ms  0.067 ms
+# 第1跳：网关10.0.0.254，三次探测延迟均极低
+ 2  * * 124.237.177.164  42.984 ms
+# 第2跳：前两次探测超时(* )，第三次直达百度IP，总延迟42.984ms
+raceroute 会在路由的每一跳发送三个包，并在收到响应后，输出往返延时。如果无响应或者响应超时（默
+认5s），就会输出一个星号。
+
+
+
+```
+
+
+
+案例
+
+```bash
+
+----VM1  10.0.0.51  NGINX+PHP
+----VM2  10.0.0.52  hping3 curl wrk
+
+--vm1
+docker run --network=host --name=good -itd nginx
+docker run --name nginx --network=host -itd feisky/nginx:latency
+
+
+--vm2
+# 80端⼝正常
+curl http://10.0.0.51 
+# 8080端⼝正常
+curl http://10.0.0.51:8080
+
+# 测试80端⼝延迟
+hping3 -c 3 -S -p 80 10.0.0.51
+
+#	测试8080端⼝延迟
+hping3 -c 3 -S -p 8080 10.0.0.51
+
+
+
+
+#	测试80端⼝性能
+wrk --latency -c 100 -t 2 --timeout 2 http://10.0.0.51/
+#	测试8080端⼝性能
+wrk --latency -c 100 -t 2 --timeout 2 http://10.0.0.51:8080/
+Running 10s test @ http://10.0.0.51:8080/
+# 压测时长10秒
+  2 threads and 100 connections
+# 2个压测线程，100个并发连接
+
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    43.77ms    6.53ms  69.62ms   95.87%
+    # 平均延迟43.77ms，最大69.62ms，延迟整体稳定
+    Req/Sec     1.14k   141.90     2.01k    85.50%
+    # 单线程每秒平均1140请求
+
+  Latency Distribution  # 延迟分位统计
+     50%   44.06ms  # 半数请求 ≤44.06ms
+     75%   44.49ms
+     90%   47.62ms
+     99%   51.93ms  # 99%请求 ≤51.93ms
+
+  22827 requests in 10.03s, 18.53MB read
+  # 10秒总计22827次请求，读取18.53MB数据
+Requests/sec:   2276.86  # 整体QPS：2277
+Transfer/sec:      1.85MB # 每秒传输1.85MB
+
+
+问题： 80端口的服务平均延时4.30ms   8080端口达到了43ms
+
+--vm1
+tcpdump -nn tcp port 8080 -w nginx.pcap
+--vm2
+wrk --latency -c 100 -t 2 --timeout 2 http://10.0.0.51:8080/
+
+#拿到win11 wirkshark 分析
+scp root@10.0.0.51:/root/nginx.pcap ./
+
+
+40ms后才发出了ACK响应,这是TCP延迟确认（Delayed ACK）的最小超时时间。
+man tcp
+
+
+# strace -f wrk --latency -c 100 -t 2 --timeout 2  http://10.0.0.51:8080/
+...
+setsockopt(52, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+...
+
+----vm1
+root@ubuntu:~# docker exec nginx cat /etc/nginx/nginx.conf|grep tcp_nodelay
+    tcp_nodelay    off;
+    
+    
+#	删除案例应⽤
+docker rm -f nginx
+#	启动优化后的应⽤
+docker run --name nginx --network=host -itd feisky/nginx:nodelay    
+
+
+--vm2
+wrk --latency -c 100 -t 2 --timeout 2 http://10.0.0.51:8080/
+
+```
+
+
+
+# 案例篇：如何优化NAT性能？
 
 
 
 
 
+```BASH
+#	Ubuntu
+apt-get install -y docker.io tcpdump curl apache2-utils
+		
+#	CentOS
+curl -fsSL https://get.docker.com | sh
+yum	install -y tcpdump curl httpd-tools
+		
+
+SystemTap 是	Linux 的一种动态追踪框架，它把用户提供的脚本，转换为内核模块来执行，用来监测和跟
+踪内核的行为。
+
+#	Ubuntu
+apt-get install -y systemtap-runtime systemtap
+#	Configure	ddebs	source
+cat /etc/apt/sources.list.d/ddebs.list
+deb http://ddebs.ubuntu.com bionic main restricted universe multiverse
+deb http://ddebs.ubuntu.com bionic-updates main restricted universe multiverse
+deb http://ddebs.ubuntu.com bionic-proposed main restricted universe multiverse
+
+
+# Install dbgsym
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F2EDC64DC5AEE1F6B9C621F0C8CAB6595FDFF622
+apt-get	update
+apt install ubuntu-dbgsym-keyring
+stap-prep
+#升级新版本内核
+apt install linux-image-4.15.0-211-generic  
+reboot
+
+apt install -y linux-headers-4.15.0-211-generic
+apt-get install linux-image-`uname -r`-dbgsym
+
+# CentOS
+yum install systemtap kernel-devel yum-utils kernel
+stab-prep
+
+
+VM1 --10.0.0.51   NGINX+PHP
+VM2 --10.0.0.52  CURL  AB
+
+--vm1
+docker run --name nginx-hostnet --privileged --network=host -itd feisky/nginx:80
+
+
+--vm2
+curl http://10.0.0.51
+#	open	files
+ulimit -n  # 默认1024
+#	临时增⼤当前会话的最⼤⽂件描述符数
+ulimit -n 65536
+#	-r表⽰套接字接收错误时仍然继续执⾏，-s表⽰设置每个请求的超时时间为2s
+ab -c 5000 -n 100000 -r -s 2 http://10.0.0.51/
+
+
+--vm1 
+docker rm -f nginx-hostnet
+docker run --name nginx --privileged -p 8080:8080 -itd feisky/nginx:nat
+
+root@ubuntu:~# docker logs nginx
+/bin/sh: 1: cannot create /proc/sys/net/netfilter/nf_conntrack_max: Permission denied
+
+#未解决
+
+# Nginx 启动后，你可以执行 iptables 命令，确认 DNAT 规则已经创建：
+iptables -nL -t nat
+
+
+--vm2
+curl http://10.0.0.51:8080/
+```
 
 
 
 
 
+# 套路篇：网络性能优化的几个思路
+
+
+
+根据指标找工具（网络性能）
+
+
+
+| 性能指标       | 工具                   | 说明                                               |
+| -------------- | ---------------------- | -------------------------------------------------- |
+| 吞吐量（BPS）  | sar、nethogs、iftop    | 分别可以查看网络接口、进程以及 IP 地址的网络吞吐量 |
+| PPS            | sar、/proc/net/dev     | 查看网络接口的 PPS                                 |
+| 连接数         | netstat、ss            | 查看网络连接数                                     |
+| 延迟           | ping、hping3           | 通过 ICMP、TCP 等测试网络延迟                      |
+| 连接跟踪数     | conntrack              | 查看和管理连接跟踪状况                             |
+| 路由           | mtr、route、traceroute | 查看路由并测试链路信息                             |
+| DNS            | dig、nslookup          | 排查 DNS 解析问题                                  |
+| 防火墙和 NAT   | iptables               | 配置和管理防火墙及 NAT 规则                        |
+| 网卡功能       | ethtool                | 查看和配置网络接口的功能                           |
+| 抓包           | tcpdump、Wireshark     | 抓包分析网络流量                                   |
+| 内核协议栈跟踪 | bcc、systemtap         | 动态跟踪内核协议栈的行为                           |
 
 
 
 
 
+根据工具查指标（网络性能)
+
+| 性能工具                                            | 主要功能                    |
+| --------------------------------------------------- | --------------------------- |
+| ifconfig、ip                                        | 配置和查看网络接口          |
+| ss                                                  | 查看网络连接数              |
+| sar、/proc/net/dev、/sys/class/net/eth0/statistics/ | 查看网络接口的网络收发情况  |
+| nethogs                                             | 查看进程的网络收发情况      |
+| iftop                                               | 查看 IP 的网络收发情况      |
+| ethtool                                             | 查看和配置网络接口          |
+| conntrack                                           | 查看和管理连接跟踪状况      |
+| nslookup、dig                                       | 排查 DNS 解析问题           |
+| mtr、route、traceroute                              | 查看路由并测试链路信息      |
+| ping、hping3                                        | 测试网络延迟                |
+| tcpdump                                             | 网络抓包工具                |
+| Wireshark                                           | 网络抓包和图形界面分析工具  |
+| iptables                                            | 配置和管理防火墙及 NAT 规则 |
+| perf                                                | 剖析内核协议栈的性能        |
+| systemtap、bcc                                      | 动态追踪内核协议栈的行为    |
+
+
+
+从网络 I/O 的角度来说，主要有下面两种优化思路。
+
+第一种是最常用的 I/O 多路复用技术 epoll，主要用来取代 select 和 poll。这其实是解决 C10K 问题的关
+键，也是目前很多网络应用默认使用的机制。
+
+第二种是使用异步 I/O（Asynchronous I/O，AIO）。AIO 允许应用程序同时发起很多 I/O 操作，而不用等
+待这些操作完成。等到 I/O完成后，系统会用事件通知的方式，告诉应用程序结果。不过，AIO 的使用比较
+复杂，你需要小心处理很多边缘情况。
+
+而从进程的工作模型来说，也有两种不同的模型用来优化。
+
+第一种，主进程+多个 worker 子进程。其中，主进程负责管理网络连接，而子进程负责实际的业务处理。
+这也是最常用的一种模型。
+
+第二种，监听到相同端口的多进程模型。在这种模型下，所有进程都会监听相同接口，并且开启
+SO_REUSEPORT 选项，由内核负责，把请求负载均衡到这些监听进程中去。
+
+
+
+除了网络I/O和进程的工作模型外，应用层的网络协议优化，也是至关重要的一点。我总结了常见的几种优化方法。
+
+- 使用长连接取代短连接，可以显著降低TCP建立连接的成本。在每秒请求次数较多时，这样做的效果非常明显。
+- 使用内存等方式，来缓存不常变化的数据，可以降低网络I/O次数，同时加快应用程序的响应速度。
+- 使用ProtocolBuffer等序列化的方式，压缩网络I/O的数据量，可以提高应用程序的吞吐。
+- 使用DNS缓存、预取、HTTPDNS等方式，减少DNS解析的延迟，也可以提升网络I/O的整体速度。
+
+
+
+## 网络性能优化
+
+tcp优化
+
+```BASH
+
+# TCP 优化实操（Ubuntu 18.04+/Debian 系列通用）
+# 所有参数都写在 /etc/sysctl.conf 里，修改后执行 sysctl -p 生效
+
+# 1. 增大处于 TIME_WAIT 状态的连接数量
+# 内核选项：net.ipv4.tcp_max_tw_buckets
+echo "net.ipv4.tcp_max_tw_buckets = 1048576" >> /etc/sysctl.conf
+sysctl -p
+# 说明：调整系统可同时容纳的 TIME_WAIT 连接上限，避免高并发场景下连接数耗尽
+
+# 2. 增大连接跟踪表的大小
+# 内核选项：net.netfilter.nf_conntrack_max
+echo "net.netfilter.nf_conntrack_max = 1048576" >> /etc/sysctl.conf
+sysctl -p
+# 说明：调整 NAT/防火墙连接跟踪表的容量，高并发压测/网关场景必须调大
+
+# 3. 缩短处于 TIME_WAIT 状态的超时时间
+# 内核选项：net.ipv4.tcp_fin_timeout
+echo "net.ipv4.tcp_fin_timeout = 15" >> /etc/sysctl.conf
+sysctl -p
+# 说明：减少 FIN-WAIT-2 状态的超时等待时间，加快连接回收
+
+# 4. 缩短连接跟踪表中处于 TIME_WAIT 状态连接的超时时间
+# 内核选项：net.netfilter.nf_conntrack_tcp_timeout_time_wait
+echo "net.netfilter.nf_conntrack_tcp_timeout_time_wait = 30" >> /etc/sysctl.conf
+sysctl -p
+# 说明：让 NAT/防火墙更快清理 TIME_WAIT 状态的连接，释放资源
+
+# 5. 允许 TIME_WAIT 状态占用的端口还可以用到新建的连接中
+# 内核选项：net.ipv4.tcp_tw_reuse
+echo "net.ipv4.tcp_tw_reuse = 1" >> /etc/sysctl.conf
+sysctl -p
+# 说明：允许新建连接复用 TIME_WAIT 状态的端口，缓解端口资源紧张问题
+
+# 6. 增大本地端口号的范围
+# 内核选项：net.ipv4.ip_local_port_range
+echo "net.ipv4.ip_local_port_range = 10000 65000" >> /etc/sysctl.conf
+sysctl -p
+# 说明：扩大客户端发起连接时可用的临时端口范围，支持更多并发连接
+
+# 7. 增加系统和应用程序的最大文件描述符数
+# 系统内核选项：fs.nr_open
+echo "fs.nr_open = 1048576" >> /etc/sysctl.conf
+sysctl -p
+# 应用程序配置：修改 /etc/security/limits.conf
+echo "* soft nofile 1048576" >> /etc/security/limits.conf
+echo "* hard nofile 1048576" >> /etc/security/limits.conf
+echo "root soft nofile 1048576" >> /etc/security/limits.conf
+echo "root hard nofile 1048576" >> /etc/security/limits.conf
+# 说明：提升进程可打开的最大文件句柄数，高并发服务必备优化
+
+# 8. 增加半连接的最大数量
+# 内核选项：net.ipv4.tcp_max_syn_backlog
+echo "net.ipv4.tcp_max_syn_backlog = 16384" >> /etc/sysctl.conf
+sysctl -p
+# 说明：调整 SYN 队列长度，提升服务端应对 SYN 洪泛攻击和高并发连接的能力
+
+# 9. 开启 SYN Cookies
+# 内核选项：net.ipv4.tcp_syncookies
+echo "net.ipv4.tcp_syncookies = 1" >> /etc/sysctl.conf
+sysctl -p
+# 说明：启用 SYN Cookies，在 SYN 队列溢出时保护系统免受攻击
+
+# 10. 缩短发送 Keepalive 探测包的间隔时间
+# 内核选项：net.ipv4.tcp_keepalive_intvl
+echo "net.ipv4.tcp_keepalive_intvl = 30" >> /etc/sysctl.conf
+sysctl -p
+# 说明：调整 TCP 保活探测包的发送间隔，加快异常连接的识别
+
+# 11. 减少 Keepalive 探测失败后通知应用程序前的重试次数
+# 内核选项：net.ipv4.tcp_keepalive_probes
+echo "net.ipv4.tcp_keepalive_probes = 3" >> /etc/sysctl.conf
+sysctl -p
+# 说明：减少 TCP 保活探测的重试次数，更快判定连接失效
+
+# 12. 缩短最后一次数据包到 Keepalive 探测包的间隔时间
+# 内核选项：net.ipv4.tcp_keepalive_time
+echo "net.ipv4.tcp_keepalive_time = 600" >> /etc/sysctl.conf
+sysctl -p
+# 说明：调整空闲连接多久后开始发送 TCP 保活探测包，提前识别死连接
+
+
+
+```
+
+
+
+udp优化
+
+```BASH
+# --------------------------
+# UDP 优化实操（Ubuntu/Debian）
+# 所有内核参数写入 /etc/sysctl.conf，sysctl -p 生效
+# --------------------------
+
+# 1. 增大套接字缓冲区大小（UDP/TCP 共用，提升吞吐量）
+# 调整单 socket 读缓冲区最大值（单位：字节，默认通常较小）
+echo "net.core.rmem_max = 16777216" >> /etc/sysctl.conf
+sysctl -p
+# 说明：设置最大读缓冲区为 16MB，适合高带宽/高吞吐场景
+
+# 调整单 socket 写缓冲区最大值
+echo "net.core.wmem_max = 16777216" >> /etc/sysctl.conf
+sysctl -p
+# 说明：设置最大写缓冲区为 16MB，提升发送大数据包的能力
+
+# 调整UDP读缓冲区默认值（内核自动分配的起始大小）
+echo "net.ipv4.udp_rmem_min = 4096" >> /etc/sysctl.conf
+sysctl -p
+# 说明：设置UDP读缓冲区最小值，避免缓冲区过小导致丢包
+
+# 调整UDP写缓冲区默认值
+echo "net.ipv4.udp_wmem_min = 4096" >> /etc/sysctl.conf
+sysctl -p
+# 说明：设置UDP写缓冲区最小值，适配低延迟小数据场景
+
+# 2. 增大本地端口号范围（与TCP共用，解决UDP临时端口不足）
+echo "net.ipv4.ip_local_port_range = 10000 65000" >> /etc/sysctl.conf
+sysctl -p
+# 说明：扩大客户端发起UDP连接的临时端口池，支持更多并发会话
+
+# 3. 根据MTU调整UDP数据包大小，减少分片
+# 先查看网卡MTU（例如eth0）
+ip link show eth0 | grep mtu
+# 说明：确认当前MTU值（常见为1500），UDP包建议不超过 MTU-28（IP头20+UDP头8）
+
+# 示例：若MTU=1500，则UDP应用层数据最大设为1472字节，避免IP分片
+# 需在应用层配置发送/接收缓冲区，例如：
+# setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize));
+# setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize));
+# 说明：应用层控制包大小，比内核参数更直接有效
+
+# 可选：开启UDP分片错误日志（排查分片问题用）
+echo "net.ipv4.udp_err_msgs = 1" >> /etc/sysctl.conf
+sysctl -p
+# 说明：开启后可在dmesg中看到UDP分片失败、ICMP不可达等错误信息
+
+# 可选：增大UDP接收队列长度，缓解高并发下的丢包
+echo "net.core.netdev_max_backlog = 16384" >> /etc/sysctl.conf
+sysctl -p
+# 说明：调整网卡驱动接收队列深度，减少大流量UDP包的内核丢包
+
+# 可选：开启UDP校验和（默认开启，确认未被禁用）
+# 通常网卡硬件自动处理，无需额外配置
+# 若需检查：ethtool -k eth0 | grep tx-udp-segmentation-offload
+# 说明：UDP校验和是基础可靠性保障，禁用会导致数据损坏
+
+# --------------------------
+# 生效与验证
+# --------------------------
+# 加载所有sysctl配置
+sysctl -p
+
+# 验证缓冲区参数
+sysctl net.core.rmem_max net.core.wmem_max net.ipv4.udp_rmem_min net.ipv4.udp_wmem_min
+
+# 验证端口范围
+sysctl net.ipv4.ip_local_port_range
+
+# 查看当前MTU
+ip addr show eth0
+
+
+补充说明：
+UDP 优化中，应用层控制包大小（不超过 MTU-28） 比内核参数更关键，分片会严重影响性能；
+缓冲区大小建议根据业务场景调整：高吞吐场景可设 16MB，低延迟场景保持默认即可；
+所有 sysctl 参数修改后重启会保留，无需额外操作。
+```
+
+
+
+网络层优化
+
+```BASH
+# --------------------------
+# 网络层优化实操（Ubuntu/Debian）
+# 所有内核参数写入 /etc/sysctl.conf，sysctl -p 生效
+# --------------------------
+
+# ========== 一、路由与转发优化 ==========
+
+# 1. 开启IP转发（NAT网关、Docker容器、路由器场景必备）
+echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+sysctl -p
+# 说明：允许服务器转发IP数据包，是NAT网关、Docker桥接网络等场景的基础配置
+
+# 2. 调整数据包TTL生存周期（默认通常为64，不建议盲目增大）
+echo "net.ipv4.ip_default_ttl = 64" >> /etc/sysctl.conf
+sysctl -p
+# 说明：TTL值过大会增加路由转发消耗，降低系统性能，一般保持默认即可
+
+# 3. 开启反向地址校验（防止IP欺骗，减少伪造IP DDoS攻击）
+echo "net.ipv4.conf.eth0.rp_filter = 1" >> /etc/sysctl.conf
+sysctl -p
+# 说明：对eth0网卡启用反向路径校验，丢弃源IP路由不可达的数据包
+echo "net.ipv4.conf.all.rp_filter = 1" >> /etc/sysctl.conf
+sysctl -p
+# 说明：对所有网卡全局启用反向地址校验，增强整体安全性
+
+# ========== 二、MTU 分片优化 ==========
+
+# 1. 查看当前网卡MTU（以eth0为例）
+ip link show eth0
+# 说明：确认当前MTU值，标准以太网默认1500，需根据网络环境调整
+
+# 2. 临时修改网卡MTU（重启后失效，适合测试）
+ip link set eth0 mtu 1500
+# 说明：设置标准以太网MTU为1500，适用于普通网络环境
+
+# 3. 永久修改网卡MTU（以netplan为例，Ubuntu 18.04+）
+cat > /etc/netplan/01-netcfg.yaml <<EOF
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: true
+      mtu: 1500
+EOF
+netplan apply
+# 说明：通过netplan配置永久生效的MTU，修改为1500适配标准以太网
+
+# 4. VXLAN/GRE隧道场景MTU调整示例
+# 场景：VXLAN隧道会额外增加50字节头部，需调整两端MTU避免分片
+# 方案A：增大交换机/路由器MTU到1550
+# 方案B：减小虚拟机/容器网卡MTU到1450（推荐）
+ip link set eth0 mtu 1450
+# 说明：MTU=1450，加上VXLAN等头部后刚好不超过1500，避免IP分片
+
+# 5. 巨帧环境MTU调整（设备支持时使用）
+ip link set eth0 mtu 9000
+# 说明：设置巨帧MTU为9000，提升大流量传输吞吐量，需交换机/网卡同时支持
+
+# ========== 三、ICMP 安全优化 ==========
+
+# 1. 禁止ICMP回显请求（外部主机无法ping通本机，隐藏主机）
+echo "net.ipv4.icmp_echo_ignore_all = 1" >> /etc/sysctl.conf
+sysctl -p
+# 说明：完全禁止响应ping请求，可避免主机探测，但会影响网络连通性排查
+
+# 2. 禁止广播ICMP回显请求（防止广播ping攻击）
+echo "net.ipv4.icmp_echo_ignore_broadcasts = 1" >> /etc/sysctl.conf
+sysctl -p
+# 说明：拒绝响应广播/多播地址的ICMP请求，减少广播风暴和DDoS攻击
+
+# 3. 可选：忽略无效ICMP错误报文（减少系统资源消耗）
+echo "net.ipv4.icmp_ignore_bogus_error_responses = 1" >> /etc/sysctl.conf
+sysctl -p
+# 说明：忽略伪造或无效的ICMP错误响应，降低系统处理负担
+
+# --------------------------
+# 生效与验证
+# --------------------------
+# 加载所有sysctl配置
+sysctl -p
+
+# 验证路由转发配置
+sysctl net.ipv4.ip_forward
+
+# 验证反向地址校验
+sysctl net.ipv4.conf.all.rp_filter
+
+# 验证ICMP配置
+sysctl net.ipv4.icmp_echo_ignore_all net.ipv4.icmp_echo_ignore_broadcasts
+
+# 验证网卡MTU
+ip addr show eth0 | grep mtu
 
 
 
 
+```
 
 
 
+数据链路层优化
+
+```BASH
+# =====================================================
+# 链路层网络优化实操（Ubuntu/Debian 通用）
+# 说明：以下命令以网卡 eth0 为例，根据实际网卡名替换
+# =====================================================
+
+# --------------------------
+# 1. 查看网卡基本信息（先确认环境）
+# --------------------------
+# 查看网卡型号、队列数、特性
+ethtool eth0
+ethtool -i eth0
+# 说明：先确认网卡是否支持多队列、RSS、硬件卸载等功能
+
+# 查看当前中断亲和性（irq 与 CPU 绑定）
+cat /proc/interrupts | grep eth0
+# 说明：找到 eth0 对应的中断号，用于后续 smp_affinity 配置
+
+# --------------------------
+# 2. 网卡中断亲和性优化（smp_affinity / irqbalance）
+# --------------------------
+# 方案A：使用 irqbalance 自动均衡（推荐，简单通用）
+apt install -y irqbalance
+systemctl enable --now irqbalance
+# 说明：irqbalance 会自动把网卡中断分配到不同 CPU 上，平衡负载
+
+# 方案B：手动设置 smp_affinity（精细控制，需先找到中断号）
+# 假设 eth0 中断号为 45（替换成实际值）
+echo 3 > /proc/irq/45/smp_affinity
+# 说明：二进制掩码 3（0b11）表示绑定到 CPU0 和 CPU1，按需调整
+
+# --------------------------
+# 3. 开启 RPS/RFS（软中断 CPU 亲和性优化）
+# --------------------------
+# 查看网卡队列数
+ls /sys/class/net/eth0/queues/
+# 假设只有 rx-0 队列，设置 RPS 到所有 CPU（CPU 数为 N）
+echo f > /sys/class/net/eth0/queues/rx-0/rps_cpus
+# 说明：十六进制掩码 f 表示 4 核 CPU，按需调整（如 0xff 对应 8 核）
+
+# 开启 RFS，让软中断和应用进程在同一 CPU 运行，提升缓存命中率
+echo 32768 > /proc/sys/net/core/rps_sock_flow_entries
+echo 32768 > /sys/class/net/eth0/queues/rx-0/rps_flow_cnt
+# 说明：rps_sock_flow_entries 是全局流表大小，建议设为 CPU 数 × 1024
+
+# --------------------------
+# 4. 网卡硬件卸载功能优化（TSO/GSO/GRO 等）
+# --------------------------
+# 查看当前网卡卸载特性
+ethtool -k eth0 | grep "offload\|segment"
+
+# 开启 TSO（TCP 分段卸载）和 UFO（UDP 分片卸载）
+ethtool -K eth0 tx-tcp-segmentation-onload on
+ethtool -K eth0 tx-udp-fragmentation-onload on
+# 说明：让网卡硬件完成 TCP/UDP 分段/分片，减轻 CPU 负担
+
+# 开启 GSO（通用分段卸载）
+ethtool -K eth0 tx-generic-segmentation-onload on
+# 说明：当网卡不支持 TSO/UFO 时，用 GSO 延迟分段到网卡发送前执行
+
+# 开启 GRO（通用接收卸载，修复 LRO 缺陷）
+ethtool -K eth0 rx-generic-receive-offload on
+# 说明：让网卡合并 TCP/UDP 接收包，减少内核处理次数，提升吞吐量
+
+# 关闭 LRO（如需 IP 转发，必须关闭，否则可能导致校验错误）
+ethtool -K eth0 rx-large-receive-offload off
+# 说明：LRO 合并的包在转发时头部不一致，会导致校验错误
+
+# 开启 RSS（多队列接收），让多个 CPU 处理网卡接收包
+# 先查看网卡支持的队列数
+ethtool -l eth0
+# 设置 TX/RX 队列数为最大支持值（假设最大 8 队列）
+ethtool -L eth0 tx 8 rx 8
+# 说明：多队列配合 RSS，可让多个 CPU 并行处理网络包
+
+# 开启 VXLAN 卸载（网卡支持时使用）
+ethtool -K eth0 tx-vxlan-segmentation-onload on
+# 说明：让网卡硬件完成 VXLAN 封装，减少 CPU 消耗
+
+# --------------------------
+# 5. 网卡队列与缓冲区优化
+# --------------------------
+# 增大网卡接收/发送队列长度
+ethtool -G eth0 rx 4096 tx 4096
+# 说明：增大队列长度可减少丢包，但可能增加延迟，需根据业务调整
+
+# 增大内核网络设备接收队列（netdev_max_backlog）
+echo 16384 > /proc/sys/net/core/netdev_max_backlog
+sysctl -w net.core.netdev_max_backlog=16384
+# 说明：增大内核接收队列深度，缓解高流量下的丢包问题
+
+# --------------------------
+# 6. 流量控制与 QoS（TC 工具）
+# --------------------------
+# 示例：为 eth0 配置简单流量控制（限速 100Mbps）
+tc qdisc add dev eth0 root tbf rate 100mbit burst 32kbit latency 400ms
+# 说明：tbf 令牌桶过滤器，可用于限速、配置 QoS，具体规则按业务调整
+
+# 查看当前 TC 配置
+tc qdisc show dev eth0
+
+# --------------------------
+# 7. 验证与持久化配置
+# --------------------------
+# 验证卸载功能是否生效
+ethtool -k eth0 | grep "onload"
+
+# 验证队列数
+ethtool -l eth0
+
+# 持久化配置（重启后保留，以 Ubuntu netplan 为例）
+cat > /etc/netplan/01-netcfg.yaml <<EOF
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: true
+      mtu: 1500
+      ethtool:
+        features:
+          tx-tcp-segmentation-onload: on
+          rx-generic-receive-offload: on
+EOF
+netplan apply
+# 说明：通过 netplan 持久化 ethtool 配置，避免重启失效
+
+
+💡 补充说明：
+所有操作以 eth0 为例，请根据实际网卡名替换；
+硬件卸载功能（TSO/GRO/RSS 等）需网卡驱动支持，部分虚拟机环境可能受限；
+LRO 功能在需要 IP 转发的场景（如 NAT 网关）必须关闭，否则会导致网络异常；
+队列长度和缓冲区大小调整需根据业务场景测试，过大可能增加延迟，过小易丢包。
+```
 
 
 
+**DPDK** 是 “用户态硬刚”：用用户态接管网卡，性能拉满，但成本高、配置复杂。
+
+**XDP** 是 “内核态轻量加速”：在内核早期阶段快速处理包，性能很高且不影响系统，适合大部分场景。
+
+```BASH
+# =====================================================
+# 一、DPDK 基础环境配置（用户态高性能网络）
+# 说明：DPDK 跳过内核协议栈，用户态轮询收发包，性能极高
+# =====================================================
+
+# --------------------------
+# 1. 安装依赖与工具
+# --------------------------
+apt update && apt install -y build-essential libnuma-dev linux-headers-$(uname -r) meson ninja
+# 说明：安装编译依赖、NUMA 库、内核头文件，用于编译 DPDK
+
+# --------------------------
+# 2. 配置大页内存（DPDK 必须）
+# --------------------------
+# 临时配置大页（重启失效，测试用）
+echo 1024 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+# 说明：分配 1024 个 2MB 大页，共 2GB，可根据需求调整
+
+# 永久配置大页（写入 /etc/default/grub）
+sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="default_hugepagesz=1G hugepagesz=1G hugepages=2 /' /etc/default/grub
+update-grub
+# 说明：配置 2 个 1GB 大页，重启后生效，适合生产环境
+reboot
+
+# 验证大页配置
+cat /proc/meminfo | grep HugePages
+# 说明：查看 HugePages_Total 是否为配置值
+
+# --------------------------
+# 3. 绑定网卡到 DPDK 驱动（uio_pci_generic / vfio-pci）
+# --------------------------
+# 加载 uio 模块
+modprobe uio
+modprobe uio_pci_generic
+# 说明：uio_pci_generic 是通用用户态 I/O 驱动，虚拟机常用
+
+# 查看网卡 PCI 地址（以 eth0 为例）
+lspci | grep -i eth
+# 示例输出：00:03.0 Ethernet controller: Virtio device
+
+# 绑定网卡到 DPDK 驱动（替换为实际 PCI 地址）
+dpdk-devbind.py --bind=uio_pci_generic 00:03.0
+# 说明：绑定后，网卡不再受内核控制，由 DPDK 应用直接管理
+
+# 验证绑定状态
+dpdk-devbind.py --status
+
+# --------------------------
+# 4. CPU 亲和性与进程绑定（DPDK 应用优化）
+# --------------------------
+# 查看 CPU 核心与 NUMA 节点
+lscpu
+numactl --hardware
+
+# 绑定 DPDK 进程到指定 CPU 核心（示例，以 l2fwd 为例）
+./build/examples/dpdk-l2fwd -l 0-3 -n 4 -- -p 0x3
+# 说明：-l 0-3 表示绑定到 CPU 0-3，-n 4 表示 4 个内存通道
+
+# 手动设置进程 CPU 亲和性（用 taskset）
+taskset -c 0-3 ./dpdk-app
+# 说明：将进程绑定到 CPU 0-3，避免上下文切换
+
+# --------------------------
+# 5. 编译运行 DPDK 示例程序（l2fwd 二层转发）
+# --------------------------
+# 下载并解压 DPDK（以 22.11 为例）
+wget https://fast.dpdk.org/rel/dpdk-22.11.tar.xz
+tar -xf dpdk-22.11.tar.xz && cd dpdk-22.11
+
+# 编译 DPDK
+meson setup build
+cd build && ninja install
+
+# 运行 l2fwd 示例
+./examples/dpdk-l2fwd -l 0-1 -n 2 -- -q 2 -p 0x3
+# 说明：使用 2 个核心，2 个队列，处理 0x3（两个端口）的流量
 
 
 
+# =====================================================
+# 二、XDP 基础环境配置（内核 eBPF 快速包处理）
+# 说明：XDP 在网卡驱动层直接处理包，性能接近 DPDK，无需绑定网卡
+# =====================================================
+
+# --------------------------
+# 1. 安装依赖与工具
+# --------------------------
+apt install -y clang llvm libbpf-dev linux-tools-$(uname -r)
+# 说明：安装 clang 编译器、libbpf 库、bpftool 工具
+
+# 加载必要内核模块
+modprobe xdp
+modprobe bpf
+modprobe tracepoints
+# 说明：加载 XDP 和 eBPF 相关模块
+
+# --------------------------
+# 2. 编写并编译简单 XDP 程序（示例：丢弃 ICMP 包）
+# --------------------------
+# 创建 xdp-drop-icmp.c
+cat > xdp-drop-icmp.c <<EOF
+#include <linux/bpf.h>
+#include <linux/if_ether.h>
+#include <linux/ip.h>
+#include <linux/in.h>
+
+SEC("xdp")
+int drop_icmp(struct xdp_md *ctx) {
+    void *data = (void *)(long)ctx->data;
+    void *data_end = (void *)(long)ctx->data_end;
+
+    struct ethhdr *eth = data;
+    if ((void *)(eth + 1) > data_end) return XDP_PASS;
+
+    if (eth->h_proto != htons(ETH_P_IP)) return XDP_PASS;
+
+    struct iphdr *ip = (void *)(eth + 1);
+    if ((void *)(ip + 1) > data_end) return XDP_PASS;
+
+    if (ip->protocol == IPPROTO_ICMP) {
+        return XDP_DROP; // 丢弃 ICMP 包
+    }
+
+    return XDP_PASS;
+}
+char _license[] SEC("license") = "GPL";
+EOF
+
+# 编译为 eBPF 字节码
+clang -O2 -target bpf -c xdp-drop-icmp.c -o xdp-drop-icmp.o
+# 说明：生成可加载的 XDP 程序
+
+# --------------------------
+# 3. 加载 XDP 程序到网卡（以 eth0 为例）
+# --------------------------
+# 使用 ip 命令加载（推荐）
+ip link set dev eth0 xdp obj xdp-drop-icmp.o sec xdp
+# 说明：将编译好的 XDP 程序附加到 eth0 网卡
+
+# 验证 XDP 程序是否加载成功
+ip link show eth0
+# 说明：输出中会有 "xdp" 标记
+
+# 使用 bpftool 查看加载的 XDP 程序
+bpftool prog list | grep xdp
+
+# --------------------------
+# 4. 卸载 XDP 程序
+# --------------------------
+ip link set dev eth0 xdp off
+# 说明：移除网卡上的 XDP 程序，恢复正常处理
+
+# --------------------------
+# 5. 高级：使用 xdpcap 抓包或 tc 配合 XDP
+# --------------------------
+# 安装 xdpcap 工具（可选）
+go install github.com/cloudflare/xdpcap/cmd/xdpcap@latest
+
+# 使用 tc 加载 XDP 程序（部分场景需要）
+tc qdisc add dev eth0 clsact
+tc filter add dev eth0 ingress bpf obj xdp-drop-icmp.o sec xdp
+# 说明：通过 tc 的 clsact 挂载点加载 XDP 程序
+
+# --------------------------
+# 6. 性能验证
+# --------------------------
+# 使用 ping 测试 XDP 效果（加载后 ICMP 会被丢弃）
+ping 192.168.1.1
+# 说明：加载 drop-icmp 程序后，ping 会无响应
+
+# 使用 perf 查看 XDP 程序性能
+perf record -e xdp:* -g -- sleep 10
+perf report
+# 说明：分析 XDP 程序的 CPU 消耗和执行情况
+```
 
 
 
+- 在应用程序中，主要是优化 I/O 模型、工作模型以及应用层的网络协议；
+- 在套接字层中，主要是优化套接字的缓冲区大小；
+- 在传输层中，主要是优化 TCP 和 UDP 协议；
+- 在网络层中，主要是优化路由、转发、分片以及 ICMP 协议；
+- 最后，在链路层中，主要是优化网络包的收发、网络功能卸载以及网卡选项。
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+如果这些方法依然不能满足你的要求，那就可以考虑，使用 DPDK 等用户态方式，绕过内核协议栈；或者，
+使用 XDP，在网络包进入内核协议栈前进行处理。
 
 
 

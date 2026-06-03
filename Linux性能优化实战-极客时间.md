@@ -4130,6 +4130,1676 @@ perf report
 
 
 
+# 为什么应用容器化后，启动慢了很多？
+
+
+
+```BASH
+apt	install	docker.io curl jq sysstat
+jq	工具专门用来在命令行中处理json。为了更好的展示json数据，我们用这个工具，来格式化json输出。
+
+# -m表⽰设置内存为512MB
+docker run --name tomcat --cpus 0.1 -m 512M -p 8080:8080 -itd feisky/tomcat:8
+
+
+
+root@ubuntu:~# curl localhost:8080
+curl: (56) Recv failure: Connection reset by peer
+
+root@ubuntu:~# docker logs -f tomcat
+Using CATALINA_BASE:   /usr/local/tomcat
+Using CATALINA_HOME:   /usr/local/tomcat
+Using CATALINA_TMPDIR: /usr/local/tomcat/temp
+Using JRE_HOME:        /docker-java-home/jre
+
+#新建一个终端
+root@ubuntu:~# for ((i=0;i<30;i++));do curl localhost:8080;sleep 1;done
+
+
+
+# 显⽰容器状态，jq⽤来格式化json输出
+docker inspect tomcat -f '{{json .State}}' | jq
+
+dmesg
+
+# 重新启动容器
+# docker rm -f tomcat
+# docker run --name tomcat --cpus 0.1 -m 512M -p 8080:8080 -itd feisky/tomcat:8
+# 查看堆内存，注意单位是字节
+docker exec tomcat java -XX:+PrintFlagsFinal -version | grep HeapSize
+
+docker exec tomcat free -h
+
+#删除问题容器
+docker rm -f tomcat
+#运⾏新的容器
+docker run --name tomcat --cpus 0.1 -m 512M -e JAVA_OPTS='-Xmx512m -Xms512m' -p 8080:8080 -itd feisky/tomcat:8
+
+docker logs -f tomcat
+# 启动过程，居然需要	27秒，太慢了吧。
+top
+
+# -t表⽰显⽰线程，-p指定进程号
+pidstat -t -p `pidof java` 1
+
+
+#查询新容器中进程的Pid
+PID=$(docker inspect tomcat -f '{{.State.Pid}}')
+#执⾏	pidstat  #同时另一终端 for ((i=0;i<50;i++));do curl localhost:8080;sleep 1;done
+pidstat -t -p $PID 1  
+# 观察发现 %wait非常高
+
+#删除旧容器
+docker rm -f tomcat
+#运⾏新容器
+docker run --name tomcat --cpus 1 -m 512M -e JAVA_OPTS='-Xmx512m -Xms512m' -p 8080:8080 -itd feisky/tomcat:8
+#查看容器⽇志  #Server startup in 847 ms
+docker logs -f tomcat    
+
+```
+
+
+
+
+
+# 服务器总是时不时丢包，我该怎么办？
+
+
+
+```bash
+vm1- 10.0.0.51  nginx +php
+vm2- 10.0.0.52 curl hping3
+
+vm1-----
+docker run --name nginx --hostname nginx --privileged -p 80:80 -itd feisky/nginx:drop
+docker ps
+
+
+vm2---
+#	-c表⽰发送10个请求，-S表⽰使⽤TCP	SYN，-p指定端⼝为80
+hping3 -c 10 -S -p 80 10.0.0.51 
+
+root@ubuntu:~# hping3 -c 10 -S -p 80 10.0.0.51
+HPING 10.0.0.51 (ens33 10.0.0.51): S set, 40 headers + 0 data bytes
+len=46 ip=10.0.0.51 ttl=63 DF id=0 sport=80 flags=SA seq=0 win=65535 rtt=7.6 ms
+len=46 ip=10.0.0.51 ttl=63 DF id=0 sport=80 flags=SA seq=2 win=65535 rtt=6.9 ms
+len=46 ip=10.0.0.51 ttl=63 DF id=0 sport=80 flags=SA seq=4 win=65535 rtt=6.4 ms
+len=46 ip=10.0.0.51 ttl=63 DF id=0 sport=80 flags=SA seq=3 win=65535 rtt=3046.3 ms
+len=46 ip=10.0.0.51 ttl=63 DF id=0 sport=80 flags=SA seq=8 win=65535 rtt=4.2 ms
+len=46 ip=10.0.0.51 ttl=63 DF id=0 sport=80 flags=SA seq=5 win=65535 rtt=3038.5 ms
+len=46 ip=10.0.0.51 ttl=63 DF id=0 sport=80 flags=SA seq=6 win=65535 rtt=3045.1 ms
+
+--- 10.0.0.51 hping statistic ---
+10 packets transmitted, 7 packets received, 30% packet loss
+round-trip min/avg/max = 4.2/1307.9/3046.3 ms
+
+
+
+docker exec -it nginx bash
+
+root@ubuntu:~# docker exec -it nginx bash
+root@nginx:/# netstat -i
+Kernel Interface table
+Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
+eth0       100       33      0      0 0            10      0      0      0 BMRU
+lo       65536        0      0      0 0             0      0      0      0 LRU
+root@nginx:/# tc -s qdisc show dev eth0
+qdisc netem 8001: root refcnt 2 limit 1000 loss 30%
+ Sent 548 bytes 10 pkt (dropped 4, overlimits 0 requeues 0)
+ backlog 0b 0p requeues 0
+root@nginx:/# tc qdisc del dev eth0 root netem loss 30%
+root@nginx:/# netstat -s
+# netstat -s 内核协议栈统计信息
+Ip:
+    Forwarding: 1                  #1：IP转发开启(容器NAT环境开启转发)
+    34 total packets received      #本机网卡一共收到34个IP数据包
+    0 forwarded                    #0个数据包经过本机转发出去
+    0 incoming packets discarded   #入站报文内核丢弃数量0
+    24 incoming packets delivered  #24个IP包递交给上层(TCP/UDP)协议处理
+    18 requests sent out          #本机向外发送18个IP报文
+Icmp:
+    0 ICMP messages received       #未收到任何ICMP报文(ping类报文)
+    0 input ICMP message failed    #ICMP报文接收失败数0
+    ICMP input histogram:
+    0 ICMP messages sent           #本机没有发送ICMP报文
+    0 ICMP messages failed         #ICMP发送失败数量0
+    ICMP output histogram:
+Tcp:
+    0 active connection openings   #主动发起TCP连接次数0(客户端向外建连)
+    0 passive connection openings  #被动监听被连接次数0(服务端被访问)
+    10 failed connection attempts  #TCP连接失败10次
+    0 connection resets received  #收到对方RST断开报文0
+    0 connections established      #成功完成三次握手建立连接0
+    24 segments received          #TCP收到分片总数24
+    26 segments sent out           #TCP发出分片总数26
+    8 segments retransmitted       #TCP重传报文8个(网络不稳/丢包触发重传)
+    0 bad segments received        #收到损坏、校验错误TCP分片0
+    0 resets sent                  #本机主动发送RST重置连接0
+Udp:
+    0 packets received             #UDP入站数据包0
+    0 packets to unknown port received #访问本机不存在UDP端口的包0
+    0 packet receive errors        #UDP接收异常报错0
+    0 packets sent                 #UDP出站发送数据包0
+    0 receive buffer errors        #UDP接收缓冲区满溢出丢包0
+    0 send buffer errors           #UDP发送缓冲区满溢出丢包0
+UdpLite:
+TcpExt:
+    10 resets received for embryonic SYN_RECV sockets #SYN_RECV半连接阶段收到RST共10次，对应上面连接失败
+    0 packet headers predicted     #TCP头部预测优化命中0
+    TCPTimeouts: 12                #TCP超时重传触发总次数12(关键异常指标)
+    TCPSynRetrans: 8               #SYN握手报文重传8次，和上面segments retransmitted对应
+IpExt:
+    InOctets: 1360                 #入站总字节1360Bytes
+    OutOctets: 792                 #出站总字节792Bytes
+    InNoECTPkts: 34                #不带拥塞标记的入站IP包34个
+    
+    
+    
+#	容器终端中执⾏exit
+root@nginx:/# exit
+
+#主机终端中查询内核配置
+root@ubuntu:~# sysctl net.netfilter.nf_conntrack_max
+net.netfilter.nf_conntrack_max = 30720
+root@ubuntu:~# sysctl net.netfilter.nf_conntrack_count
+net.netfilter.nf_conntrack_count = 1
+
+
+# 在主机中执⾏
+docker exec -it nginx bash
+# 在容器中执⾏
+root@nginx:/# iptables -t filter -nvL
+Chain INPUT (policy ACCEPT 24 packets, 960 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+   10   400 DROP       all  --  *      *       0.0.0.0/0            0.0.0.0/0            statistic mode random probability 0.29999999981
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+
+Chain OUTPUT (policy ACCEPT 18 packets, 792 bytes)
+ pkts bytes target     prot opt in     out     source               destination
+    8   352 DROP       all  --  *      *       0.0.0.0/0            0.0.0.0/0            statistic mode random probability 0.29999999981
+    
+    
+    
+root@nginx:/# iptables -t filter -D INPUT -m statistic --mode random --probability 0.30 -j DROP
+root@nginx:/# iptables -t filter -D OUTPUT -m statistic --mode random --probability 0.30 -j DROP
+
+--vm2 再次测试
+hping3 -c 10 -S -p 80 10.0.0.51
+
+# # --max-time 3：全局超时3秒，3秒内没完成整个连接+数据接收直接终止curl
+root@ubuntu:~# curl --max-time 3 http://10.0.0.51
+curl: (28) Operation timed out after 3011 milliseconds with 0 bytes received
+
+--vm1 
+tcpdump -i ens33 -nn port 80
+
+
+
+# tcpdump -i ens33 -nn port 80
+# -i ens33：抓取ens33网卡流量；-nn：IP/端口不解析域名；port80只抓80端口报文
+listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
+# 【三次握手第一步：客户端SYN请求建连】
+00:30:10.788229 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [S], seq 2859533998, win 64240, options [mss 1460,sackOK,TS val 2412398474 ecr 0,nop,wscale 6], length 0
+# Flags[S]=SYN，客户端10.0.0.52随机端口58570向服务端10.0.0.51:80发起连接请求
+# 【三次握手第二步：服务端SYN+ACK回复】
+00:30:10.788459 IP 10.0.0.51.80 > 10.0.0.52.58570: Flags [S.], seq 1100733135, ack 2859533999, win 65392, options [mss 256,sackOK,TS val 1085805845 ecr 2412398474,nop,wscale 7], length 0
+# Flags[S.]=SYN+ACK，服务端同意建立连接，确认客户端序列号
+# 【三次握手第三步：客户端ACK确认，连接正式就绪】
+00:30:10.788966 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [.], ack 1, win 1004, options [nop,nop,TS val 2412398475 ecr 1085805845], length 0
+# Flags[.]=纯ACK，三次握手完成，可以收发业务数据
+# 【客户端发送HTTP GET请求报文(P标识PSH推送数据)】
+00:30:10.789000 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412398475 ecr 1085805845], length 73: HTTP: GET / HTTP/1.1
+# P=PSH：内核立即向上层应用递交数据包，长度73字节是GET请求内容
+# =========异常开始：服务端无任何HTTP响应，客户端反复重传GET请求============
+00:30:10.997845 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412398683 ecr 1085805845], length 73: HTTP: GET / HTTP/1.1 #第一次超时重传GET
+00:30:11.214542 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412398900 ecr 1085805845], length 73: HTTP: GET / HTTP/1.1 #第二次重传
+00:30:11.664424 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412399350 ecr 1085805845], length 73: HTTP: GET / HTTP/1.1 #第三次重传
+00:30:12.492585 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412400177 ecr 1085805845], length 73: HTTP: GET / HTTP/1.1 #第四次重传
+# 客户端发FIN准备关闭连接
+00:30:13.801039 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [F.], seq 74, ack 1, win 1004, options [nop,nop,TS val 2412401487 ecr 1085805845], length 0 #F=FIN，客户端请求断开连接
+# 服务端ACK确认FIN，但依旧没有返回HTTP数据，还附带sack标记缺失报文
+00:30:13.801225 IP 10.0.0.51.80 > 10.0.0.52.58570: Flags [.], ack 1, win 511, options [nop,nop,TS val 1085808858 ecr 2412398475,nop,nop,sack 1 {74:75}], length 0
+# 客户端继续重试发送GET（连接没彻底断开，继续重试请求）
+00:30:13.802691 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412401489 ecr 1085808858], length 73: HTTP: GET / HTTP/1.1
+00:30:14.016545 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412401702 ecr 1085808858], length 73: HTTP: GET / HTTP/1.1
+00:30:14.438157 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412402124 ecr 1085808858], length 73: HTTP: GET / HTTP/1.1
+00:30:15.267316 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412402952 ecr 1085808858], length 73: HTTP: GET / HTTP/1.1
+00:30:16.929793 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412404615 ecr 1085808858], length 73: HTTP: GET / HTTP/1.1
+00:30:20.359073 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412408045 ecr 1085808858], length 73: HTTP: GET / HTTP/1.1
+00:30:27.010400 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412414697 ecr 1085808858], length 73: HTTP: GET / HTTP/1.1
+00:30:40.332472 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412428020 ecr 1085808858], length 73: HTTP: GET / HTTP/1.1
+00:31:07.721880 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [P.], seq 1:74, ack 1, win 1004, options [nop,nop,TS val 2412455408 ecr 1085808858], length 73: HTTP: GET / HTTP/1.1
+# 长时间无应答，服务端主动发FIN关闭连接
+00:31:10.861108 IP 10.0.0.51.80 > 10.0.0.52.58570: Flags [F.], seq 1, ack 1, win 511, options [nop,nop,TS val 1085865920 ecr 2412398475,nop,nop,sack 1 {74:75}], length 0
+# 客户端ACK确认关闭，四次挥手完成，会话断开
+00:31:10.861927 IP 10.0.0.52.58570 > 10.0.0.51.80: Flags [.], ack 2, win 1004, options [nop,nop,TS val 2412458550 ecr 1085865920], length 0
+
+
+
+root@ubuntu:~# docker exec -it nginx bash
+root@nginx:/# netstat -i
+Kernel Interface table
+Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
+eth0       100       92      0     56 0            42      0      0      0 BMRU
+lo       65536        0      0      0 0             0      0      0      0 LRU
+root@nginx:/# ifconfig eth0 mtu 1500
+
+
+--vm2 再次测试
+root@ubuntu:~# curl --max-time 3 http://10.0.0.51
+
+--vm1 
+ docker rm -f nginx
+ 
+ 
+ 
+# netstat -i ：查看网卡硬件收发统计、丢包、错包（链路层统计）
+netstat -i
+# 参数释义
+# Iface：网卡名称
+# MTU：网卡最大传输单元
+# RX-OK：成功收到数据包总数
+# RX-ERR：接收错误包（网卡硬件/线路故障）
+# RX-DRP：内核队列满，接收丢包
+# RX-OVR：网卡溢出丢包
+# TX-OK：成功发送数据包
+# TX-ERR：发送错误
+# TX-DRP：发送丢包
+# TX-OVR：发送溢出
+
+# netstat -s ：各协议内核栈统计（IP/TCP/UDP/ICMP四层统计）
+# 1.IP：整网收包、转发、丢弃统计
+# 2.ICMP：ping报文收发、报错统计
+# 3.TCP：连接建立、失败、重传、重置、超时（排查TCP丢包首选）
+# 4.UDP：入站、未知端口、缓冲区溢出丢包
+# 5.TcpExt：TCP详细拓展指标（SYN重传、超时、半连接重置）
+
+# 区分一句话
+# netstat -i → 网卡硬件层面丢包
+# netstat -s → 内核协议栈、应用层丢包/TCP异常
+```
+
+
+
+# 内核线程CPU利用率太高，我该怎么办？
+
+Linux在启动过程中，有三个特殊的进程，也就是PID号最小的三个进程。
+
+- 0号进程为idle进程，这也是系统创建的第一个进程，它在初始化1号和2号进程后，演变为空闲任务。当CPU上没有其他任务执行时，就会运行它。
+- 1号进程为init进程，通常是systemd进程，在用户态运行，用来管理其他用户态进程。
+- 2号进程为kthreadd进程，在内核态运行，用来管理内核线程。
+
+
+
+
+
+```bash
+# 1、kthreadd（PID固定=2，所有内核线程始祖）
+# 作用：系统唯一内核线程管理器，负责创建孵化全部其他内核线程(ksoftirqd/kworker/migration等)
+# 正常状态：CPU常年0占用，自身几乎不消耗资源
+# 查看：ps -f -p2
+
+# 2、ksoftirqd/[0~n]  每颗CPU对应1个软中断线程
+# 作用：承接硬件中断后置的软中断任务（网卡收发包NET_RX、磁盘IO等软中断）
+# 故障：ksoftirqd CPU飙升 → 网卡流量爆满、软中断过载
+# 排查：cat /proc/softirqs | grep NET_RX
+ps aux | grep ksoftirqd
+
+# 3、kswapd0 内存回收线程
+# 空闲内存不足时回收内存页，把不常用内存置换到Swap
+# CPU高 = 物理内存资源枯竭，频繁换入Swap，业务卡顿
+free -h
+
+# 4、kworker 内核工作队列线程(新版内核pdflush合并入它)
+# kworker/CPU:xx 绑定固定CPU；kworker/uPOOL:xx 全局浮动CPU
+# 占用高：磁盘脏页刷盘量大、IO负载打满
+cat /proc/meminfo | grep Dirty
+
+# 5、migration/[0~n] 进程CPU迁移线程，单CPU一个
+# 内核负载均衡，跨CPU挪动进程；CPU高代表多核负载失衡、频繁进程漂移
+mpstat -P ALL 1
+
+# 6、jbd2/sda1-xx  ext4文件系统日志线程，一个ext4分区一条
+# 负责文件系统日志落盘；IO高=对应分区大量写入操作
+iostat -x 1
+
+# 7、pdflush 老内核(3.10前)脏页刷盘线程，新内核并入kworker，已淘汰
+# 负责内存脏页定时写入磁盘
+
+速记汇总
+kthreadd(PID2)：所有内核线程老爸，只创建线程
+ksoftirqd：软中断→网络繁忙 CPU 高
+kswapd0：内存回收→缺内存、swap 暴涨
+kworker：内核任务 + 脏页落盘→磁盘 IO 满
+migration：进程跨核搬迁→CPU 负载不均衡
+jbd2：ext4 日志→分区大量写 IO
+pdflush：老旧内核脏页刷盘，新版并入 kworker
+
+
+# 作用：查看内核主线程 + 它所有派生的内核线程(ksoftirqd、kswapd等)
+ps -f --ppid 2 -p 2
+ps -fH --ppid 2 -p 2
+ps -ef | grep "\[.*\]"
+```
+
+案例
+
+
+
+```BASH
+VM1--10.0.0.51  NGINX
+VM2--10.0.0.52  hping3 curl
+
+#	运⾏Nginx服务并对外开放80端⼝
+docker run -itd --name=nginx -p 80:80 nginx
+
+--vm2
+curl http://10.0.0.51
+# -S参数表⽰设置TCP协议的SYN（同步序列号），-p表⽰⽬的端⼝为80
+# -i u10表⽰每隔10微秒发送⼀个⽹络帧
+# 注：如果你在实践过程中现象不明显，可以尝试把10调⼩，⽐如调成5甚⾄1
+hping3 -S -p 80 -i u5 10.0.0.51
+
+root@ubuntu:~# pstack 9
+Could not attach to target 9: Operation not permitted.
+detach: No such process
+root@ubuntu:~# cat /proc/9/stack
+[<0>] rcu_gp_kthread+0x8eb/0x980
+[<0>] kthread+0x121/0x140
+[<0>] ret_from_fork+0x1f/0x40
+[<0>] 0xffffffffffffffff
+# 1、报错解析：pstack 9 提示 Operation not permitted
+# 原因：PID=9是【内核线程rcu_gp】，运行在内核态，pstack(用户态调试工具)不能附着内核进程，无法抓取栈
+# 补充：普通用户进程才能用pstack/gdb attach，所有带[]的内核线程都不支持pstack
+
+# 2、cat /proc/9/stack ：内核线程专属栈查看方式（唯一可行）
+# [<0>] rcu_gp_kthread+0x8eb/0x980 → 当前正在执行RCU同步回收内核资源，rcu_gp是RCU主线程
+# [<0>] kthread+0x121/0x140 → 依托kthread内核框架创建，父进程kthreadd(PID=2)
+# [<0>] ret_from_fork+0x1f/0x40 → fork创建线程的系统调用返回栈
+
+
+root@ubuntu:~# ps -ef |grep ksoftirqd
+root          7      2  0 Jun01 ?        00:00:00 [ksoftirqd/0]
+root         16      2  0 Jun01 ?        00:00:22 [ksoftirqd/1]
+#	采样30s后退出
+perf record -a -g -p 9 -- sleep 30
+perf record -g -p 9 -- sleep 30
+
+perf record -g -p 16 -- sleep 30
+# 查看汇总报告
+perf report
+
+
+# 从perf record记录生成火焰图的工具
+git clone https://github.com/brendangregg/FlameGraph
+cd FlameGraph
+
+perf script -i /root/perf.data|	./stackcollapse-perf.pl	--all | ./flamegraph.pl > ksoftirqd.svg
+scp root@10.0.0.51:/root/FlameGraph/ksoftirqd.svg ./
+#使用win 浏览器打开
+
+```
+
+
+
+
+
+# 套路篇：分析性能问题的一般步骤
+
+系统资源瓶颈  使用   USE法
+
+## 简要释义
+
+1. **Utilization (使用率)**：资源被占用的时间百分比（CPU%、磁盘繁忙率、网卡带宽占用）
+2. **Saturation (饱和度)**：资源请求排队积压量（CPU 就绪队列、磁盘 IO 队列、TCP 全连接队列、网卡 ring 队列满）
+3. **Errors (错误数)**：各类软硬件异常报错（丢包、磁盘错误、page fault、nf_conntrack 满丢包）
+
+## 落地：CPU / 磁盘 / 网卡 / 内存全部套用 USE
+
+- CPU：使用率高、运行队列饱和、硬件异常 / 内核报错
+- 磁盘：% util、IO 队列变长、磁盘读写 error
+- 网卡：带宽占用、rx 队列满溢出、rx_fifo_errors/rx_dropped
+- 内存：内存占用、swap 飙升、OOM、缺页异常增多
+
+
+
+应用程序的监控来说，这些指标显然就不合适了。因为应用程序的核心指标，是请求数、错误数和响应时间。
+
+RED 方法，是 Weave Cloud 在监控微服务性能时，结合 Prometheus 监控，所提出的一种监控思路——即
+
+对微服务来说，监控它们的
+
+- 请求数（Rate）、
+- 错误数（Errors）
+- 响应时间（Duration）。
+
+所以，RED 方法适用于微服务应用的监控，而 USE 方法适用于系统资源的监控。
+
+```bash
+# ===================== Linux CPU性能排查工具思维导图（注释版） =====================
+# ① top：整机全局指标查看
+# 关键字段：用户CPU、系统CPU、僵尸进程、硬中断、平均负载、iowait(等待IO的CPU)
+top
+
+# ② vmstat：整机汇总：上下文切换、中断、就绪进程、D不可中断进程
+# cs：上下文切换次数 | in：硬件中断 | r：运行队列 | b：不可中断阻塞进程
+vmstat 1
+
+# ③ pidstat：按进程拆分CPU、上下文切换
+# cswch/s：自愿上下文切换(进程主动放弃CPU)
+# nvcswch/s：非自愿上下文切换(时间片用完、被抢占，CPU瓶颈特征)
+pidstat -u 1
+pidstat -w 1    # 专门看上下文切换
+
+# /proc/interrupts  硬中断明细（各硬件设备硬中断计数）
+cat /proc/interrupts
+
+# /proc/softirqs    软中断明细：NET_RX网卡收、NET_TX网卡发、SCHED调度软中断等
+# SCHED软中断上涨 → 非自愿上下文切换飙升
+cat /proc/softirqs
+
+# -------------------------- I/O分析工具 --------------------------
+dstat -d 1
+sar -d 1
+
+# -------------------------- 网络分析工具 --------------------------
+sar -n DEV 1
+tcpdump -i eth0
+
+# -------------------------- 进程深度定位工具 --------------------------
+# perf：内核/用户态调用栈采样，定位CPU高耗函数
+perf record -g -p PID sleep 3;perf report
+# strace：跟踪进程系统调用
+strace -p PID
+# ps：静态查看进程状态、僵尸进程
+ps -efH
+# execsnoop：跟踪进程exec创建，排查频繁短进程创建
+execsnoop
+
+
+
+
+
+
+```
+
+
+
+
+
+```bash
+#==================== Linux内存排查整套命令（按排查链路顺序）====================
+# 第一步：free 查看整机内存大盘：总用/剩余/可用/Buffer/Cache/Swap占用
+free -h
+#字段对应：
+# total:总内存 | used:已用 | free:空闲 | buff/cache:缓冲区+缓存 | available:真正可用内存
+# Swap:used=已换出,free=剩余交换分区
+
+# 第二步：vmstat / sar 监控内存趋势、Swap换入换出、缺页异常
+vmstat 1
+# si:swap in(磁盘→内存换入) | so:swap out(内存→磁盘换出) | fault:缺页异常
+sar -r 1       # 内存使用率趋势
+sar -S 1       # Swap分区使用趋势
+
+# ================== 判断内存瓶颈的6类现象 ==================
+# 1.系统剩余内存不足；2.可用内存available偏低；3.缓存占用过大
+# 4.内存泄漏(进程RSS持续上涨不回落)；5.缺页异常(fault)飙升
+# 6.si/so频繁非0，大量使用Swap、Swap剩余空间不足
+
+#================= 分支1：进程内存分析（定位哪个进程吃内存）=================
+# top / pidstat 查看进程内存、缺页
+top
+pidstat -r 1
+# %MEM内存占比 | VSZ虚拟内存 | RSS常驻物理内存 | minflt/majflt缺页异常
+
+# pmap / proc/pid 精细化查看单进程内存分布
+pmap -x <PID>
+cat /proc/<PID>/status    # VmRSS/VmSize实际占用
+cat /proc/<PID>/smaps    # 细分内存段(堆/栈/共享库)
+
+#================= 分支2：缓存/缓冲区占用过高分析 =================
+cachetop          # 查看页缓存占用来源进程
+cachestat         # 缓存读写命中统计
+slabtop           # 内核slab缓存(内核对象占用内存)
+pcstat            # 查看文件pagecache占用
+
+# 手动释放buff/cache（应急）
+echo 3 > /proc/sys/vm/drop_caches
+
+#================= 分支3：内存泄漏/内核内存分配分析 =================
+valgrind  # 开发态检测用户态内存泄漏
+memleak   # bpf工具在线追踪内存泄漏(生产无停机)
+strace    # 跟踪mmap/brk内存申请系统调用
+slabtop   # 内核slab泄漏排查
+cat /proc/buddyinfo # 内核伙伴系统，查看物理内存碎片
+```
+
+
+
+
+
+```bash
+#==================== Linux磁盘IO性能排查全流程（按思维导图排查顺序） ====================
+# 第一步：iostat / sar 整机磁盘大盘指标（确认IO瓶颈）
+# 指标：IO使用率%util、IOPS(r/s w/s)、吞吐量(rkB/wkB)、平均响应时间(await)
+iostat -x 1
+sar -d 1
+
+# 第二步：vmstat 辅助验证iowait、缓存、Swap波动
+# %iowait：CPU等待IO耗时占比；si/so：swap换入换出(内存不足引发被动磁盘IO)
+vmstat 1
+
+# 第三步：pidstat 按进程粒度拆分IO：单进程读、写、IO延迟
+pidstat -d 1
+
+# ================== 拆分3大类IO源头（内核线程 / 普通进程 / 内存缓存刷盘） ==================
+## 分支1：内核线程IO排查（kswapd、jbd2、kworker等内核线程刷盘IO）
+# 文件系统&磁盘分析工具
+df -h && du -sh /*                  # df磁盘挂载、du目录占用
+blktrace /dev/sda                   # 块设备IO全链路追踪
+perf record -g sleep 3;perf report  # perf定位耗IO内核函数
+biosnoop                            # bpf追踪块设备IO延迟
+biotop                              # 按磁盘排序IO占用进程
+
+## 分支2：普通用户进程IO定位
+# strace：跟踪进程读写系统调用、fd、IO参数
+strace -p <PID> -e trace=read,write
+# lsof：查看进程打开文件、磁盘、网络fd
+lsof -p <PID>
+# 从lsof结果区分：操作本地文件/磁盘分区 → 应用分析(MySQL/Redis)；操作socket → 网络分析
+
+## 分支3：内存/缓存引发的IO（脏页刷盘、缓存占用过高触发落盘）
+# 内存缓存专项排查
+cat /proc/meminfo
+cat /proc/slabinfo
+slabtop          # 内核slab内存占用
+pcstat           # 查看文件占用pagecache大小
+cachetop         # 统计页缓存对应进程
+cachestat        # 缓存读写命中、缺页统计
+
+# 补充：缓存过高应急清理(临时释放pagecache)
+echo 3 > /proc/sys/vm/drop_caches
+
+
+# 1.iostat看磁盘整体繁忙 → vmstat看iowait是否走高、swap是否频繁换入
+# 2.pidstat定位哪个进程耗IO，区分三类来源：
+#    ①kworker/jbd2/kswapd内核线程IO → biosnoop/biotop/perf查内核刷盘
+#    ②应用进程(MySQL) → strace+lsof查读写文件
+#    ③buff/cache过大脏页落盘 → cachetop/slabtop/pcstat查缓存占用
+# 3.lsof区分：进程是本地磁盘IO 还是网络IO
+```
+
+
+
+
+
+```bash
+# ===================== Linux网络收发全链路性能排查（对照网卡收发流程图） =====================
+## 收包全链路：网线→网卡硬件FIFO → DMA→RX Ring(内存环形缓冲) → ksoftirqd软中断 → 内核协议栈(链路/IP/TCP) → socket接收缓冲区 → 应用recv()
+## 发包全链路：应用send() → socket发送缓冲区 → TCP/IP封装 → TX Ring → DMA→网卡硬件FIFO → 网线发出
+
+#========== 1、第一层：网卡硬件 + RX/TX环形Ring缓冲区排查（链路层，对应图中环形缓冲区DMA）==========
+# 查看网卡Ring缓冲区大小(RX=接收环，TX=发送环，在内核内存)
+ethtool -g eth0
+# 修改Ring大小（临时扩容，解决ring满丢包）
+ethtool -G eth0 rx 2048 tx 2048
+
+# 查看网卡硬件丢包：rx_fifo_errors=网卡硬件FIFO溢出丢包；rx_dropped=RX Ring满内核丢包
+ethtool -S eth0 | grep -E "rx_fifo_errors|rx_dropped|tx_fifo_errors|tx_dropped"
+
+# 查看网卡带宽占用
+sar -n DEV 1
+
+#========== 2、第二层：软中断&内核协议栈（ksoftirqd处理网卡收发包软中断，/proc/softirqs）==========
+# 查看软中断统计：NET_RX(网卡接收软中断暴涨=收包瓶颈)、NET_TX(网卡发送软中断)
+cat /proc/softirqs
+# 查看ksoftirqd软中断线程CPU占用（ksoftirqd占用高→网卡流量过载）
+pidstat -u 1 | grep ksoftirqd
+
+#========== 3、第三层：TCP内核参数 + Socket收发缓冲区（图中套接字缓冲区）==========
+# tcp_rmem：socket接收缓冲区  min/默认/max；tcp_wmem：socket发送缓冲区
+sysctl net.ipv4.tcp_rmem
+sysctl net.ipv4.tcp_wmem
+
+# 查看TCP全连接/半连接队列溢出（listen队列满导致建连失败）
+cat /proc/net/synq
+ss -s
+
+# nf_conntrack连接跟踪满丢包（之前学的连接表打满丢新连接）
+sysctl net.netfilter.nf_conntrack_max
+sysctl net.netfilter.nf_conntrack_count
+
+#========== 4、第四层：连接&进程网络定位（套接字→应用程序）==========
+# ss：查看TCP连接状态(ESTAB/TIME_WAIT/LISTEN)，替代老旧netstat
+ss -antp
+
+# lsof：查看进程占用的socket、端口（定位哪个应用收发数据）
+lsof -i :端口号
+
+# tcpdump抓包：链路层抓原始数据包，排查报文异常
+tcpdump -i eth0 -nn
+
+#========== 5、分层故障快速定位口诀（对照收发流程图）==========
+# 1、rx_fifo_errors上涨 → 网卡硬件缓存太小，硬件丢包
+# 2、rx_dropped上涨 → RX Ring缓冲区不足，内核层丢包，ethtool -G扩容RX
+# 3、/proc/softirqs NET_RX飙升 + ksoftirqd CPU高 → 网卡收包过载，软中断瓶颈
+# 4、大量syn丢包/连接超时 → 全连接队列满(Listen)或nf_conntrack表打满
+# 5、应用recv卡顿 → socket接收缓冲区过小，调大tcp_rmem
+```
+
+
+
+
+
+应用程序瓶颈
+
+1. 资源瓶颈，其实还是指刚才提到的CPU、内存、磁盘和文件系统I/O、网络以及内核资源等各类软硬
+   件资源出现了瓶颈，从而导致应用程序的运行受限。对于这种情况，我们就可以用前面系统资源瓶颈模块提到的各种方法来分析。
+2. 依赖服务的瓶颈，也就是诸如数据库、分布式缓存、中间件等应用程序，直接或者间接调用的服务出现了性能问题，从而导致应用程序的响应变慢，或者错误率升高。这说白了就是跨应用的性能问题，使用全链路跟踪系统，就可以帮你快速定位这类问题的根源。
+3. 应用程序自身的性能问题，包括了多线程处理不当、死锁、业务算法的复杂度过高等等。对于这类问题，在我们前面讲过的应用程序指标监控以及日志监控中，观察关键环节的耗时和内部执行过程中的错误，就可以帮你缩小问题的范围。
+
+```bash
+# ================== 常规CPU/内存/磁盘/网络排查无果 → 应用进程深度性能定位命令集 ==================
+## 模块1：strace 追踪进程系统调用（定位阻塞、频繁读写、网络、文件操作瓶颈）
+# -p 附着运行中进程；-tt打印时间戳；-e 筛选指定系统调用(read/write/connect/open)
+strace -tt -p <应用PID>
+# 只监控文件读写+网络相关系统调用，精简输出
+strace -tt -e trace=open,read,write,connect,send,recv -p <PID>
+# 统计各类系统调用耗时、调用次数（-c汇总统计，跑完自动出报表）
+strace -c -p <PID>
+
+## 模块2：perf 采样 + 火焰图 定位CPU热点函数（用户态/内核态耗时最高代码）
+# 1. 对指定进程采样30秒，-g抓取调用栈，生成perf.data
+perf record -g -p <PID> -- sleep 30
+# 2. 交互式查看热点函数（文本报表）
+perf report -g
+# 3. 生成火焰图svg（需安装flamegraph脚本，可视化看CPU耗时链路）
+perf script | ./stackcollapse-perf.pl | ./flamegraph.pl > app_flame.svg
+
+# 补充：全系统采样，找不到对应进程时使用
+perf record -g -a sleep 30
+
+## 模块3：BPF动态追踪工具（无侵入动态跟踪，定位隐式瓶颈：内存泄漏、频繁打开文件、慢IO、进程频繁创建）
+### 3.1 opensnoop：跟踪进程所有open打开文件，排查频繁磁盘小文件IO
+opensnoop -p <PID>
+### 3.2 execsnoop：跟踪进程频繁fork/exec新建子进程（大量短进程消耗CPU/上下文切换）
+execsnoop
+### 3.3 memleak：在线追踪应用内存泄漏（生产无需停机，定位堆内存持续上涨）
+memleak -p <PID>
+### 3.4 biosnoop：跟踪进程单次磁盘IO耗时，排查偶发IO卡顿
+biosnoop -p <PID>
+
+
+# 1. strace看到大量read/write阻塞 → 应用磁盘IO瓶颈；大量connect阻塞 → 网络调用超时
+# 2. perf火焰图某自定义函数占CPU过高 → 应用代码逻辑CPU密集型瓶颈
+# 3. opensnoop疯狂输出大量小文件open → 应用频繁打开关闭文件拖慢性能
+# 4. execsnoop刷屏大量进程 → 程序频繁创建销毁进程，上下文切换飙升
+# 5. memleak持续统计内存上涨 → 用户态代码内存泄漏，RSS持续走高
+```
+
+
+
+# 优化性能问题的一般方法
+
+
+
+```bash
+# ========================= CPU三大优化实操命令（3类优化：CPU亲和、中断均衡、优先级+cgroup限流） =========================
+# 优化1：进程CPU亲和性（taskset：绑定进程到指定CPU核心，提升cache命中率、减少上下文切换）
+## 语法：taskset -c CPU核心号 PID；核心编号从0开始
+# 1. 运行程序时直接绑定到CPU0、1
+taskset -c 0,1 ./your_app
+
+# 2. 对已在运行的PID=1234进程，修改绑定至CPU2、3
+taskset -cp 2,3 1234
+
+# 3. 查看进程当前CPU绑定状态
+taskset -p 1234
+
+# 优化2：硬件中断IRQ多CPU负载均衡（irqbalance + /proc/irq，分散硬中断到多核，避免单CPU被软/硬中断打满）
+## 方式1：启用irqbalance服务（自动把各硬件中断分散到各个CPU，生产推荐）
+systemctl enable --now irqbalance
+
+## 方式2：手动指定某中断号绑定CPU掩码（可选，特殊网卡手动调优）
+# 查看所有硬件中断编号
+cat /proc/interrupts
+# 示例：中断号54，绑定CPU0~3，掩码0xf(二进制1111)
+echo f > /proc/irq/54/smp_affinity
+
+# 优化3：进程优先级调整 + Cgroups CPU资源配额限制（防止进程吃满整机CPU，核心业务提优先级）
+### 3.1 nice/renice 修改进程调度优先级（nice范围：-20最高优先级 ~ 19最低，root可设负值）
+# 启动程序时设置高优先级(nice -10)
+nice -n -10 ./core_business_app
+# 已运行PID=5678，调高优先级
+renice -n -15 -p 5678
+
+### 3.2 chrt 修改实时调度优先级（对核心业务设置SCHED_FIFO实时调度，抢占优先）
+# SCHED_FIFO实时优先级，优先级50
+chrt -f -p 50 5678
+
+### 3.3 cgroup 限制进程最大CPU使用率（限制进程最多占用1核CPU，避免耗空资源）
+# 1.挂载cgroup控制器（部分系统已自动挂载）
+mkdir -p /sys/fs/cgroup/cpu/my_limit_cg
+# 2.限制该cgroup最多使用1个CPU（cpu.cfs_quota_us=100000，周期默认100000）
+echo 100000 > /sys/fs/cgroup/cpu/my_limit_cg/cpu.cfs_quota_us
+echo 100000 > /sys/fs/cgroup/cpu/my_limit_cg/cpu.cfs_period_us
+# 3.把目标进程PID写入cgroup，进程自动受限
+echo 5678 > /sys/fs/cgroup/cpu/my_limit_cg/cgroup.procs
+
+# ==================优化原理备注=================
+# 1.CPU亲和taskset：进程固定跑在指定CPU，L1/L2 Cache不会频繁失效，减少缓存颠簸、减少调度
+# 2.irqbalance：网卡/磁盘硬件中断分散多核，防止单CPU被ksoftirqd占满
+# 3.nice/chrt：核心业务调高调度优先级；cgroup限流：流氓进程无法抢占全部CPU算力
+
+
+
+```
+
+
+
+
+
+```bash
+# ===================== Linux内存三大优化实操命令（对应文档3种优化方案） =====================
+## 优化1：Swap优化，尽量关闭/调低swap使用率，避免频繁磁盘换页拖慢性能
+# 1.临时关闭swap（立即生效）
+swapoff -a
+# 永久关闭swap：注释/etc/fstab里swap挂载项
+sed -i '/swap/s/^/#/' /etc/fstab
+
+# 2.不关闭swap时，调整swappiness(0~100，值越小越尽量不用swap；推荐生产设10)
+# swappiness=0：尽量优先使用物理内存，迫不得已才用swap
+sysctl -w vm.swappiness=10
+# 永久写入配置
+echo "vm.swappiness=10" >> /etc/sysctl.conf && sysctl -p
+
+# 3.应急手动释放页缓存/目录项/Inode缓存（buff/cache占用过高时）
+# 1：释放页缓存；2：释放 dentries+inode；3：全部释放
+echo 3 > /proc/sys/vm/drop_caches
+
+## 优化2：Cgroup限制进程最大内存 + 核心应用调低oom_score防OOM杀死
+### 2.1 cgroup对进程做内存配额，防止单个进程耗尽整机内存
+# 创建内存cgroup目录
+mkdir -p /sys/fs/cgroup/memory/app_limit
+# 限制最大物理内存512M，超出触发OOM
+echo 536870912 > /sys/fs/cgroup/memory/app_limit/memory.limit_in_bytes
+# 限制swap使用上限(可选，512M)
+echo 536870912 > /sys/fs/cgroup/memory/app_limit/memory.swap_limit_in_bytes
+# 将目标进程PID加入cgroup管控
+echo 1234 > /sys/fs/cgroup/memory/app_limit/cgroup.procs
+
+### 2.2 降低核心进程oom_score_adj（-1000：永远不会被OOM杀手杀掉；0默认；1000最容易被杀）
+# PID=1234是核心业务进程，设置为-900，大幅降低被OOM干掉概率
+echo -900 > /proc/1234/oom_score_adj
+# 查看当前值
+cat /proc/1234/oom_score_adj
+
+## 优化3：配置HugePage大页内存，减少缺页异常、减少动态内存分配开销
+# 1.查看当前系统空闲大页、默认单页大小(2MB标准大页)
+grep Huge /proc/meminfo
+
+# 2.临时配置预留128个2M大页(128*2M=256M)
+sysctl -w vm.nr_hugepages=128
+# 永久配置大页数量
+echo "vm.nr_hugepages=128" >> /etc/sysctl.conf && sysctl -p
+
+# 3.挂载大页文件系统，应用挂载使用
+mkdir /mnt/huge
+mount -t hugetlbfs none /mnt/huge
+
+# 补充：透明大页THP优化（数据库常用，按需开启/关闭）
+# 关闭透明大页（数据库如MySQL推荐关闭，减少内存碎片）
+echo never > /sys/kernel/mm/transparent_hugepage/enabled
+
+
+# 优化原理注释
+# 1.swap：调低swappiness减少si/so磁盘IO，swapoff彻底杜绝交换IO，解决swap频繁换入换出性能下滑
+# 2.cgroup：限制进程内存上限防内存溢出；oom_score_adj调低，核心业务规避OOM kill
+# 3.大页HugePage：大页减少TLB缺失、减少minor缺页，降低内核动态内存分配开销
+```
+
+
+
+```bash
+#==================== 磁盘&文件系统IO三类优化实操命令（对应文档3大优化方向） ====================
+## 优化1：硬件层优化（SSD替换HDD、RAID配置为硬件操作，系统侧相关查看命令）
+# 查看磁盘类型（SSD/HDD）
+lsblk -d -o name,rota
+# rota=0 → SSD固态硬盘；rota=1 → HDD机械盘
+
+# 查看RAID状态（软RAID mdadm）
+cat /proc/mdstat
+mdadm -D /dev/md0
+
+## 优化2：修改磁盘IO调度算法（SSD用noop，数据库HDD用deadline，以sda举例）
+# 1.查看当前磁盘调度策略
+cat /sys/block/sda/queue/scheduler
+
+# 2.SSD磁盘临时修改为noop调度
+echo noop > /sys/block/sda/queue/scheduler
+# 数据库机械盘临时改成deadline
+echo deadline > /sys/block/sda/queue/scheduler
+# 永久修改：内核启动参数 elevator=noop（/etc/grub.cfg配置）
+
+# 优化磁盘队列深度（增大队列提升并发IO，SSD常用）
+cat /sys/block/sda/queue/nr_requests
+echo 512 > /sys/block/sda/queue/nr_requests
+
+# 磁盘预读优化（blockdev设置预读扇区，数据库调高预读）
+# 查看当前预读(单位：扇区，1扇区=512B)
+blockdev --getra /dev/sda
+# 设置预读16384扇区=8M
+blockdev --setra 16384 /dev/sda
+
+## 优化3：内核脏页缓存参数优化（脏页刷新阈值、刷盘频率，管控buffer/cache落盘时机）
+# 查看当前脏页配置
+sysctl vm.dirty_ratio vm.dirty_background_ratio vm.dirty_expire_centisecs vm.dirty_writeback_centisecs
+
+# vm.dirty_background_ratio：后台开始异步刷脏页占内存百分比(默认10，数据库建议5)
+# vm.dirty_ratio：脏页占内存上限，超过则应用同步阻塞刷盘(默认20，数据库建议10)
+sysctl -w vm.dirty_background_ratio=5
+sysctl -w vm.dirty_ratio=10
+# 脏页超期5秒(500厘秒)强制刷盘
+sysctl -w vm.dirty_expire_centisecs=500
+# 每1秒唤醒pdflush线程检查脏页
+sysctl -w vm.dirty_writeback_centisecs=100
+
+# 永久写入sysctl配置
+echo "vm.dirty_background_ratio=5" >> /etc/sysctl.conf
+echo "vm.dirty_ratio=10" >> /etc/sysctl.conf
+sysctl -p
+
+# 优化inode/dentry缓存回收倾向(增大vfs_cache_pressure，更快回收目录和inode缓存，默认100)
+# 数值越大越积极回收，业务小文件多可上调至150~200
+sysctl -w vm.vfs_cache_pressure=150
+echo "vm.vfs_cache_pressure=150" >> /etc/sysctl.conf
+
+## 补充：文件系统挂载优化（mount参数优化，数据库挂载常用）
+# 示例：ext4挂载关闭atime(减少元数据写IO)
+# /etc/fstab挂载参数添加 noatime,nodiratime
+mount -o remount,noatime,nodiratime /data
+
+# 临时手动释放脏缓存(应急清理大量buff/cache)
+echo 3 > /proc/sys/vm/drop_caches
+
+#优化注释说明
+#1.IO调度：SSD无机械寻道→noop(极简调度)；机械盘数据库→deadline(保证IO截止时间，防饥饿)
+#2.脏页参数：调低dirty_background/ratio，减少瞬间大量刷盘引发IO毛刺；
+#3.vfs_cache_pressure上调：频繁创建删除小文件场景，加速回收inode/dentry缓存，减少内存占用；
+#4.noatime挂载：取消文件访问时间记录，大幅减少随机元数据写IO
+
+```
+
+
+
+
+
+```bash
+# ===================== Linux网络三层优化实操（内核TCP参数+网卡卸载+DPDK/XDP简介） =====================
+## 一、内核TCP协议栈参数优化（sysctl配置：缓冲区、连接数、超时、端口复用、MTU）
+# 1. TCP收发缓冲区优化（增大socket缓冲，提升大流量吞吐）
+sysctl -w net.ipv4.tcp_rmem="4096 87380 67108864"
+sysctl -w net.ipv4.tcp_wmem="4096 65536 67108864"
+# 全局TCP内存上限
+sysctl -w net.ipv4.tcp_mem="786432 1048576 1572864"
+
+# 2. 系统最大文件句柄/本地端口范围（海量连接必备）
+# 本地临时修改端口范围
+sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+# 系统全局最大fd
+echo "* soft nofile 655350" >> /etc/security/limits.conf
+echo "* hard nofile 655350" >> /etc/security/limits.conf
+
+# 3. nf_conntrack连接跟踪表扩容（防止连接表打满丢包）
+sysctl -w net.netfilter.nf_conntrack_max=1048576
+sysctl -w net.netfilter.nf_conntrack_tcp_timeout_established=3600
+
+# 4. TIME_WAIT优化：开启端口复用、快速回收，减少超时积压
+sysctl -w net.ipv4.tcp_tw_reuse=1
+sysctl -w net.ipv4.tcp_tw_recycle=0  # centos7+关闭recycle，改用reuse
+sysctl -w net.ipv4.tcp_fin_timeout=30
+
+# 5. Keepalive保活参数优化（缩短探测间隔，快速清理死连接）
+sysctl -w net.ipv4.tcp_keepalive_time=300
+sysctl -w net.ipv4.tcp_keepalive_intvl=30
+sysctl -w net.ipv4.tcp_keepalive_probes=3
+
+# 6. 开启反向地址校验，防伪造报文
+sysctl -w net.ipv4.conf.all.rp_filter=1
+sysctl -w net.ipv4.conf.default.rp_filter=1
+
+# 7. 调整网卡MTU（以太网标准1500，巨帧9000）
+ip link set eth0 mtu 9000
+
+# 永久保存所有sysctl参数
+sysctl -p /etc/sysctl.conf
+
+## 二、网卡硬件优化（ethtool：RSS/GRO/GSO/环形缓冲区、多队列、中断均衡）
+# 1. 查看网卡卸载功能状态
+ethtool -k eth0
+# 开启GRO/GSO/TX/UFO硬件卸载（把TCP分片计算交给网卡硬件，减负CPU）
+ethtool -K eth0 gro on gso on tx offload on
+
+# 2. 调整RX/TX环形Ring缓冲区大小，提升网卡缓冲，减少rx_fifo丢包
+ethtool -g eth0
+ethtool -G eth0 rx 4096 tx 4096
+
+# 3. RSS多队列+irqbalance（多中断分散多核CPU，ksoftirqd不单核打满）
+systemctl enable --now irqbalance
+# 查看网卡队列数
+ethtool -l eth0
+# 修改网卡收发队列数量（和CPU核心对齐）
+ethtool -L eth0 rx 4 tx 4
+
+# 4. 查看网卡丢包统计
+ethtool -S eth0 | grep -E "rx_fifo|rx_dropped|tx_dropped"
+
+## 三、高性能旁路方案：XDP/DPDK（绕开内核协议栈，超高并发C10M场景）
+### XDP（内核原生，无需驱动改造，eBPF抓包前置处理）
+# 查看网卡是否支持XDP
+ip link show eth0
+# 加载xdp程序（示例，需要编译xdp.o）
+ip link set eth0 xdp object xdp.o
+
+### DPDK（用户态轮询，完全绕过内核，需绑定网卡到vfio驱动）
+# 网卡绑定DPDK驱动示例
+dpdk-devbind.py --bind=vfio-pci eth0
+# 配套优化：大页+CPU亲和（前面内存/CPU优化命令：hugepage、taskset）
+
+## 补充查看网络指标命令
+ss -s                  # 全量连接统计
+sar -n DEV 1           # 网卡实时流量
+cat /proc/softirqs     # NET_RX/NET_TX软中断计数
+
+# 优化要点注释
+# 1.内核参数：调大缓冲区+端口+连接表，解决海量连接；tw_reuse复用time_wait端口减少端口耗尽
+# 2.网卡卸载GRO/GSO：TCP分段由硬件完成，大幅降低ksoftirqd软中断CPU占用
+# 3.RSS多队列：网卡多队列对应多核中断，分散NET_RX软中断负载
+# 4.XDP/DPDK：超高并发C10M场景绕内核协议栈，规避内核TCP栈瓶颈
+```
+
+
+
+# 应用程序 5 大方向优化伪代码（代码设计层面优化，配套注释）
+
+## 1、CPU 优化：精简算法、异步、减少无效计算，降低 CPU 开销
+
+
+
+```python
+# 优化前：暴力全量遍历(高CPU，O(n²)低效算法)
+def query_user_all():
+    for user in all_user_list: # 全量循环遍历，海量数据CPU暴涨
+        if user.id == target_id:
+            return user
+
+# 优化后：哈希索引+异步解耦，降低循环CPU消耗(O(1)查找)
+user_hash_map = dict() # 全局缓存索引，预加载数据
+# 异步任务：非阻塞异步处理耗时逻辑，不阻塞主线程占用CPU
+@async_task
+def preload_user_data():
+    for user in db.select("select id,name from user"):
+        user_hash_map[user.id] = user
+
+def query_user_opt(target_id):
+    return user_hash_map.get(target_id, None) # 哈希直接查找，大幅减少CPU运算
+```
+
+## 2、IO 优化：本地缓存代替频繁磁盘 SQL 查询，减少随机磁盘 IO
+
+
+
+```java
+//优化前：每次请求直接查DB，频繁磁盘IO拖慢响应
+User getUser(long uid){
+    return db.query("select * from user where id=?",uid); // 每次都落盘查库，大量IO
+}
+
+//优化后：本地内存缓存+读写分离，命中缓存不走磁盘
+Map<Long,User> localCache = new ConcurrentHashMap<>();
+User getUserOpt(long uid){
+    //1.优先读取内存缓存
+    User cacheUser = localCache.get(uid);
+    if(cacheUser != null) return cacheUser;
+    //2.缓存未命中才查询DB
+    User dbUser = db.query("select * from user where id=?",uid);
+    localCache.put(uid,dbUser); //写入缓存，后续请求复用
+    return dbUser;
+}
+```
+
+## 3、内存优化：内存池预分配 + 大页，避免频繁动态 malloc/free 缺页异常
+
+
+
+```c
+//优化前：频繁动态申请释放内存（频繁malloc造成缺页、内存碎片）
+void handle_request(){
+    char* buf = malloc(4096); // 每次临时申请内存，用完释放
+    deal_data(buf);
+    free(buf);
+}
+
+//优化后：内存池提前批量预分配内存，从池中取用，减少动态分配
+#define POOL_SIZE 1024
+char* memory_pool[POOL_SIZE];
+//程序启动时一次性预分配内存（配合系统HugePage大页）
+void pool_init(){
+    for(int i=0;i<POOL_SIZE;i++){
+        memory_pool[i] = huge_malloc(4096); // 使用大页内存申请
+    }
+}
+//从内存池获取空闲内存，无需反复malloc
+char* pool_get_buf(){
+    return get_free_node(memory_pool);
+}
+void handle_request_opt(){
+    char* buf = pool_get_buf(); // 复用池内存，无动态分配
+    deal_data(buf);
+    pool_free_buf(buf); //归还池子，不释放到OS
+}
+```
+
+## 4、网络优化：IO 多路复用 + 长连接池，替代短连接频繁建连断连
+
+
+
+```go
+//优化前：短连接模型，每次请求新建TCP，三次握手+四次挥手消耗网络/CPU
+func short_link_req(){
+    conn,err := net.Dial("tcp","127.0.0.1:3306") // 每次新建连接
+    write_data(conn,req)
+    read_resp(conn)
+    conn.Close() //用完立刻关闭，大量TIME_WAIT
+}
+
+//优化后：连接池+epoll IO多路复用，长连接复用socket
+var client_pool *ConnPool //全局长连接池，初始化提前创建N条TCP长连接
+func long_link_req(){
+    conn := client_pool.GetConn() //从池子取存活长连接，不再新建
+    write_data(conn,req)
+    read_resp(conn)
+    client_pool.PutConn(conn) //归还连接，不关闭socket
+}
+//epoll多路复用：单线程监听成千上百fd，不用一连接一线程
+func epoll_server(){
+    epfd := epoll_create()
+    epoll_add(epfd,listen_fd)
+    for{
+        events := epoll_wait(epfd) //阻塞等待就绪事件
+        for _,ev := range events{ handle_event(ev) }
+    }
+}
+```
+
+## 5、进程模型优化：多线程 / 异步队列，充分利用多核 CPU
+
+
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+#优化前：单线程串行处理请求，无法利用多核CPU
+def server_single():
+    while True:
+        req = accept_socket()
+        handle_business(req) #串行阻塞，CPU跑不满
+
+#优化后：线程池+异步任务，多线程并发利用多核
+executor = ThreadPoolExecutor(max_workers=8) #线程池数量匹配CPU核心数
+def server_multi():
+    while True:
+        req = accept_socket()
+        executor.submit(handle_business,req) #提交异步任务，多线程并行处理
+```
+
+## 补充架构优化：MQ 异步削峰、分布式负载均衡（伪代码）
+
+
+
+```java
+//优化前：同步调用下游服务，峰值压垮DB/接口
+void create_order(){
+    db.insert_order();
+    rpc_call_pay();//同步阻塞调用支付服务，高峰并发卡死
+}
+
+//优化后：MQ异步解耦，下单发消息，下游异步消费
+void create_order_mq(){
+    db.insert_order();
+    mq.send("order_topic",orderMsg); //投递消息立刻返回，不阻塞
+}
+//消费者异步处理支付
+@MqListener(topic="order_topic")
+void consume_order(OrderMsg msg){
+    rpc_call_pay(msg); //异步削峰，规避瞬时高并发
+}
+```
+
+
+
+# Linux性能工具速查
+
+
+
+```bash
+CPU性能指标
+    ├─CPU使用率
+    │   ├─用户CPU
+    │   ├─系统CPU
+    │   ├─IOWAIT
+    │   ├─软中断
+    │   ├─硬中断
+    │   ├─窃取CPU
+    │   └─客户CPU
+    ├─上下文切换
+    │   ├─自愿上下文切换
+    │   └─非自愿上下文切换
+    ├─平均负载
+    └─CPU缓存命中率
+    
+# 平均负载
+# uptime top /proc/loadavg
+# uptime最简单；top提供了更全的指标；/proc/loadavg常用于监控系统
+
+# 系统CPU使用率
+# vmstat mpstat top sar /proc/stat
+# top、vmstat、mpstat 只可以动态查看，而 sar 还可以记录历史数据；/proc/stat是其他性能工具的数据来源，也常用于监控
+
+# 进程CPU使用率
+# top ps pidstat htop atop
+# top和ps可以按CPU使用率给进程排序，而pidstat只显示实际用了CPU的进程；htop和atop以不同颜色显示更直观
+
+# 系统上下文切换
+# vmstat
+# 除了上下文切换次数，还提供运行状态和不可中断状态进程的数量
+
+# 进程上下文切换
+# pidstat
+# 注意加上 -w 选项
+
+# 软中断
+# top mpstat /proc/softirqs
+# top提供软中断CPU使用率，而/proc/softirqs和mpstat提供了各种软中断在每个CPU上的运行次数
+
+# 硬中断
+# vmstat /proc/interrupts
+# vmstat提供总的中断次数，而/proc/interrupts提供各种中断在每个CPU上运行的累积次数
+
+# 网络
+# dstat sar tcpdump
+# dstat和sar提供总的网络接收和发送情况，而tcpdump则是动态抓取正在进行的网络通讯
+
+# I/O
+# dstat sar
+# dstat和sar都提供了I/O的整体情况
+
+# CPU缓存
+# perf
+# 使用 perf stat 子命令
+
+# CPU数
+# lscpu /proc/cpuinfo
+# lscpu更直观
+
+# 事件剖析
+# perf、火焰图 execsnoop
+# perf和火焰图用来分析热点函数以及调用栈，execsnoop用来监测短时进程
+
+# 动态追踪
+# ftrace bcc、systemtap
+# ftrace用于跟踪内核函数调用栈，而bcc和systemtap则用于跟踪内核或应用程序的执行过程（注意bcc要求内核版本>=4.1）
+
+
+
+内存性能指标
+    |-系统内存指标
+    |    |-已用内存
+    |    |-剩余内存
+    |    |-可用内存
+    |    |-缺页异常
+    |    |    |-主缺页异常
+    |    |    |-次缺页异常
+    |    |-缓存/缓冲区
+    |    |    |-使用量
+    |    |    |-命中率
+    |    |-Slabs
+    |-进程内存指标
+    |    |-虚拟内存（VSS）
+    |    |-常驻内存（RSS）
+    |    |-按比例分配共享内存后的物理内存（PSS）
+    |    |-独占内存（USS）
+    |    |-共享内存
+    |    |-SWAP内存
+    |    |-缺页异常
+    |    |    |-主缺页异常
+    |    |    |-次缺页异常
+    |-SWAP
+    |    |-已用空间
+    |    |-剩余空间
+    |    |-换入速度
+    |    |-换出速度
+    
+    
+# 系统已用、可用、剩余内存
+# free、vmstat、sar /proc/meminfo
+# free最为简单，而vmstat、sar更为全面；/proc/meminfo是其他工具的数据来源，也常用于监控系统中
+
+# 进程虚拟内存、常驻内存、共享内存
+# ps、top、pidstat /proc/pid/stat /proc/pid/status
+# ps和top最简单，而pidstat则需要加上-r选项；/proc/pid/stat和/proc/pid/status是其他工具的数据来源，也常用于监控系统中
+
+# 进程内存分布
+# pmap /proc/pid/maps
+# /proc/pid/maps是pmap的数据来源
+
+# 进程Swap换出内存
+# top、/proc/pid/status
+# /proc/pid/status是top的数据来源
+
+# 进程缺页异常
+# ps、top、pidstat
+# 注意给pidstat加上-r选项
+
+# 系统换页情况
+# sar
+# 注意加上-B选项
+
+# 缓存/缓冲区用量
+# free、vmstat 、sar cachestat
+# vmstat最常用，而cachestat需要安装bcc
+
+# 缓存/缓冲区命中率
+# cachetop
+# 需要安装bcc
+
+# SWAP已用空间和剩余空间
+# free、sar
+# free最为简单，而sar还可以记录历史
+
+# Swap换入换出
+# vmstat、sar
+# vmstat最为简单，而sar还可以记录历史
+
+# 内存泄漏检测
+# memleak、valgrind
+# memleak需要安装bcc，valgrind还可以在旧版本（如3.x）内核中使用
+
+# 指定文件的缓存大小
+# pcstat
+# 需要从源码下载安装 https://github.com/tobert/pcstat   
+
+
+I/O性能指标
+    |-文件系统
+    |    |-存储空间容量、使用量以及剩余空间
+    |    |-索引节点容量、使用量以及剩余量
+    |    |-缓存
+    |    |    |-页缓存
+    |    |    |-目录项缓存
+    |    |    |-索引节点缓存
+    |    |    |-具体文件系统缓存（如ext4的缓存）
+    |    |-IOPS（文件I/O）
+    |    |-响应时间（延迟）
+    |    |-吞吐量（B/s）
+    |-磁盘
+    |    |-使用率
+    |    |-IOPS
+    |    |-吞吐量（B/s）
+    |    |-响应时间（延迟）
+    |    |-缓冲区
+    |    |-相关因素
+    |    |    |-读写类型（如顺序还是随机）
+    |    |    |-读写比例
+    |    |    |-读写大小
+    |    |    |-存储类型（如RAID级别、本地还是网络）
+    
+# 文件系统空间容量、使用量以及剩余空间
+# df
+# 详细文档可以执行 info coreutils 'df invocation' 命令查询
+
+# 索引节点容量、使用量以及剩余量
+# df
+# 注意加上 -i 选项
+
+# 页缓存和可回收Slab缓存
+# /proc/meminfo sar、vmstat
+# 注意sar需要加上-r选项，而/proc/meminfo是其他工具的数据来源，也常用于监控
+
+# 缓冲区
+# /proc/meminfo sar、vmstat
+# 注意sar需要加上-r选项，而/proc/meminfo是其他工具的数据来源，也常用于监控
+
+# 目录项、索引节点以及文件系统的缓存
+# /proc/slabinfo slabtop
+# slabtop更直观，而/proc/slabinfo常用于监控
+
+# 磁盘I/O使用率、IOPS、吞吐量、响应时间、I/O平均大小以及等待队列长度
+# iostat、sar、dstat /proc/diskstats
+# iostat最为常用，注意使用 iostat -d -x 或 sar -d 选项；/proc/diskstats则是其他工具数据来源，也常用于监控
+
+# 进程I/O大小以及I/O延迟
+# pidstat、iotop
+# 注意使用 pidstat -d 选项
+
+# 块设备I/O事件跟踪
+# blktrace
+# 需要跟blkparse配合使用，比如blktrace -d /dev/sda -o- | blkparse -i-
+
+# 进程I/O系统调用跟踪
+# strace、perf trace
+# strace只可以跟踪单个进程，而perf trace还可以跟踪所有进程的系统调用
+
+# 进程块设备I/O大小跟踪
+# biosnoop、biotop
+# 需要安装bcc
+
+# 动态追踪
+# ftrace bcc、systemtap
+# ftrace用于跟踪内核函数调用栈，而bcc和systemtap则用于跟踪内核或应用程序的执行过程（注意bcc要求内核版本>=4.1）
+
+
+网络性能指标
+    |-应用层
+    |    |-QPS（每秒请求数）
+    |    |-套接字缓冲区大小
+    |    |-DNS解析延迟
+    |    |-响应时间
+    |    |-错误数
+    |-网络层
+    |    |-丢包数
+    |    |-TTL
+    |    |-拆包
+    |-链路层
+    |    |-PPS（每秒网络帧数）
+    |    |-BPS（每秒字节数）
+    |    |-丢包数
+    |    |-错误数
+    |-传输层
+    |    |-TCP连接数
+    |    |    |-全连接
+    |    |    |-半连接
+    |    |    |-TIMEWAIT
+    |    |-连接跟踪数
+    |    |-重传数
+    |    |-丢包数
+    |    |-延迟
+    
+# 吞吐量（BPS）
+# sar、nethogs、iftop /proc/net/dev
+# 分别可以查看网络接口、进程以及IP地址的网络吞吐量；/proc/net/dev常用于监控
+
+# 吞吐量（PPS）
+# sar、/proc/net/dev
+# 注意使用sar -n DEV选项
+
+# 网络连接数
+# netstat、ss
+# ss速度更快
+
+# 网络错误数
+# netstat、sar
+# 注意使用netstat -s或者sar -n EDEV/EIP选项
+
+# 网络延迟
+# ping、hping3
+# ping基于ICMP，而hping3则基于TCP协议
+
+# 连接跟踪数
+# conntrack /proc/sys/net/netfilter/nf_conntrack_count /proc/sys/net/netfilter/nf_conntrack_max
+# conntrack可用来查看所有连接跟踪的相信信息，nf_conntrack_count只是连接跟踪的数量，而nf_conntrack_max则限制了总的连接跟踪数量
+
+# 路由
+# mtr、traceroute、route
+# route用于查询路由表，而mtr和traceroute则用来排查和定位网络链路中的路由问题
+
+# DNS
+# dig、nslookup
+# 用于排查DNS解析的问题
+
+# 防火墙和NAT
+# iptables
+# 用于排查防火墙及NAT的问题
+
+# 网卡选项
+# ethtool
+# 用于查看和配置网络接口的功能选项
+
+# 网络抓包
+# tcpdump、Wireshark
+# 通常在服务器中使用tcpdump抓包后再复制出来用Wireshark的图形界面分析
+
+# 动态追踪
+# ftrace bcc、systemtap
+# ftrace用于跟踪内核函数调用栈，而bcc和systemtap则用于跟踪内核或应用程序的执行过程（注意bcc要求内核版本>=4.1）
+```
+
+
+
+
+
+# 基准测试工具
+
+## Linux 各子系统实操基准测试工具分类
+
+## 1.CPU 基准测试
+
+**实操工具：sysbench、UnixBench、lmbench、perf bench**
+
+- sysbench：多线程压测 CPU 运算、质数计算，最简常用；
+- UnixBench：整机综合跑分，测试 CPU、进程调度综合性能；
+- lmbench：测算进程切换、系统调用延迟；
+- perf bench：内核自带，测试调度、指令性能。
+
+## 2. 内存基准测试
+
+**实操工具：sysbench、lmbench、perf bench**
+
+- sysbench：批量读写内存，测内存吞吐、分配效率；
+- lmbench：测试内存访问时延、缓存命中率。
+
+## 3. 磁盘 / IO 基准测试（重点实操）
+
+**实操工具：fio、dd、hdparm**
+
+- fio：工业级 IO 压测，自定义随机 / 顺序读写、块大小，测 IOPS、时延、带宽（生产首选）；
+- dd：简易测速，测磁盘连续读写速度；
+- hdparm：测试磁盘裸读速度。
+
+## 4. 网络基准测试（重点实操）
+
+**实操工具：iperf、pktgen、hping3、ping/mtr/traceroute**
+
+- iperf：TCP/UDP 带宽、吞吐、时延测试；
+- pktgen：内核发包工具，高 PPS 压测网卡极限；
+- hping3：构造自定义 TCP 报文，测网络连通、丢包；
+- ping/mtr：链路时延、丢包率排查。
+
+## 5. 应用层（Web 服务）基准测试
+
+**实操工具：ab、wrk、jmeter**
+
+- ab：Apache 自带，短连接压测 Nginx/HTTP 接口；
+- wrk：高并发长连接压测，支持 lua 脚本，测 QPS；
+- jmeter：复杂业务场景、多接口压力测试。
+
+## 6. 编译 / 系统库测试
+
+**实操工具：gcc/llvm、openssl**
+
+- openssl：加解密运算，压测 CPU 加解密性能；
+- gcc/llvm：编译跑分，测试整机编译吞吐。
+
+```BASH
+#=========================CPU基准测试=========================
+#1.sysbench CPU质数运算压测：4线程、运行30秒
+sysbench cpu --cpu-max-prime=20000 --threads=4 run
+
+#2.UnixBench整机综合跑分
+#./Run
+
+#3.perf bench 内核调度性能测试
+perf bench sched all
+
+#=========================内存基准测试=======================
+#sysbench内存压测：4线程，读写总大小10G，块1K
+sysbench memory --memory-block-size=1K --memory-total-size=10G --threads=4 run
+
+#=========================磁盘IO基准测试======================
+#1.fio磁盘IO测试，测试目录/data
+##随机读
+fio -name=randread -directory=/data -ioengine=libaio -rw=randread -bs=4k -size=1G -numjobs=4
+##随机写
+fio -name=randwrite -directory=/data -ioengine=libaio -rw=randwrite -bs=4k -size=1G -numjobs=4
+##顺序读写
+fio -name=seqrw -directory=/data -rw=rw -bs=128k -size=2G -numjobs=2
+
+#2.dd简易磁盘测速
+##顺序写
+dd if=/dev/zero of=/data/test bs=1G count=1 oflag=direct
+##顺序读
+dd if=/data/test of=/dev/null bs=1G count=1 iflag=direct
+
+#3.hdparm测磁盘读速度
+hdparm -t /dev/sda
+
+#=========================网络基准测试=======================
+#1.iperf TCP带宽测试
+##服务端执行：iperf -s
+##客户端执行：iperf -c 192.168.1.100
+##UDP测速：iperf -u -c 192.168.1.100
+
+#2.mtr链路延迟丢包探测
+mtr 192.168.1.100
+
+#3.hping3探测目标80端口
+hping3 -S -p 80 192.168.1.100
+
+#=========================Web应用压测(Nginx)=================
+#1.ab短连接压测：100并发、总请求1000次
+ab -c 100 -n 1000 http://127.0.0.1/
+
+#2.wrk长连接压测：12线程200连接，持续30s
+wrk -t12 -c200 -d30s http://127.0.0.1/
+
+#3.jmeter 直接命令启动图形界面
+#jmeter
+
+#=========================Openssl加解密CPU跑分===============
+openssl speed aes-256-cbc
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

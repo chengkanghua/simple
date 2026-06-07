@@ -7,6 +7,7 @@ DBMS（database management system）
 yum -y install cmake bison-devel ncurses-devel libaio-devel gcc gcc-c++ automake autoconf
 #卸载冲突 的mariadb
 rpm -qa |grep mariadb  
+yum remove mariadb*
 
 #1.创建安装目录：
 mkdir /application
@@ -92,6 +93,7 @@ EOF
 #加载配置
 systemctl daemon-reload
 systemctl start mysqld
+systemctl status mysqld
 
 #MySQL查看报错：
 #tail -100 /application/mysql/data/db01.err
@@ -102,9 +104,14 @@ systemctl start mysqld
 #查看库：
 #mysql> show databases;
 
-#修改密码
+# 首次初始化密码
 #/usr/local/mysql/bin/mysqladmin -u root password 'Ckh123.com'
+/application/mysql/bin/mysqladmin -u root password 'Ckh123.com'
 #mysql -u root -pCkh123.com
+mysql -uroot -pCkh123.com -S /tmp/mysql.sock
+#有密码第二次再改
+mysqladmin -u root -pCkh123.com password '123'
+
 ```
 
 # mysql体系结构
@@ -122,22 +129,174 @@ systemctl start mysqld
 
 - 应用程序连接mysql方式
 	- tcp/ip   mysql -uroot -pxxx -h10.0.0.5
-	- 套接字   mysql -uroot -S /tmp/mysql.sock 
-	思考：mysql -uroot -poldboy123是使用了哪个连接方式？？？ socket
+	
+	- 套接字   mysql -uroot -S /tmp/mysql.sock  ， # 这个是  本地套接字（Socket / Unix Domain Socket）连接
+	  思考：mysql -uroot -pCkh123.com是使用了哪个连接方式？？？ socket 
+	
+	   答： 配置文件如果没有指定网络连接参数, 默认是 socket 连接.
 
 
 什么是实例
 	-1 MySQL的后台进程+线程+预分配内存结构
 	-2 mysql启动过程会启动后台守护进程，并生成工作线程，预分配内存结构供mysql处理数据使用。
 	
-# mysqld服务器程序构成
-客户端 --》 连接器--》 分析器（查询缓存有就直接返回）--》优化器--》执行器 --》 存储引擎层
 
-连接器:管理连接,权限验证
-分析器:词法分析,语法分析
-优化器:执行计划生成,索引选择
-执行器:操作引擎,返回结果
-存储引擎层: 存储数据，提供读写接口
+# mysqld服务器程序构成
+
+
+
+```BASH
+mysqld = MySQL 服务器主程序
+它是一个单进程多线程架构的程序，负责接收连接、管理内存、管理存储引擎、管理磁盘文件
+
+
+mysqld 程序运行时的 核心结构（最经典图）
+客户端
+   ↓
+连接管理模块（连接/线程/鉴权）
+   ↓
+SQL 接口 → 查询解析 → 查询优化 → 查询执行
+   ↓
+存储引擎层（InnoDB/MyISAM...）
+   ↓
+系统文件（数据文件、日志文件、socket、pid）
+
+
+mysqld 服务器程序 核心 4 大组成部分
+1. 连接管理模块（Connection Management）
+负责：接收客户端连接
+处理 TCP/IP 连接（3306 端口）
+处理 UNIX Socket 连接（/tmp/mysql.sock）
+管理线程池（每来一个连接创建一个线程）
+验证用户名密码
+你用的：
+mysql -uroot -p
+就是和这个模块交互。
+2. 查询处理模块（Query Handling / SQL Interface）
+负责：处理 SQL
+包含 4 个步骤：
+解析器（Parser）：检查 SQL 语法是否正确
+预处理器（Preprocessor）：检查表、权限
+查询优化器（Optimizer）：选择最优执行计划
+执行器（Executor）：调用存储引擎获取数据
+3. 存储引擎层（Storage Engines）
+负责：数据怎么存、怎么取
+插件式架构，可插拔：
+InnoDB（默认，支持事务、行锁、外键）
+MyISAM（不支持事务）
+Memory（内存表）
+CSV、Blackhole 等
+MySQL 5.6 默认：InnoDB
+
+
+系统服务模块（System Services）
+后台支撑所有功能
+内存管理（缓冲池、日志缓冲）
+事务管理
+锁机制（行锁、表锁、MDL 锁）
+日志模块（redo log、undo log、binlog）
+复制模块
+备份恢复
+故障自动恢复
+```
+
+面试题
+
+```BASH
+#==================================================
+#              mysqld 服务器程序构成（核心 5 大模块）
+#==================================================
+
+# 1. 连接管理模块（Connection Management）
+# 作用：接收客户端连接、验证、创建线程
+# 支持：TCP/IP(3306)、UNIX Socket(/tmp/mysql.sock)
+# 功能：身份验证、线程管理、连接回收
+
+# 2. SQL 接口模块（SQL Interface）
+# 作用：接收 SQL 命令，返回结果集
+# 支持：DML、DDL、DCL、存储过程、触发器
+
+# 3. 查询解析与优化模块（Parser + Optimizer）
+# 解析器：检查 SQL 语法、生成解析树
+# 预处理器：检查表、列、权限是否合法
+# 优化器：生成最优执行计划（索引选择、关联顺序）
+
+# 4. 执行器 + 存储引擎层
+# 执行器：调用存储引擎接口
+# 存储引擎：真正负责数据读写（InnoDB/MyISAM/Memory）
+# MySQL 特点：插件式存储引擎架构
+
+# 5. 系统服务模块（System Services）
+# 功能：
+#   内存管理（缓冲池、日志缓冲）
+#   事务管理（ACID）
+#   锁机制（行锁、表锁、MDL锁）
+#   日志模块（redo/undo/binlog）
+#   主从复制
+#   备份恢复
+#   故障自动恢复
+
+#==================================================
+#                  经典流程（必须背）
+#==================================================
+客户端连接
+   ↓
+连接管理（验证、线程）
+   ↓
+SQL 接口（接收 SQL）
+   ↓
+解析器 → 优化器 → 执行器
+   ↓
+存储引擎（InnoDB）
+   ↓
+磁盘文件（ibd、frm、log）
+
+#==================================================
+#               mysqld 高频面试题（12 道）
+#==================================================
+
+1. mysqld 是什么？
+答：MySQL 服务器主进程，单进程多线程架构。
+
+2. mysqld 由哪 5 大模块组成？
+答：连接管理、SQL接口、解析优化、执行器+存储引擎、系统服务。
+
+3. 连接管理模块干什么？
+答：接收连接、验证用户、创建线程。
+
+4. MySQL 有哪两种连接方式？
+答：TCP/IP(3306)、UNIX Socket(本地最快)。
+
+5. 优化器的作用是什么？
+答：生成最优 SQL 执行计划。
+
+6. 执行器干什么？
+答：调用存储引擎，完成数据读写。
+
+7. 什么是插件式存储引擎？
+答：引擎可插拔，不影响核心服务（InnoDB/MyISAM 切换）。
+
+8. 默认存储引擎是什么？
+答：InnoDB。
+
+9. InnoDB 优点？
+答：事务、行锁、外键、崩溃恢复。
+
+10. 系统服务模块包含哪些功能？
+答：内存、事务、锁、日志、复制、恢复。
+
+11. MySQL 最小 I/O 单元是什么？
+答：页（16K）。
+
+12. SQL 语句在 mysqld 内部的执行流程？
+答：连接 → SQL 接收 → 解析 → 优化 → 执行 → 引擎 → 磁盘
+```
+
+
+
+
+
+
 
 # mysql结构
 逻辑结构
@@ -149,70 +308,229 @@ systemctl start mysqld
 二维表:
 select user,password,host from mysql.user;
 
-mysql逻辑结构与linux系统对比:
-mysql           			linux 
-库							目录
-show databases;  			ls -l /
-use mysql;       			cd /mysql 
-表               			文件
-show tables;     			ls
-二维表=元数据+真实数据行	文件=文件名+文件属性
+**mysql逻辑结构与linux系统对比:**
+
+| MySQL                    | Linux                |
+| ------------------------ | -------------------- |
+| 库                       | 目录                 |
+| show databases;          | ls-l /               |
+| use mysql                | cd /mysql            |
+| 表                       | 文件                 |
+| show tables;             | ls                   |
+| 二维表=元数据+真实数据行 | 文件=文件名+文件属性 |
 
 # mysql 物理结构
-myisam:
-	user.frm
-	user.MYD
-	user.MYI
-innodb:
-	old.frm
-	old.ibd
 
-段、区、页（块）
-● 1、段：理论上一个表就是一个段，由多个区构成，（分区表是一个分区一个段）
-● 2、区：连续的多个页构成
-● 3、页：最小的数据存储单元，默认是16k
+```BASH
+#=============================
+# MySQL 物理结构
+#=============================
+
+#-----------------------------
+# 一、MyISAM 存储引擎物理文件
+#-----------------------------
+# 每张表 = 3个文件
+user.frm    # 表结构文件（表定义、字段、索引结构）
+user.MYD    # 数据文件（MyISAM Data）
+user.MYI    # 索引文件（MyISAM Index）
+
+#-----------------------------
+# 二、InnoDB 存储引擎物理文件
+#-----------------------------
+# 每张表 = 2个文件（独立表空间）
+old.frm     # 表结构文件
+old.ibd     # 数据 + 索引 都在这个文件里
+
+#-----------------------------
+# 三、InnoDB 逻辑存储结构
+#-----------------------------
+# 三层结构：段 → 区 → 页（块）
+
+# 1. 段 (Segment)
+# - 理论上：一张表就是一个段
+# - 由多个 区 组成
+# - 分区表：一个分区 = 一个段
+
+# 2. 区 (Extent)
+# - 由连续的多个 页 组成
+# - 固定大小：1MB（默认）
+
+# 3. 页 (Page)
+# - 最小的数据 I/O 单元
+# - 默认大小：16K
+# - 所有读写都以页为单位
+
+
+段、区、页 到底是什么？（用 “书本” 比喻）
+1. 页（Page）= 一张纸
+最小单位
+大小：16K
+作用：MySQL 读写数据的最小单元
+类比：你写字不能只写半个字，MySQL 读写不能只读写 1B，必须整页操作
+2. 区（Extent）= 一叠纸
+由连续 64 个页组成
+大小：64 × 16K = 1MB（固定）
+作用：为了连续存储，减少磁盘碎片
+类比：纸不是散乱放的，而是一叠一叠放
+3. 段（Segment）= 一本书
+由很多个区组成
+一个表 ≈ 一个段
+类比：一本书 = 很多叠纸组成
+终极层级关系（必须背）
+plaintext
+一张表 = 1个段
+1个段 = N 个 区（1MB）
+1个区 = 64 个 页（16K）
+1个页 = 16K 字节
+```
+
+
+
+面试题
+
+```BASH
+#=============================================
+# MySQL 物理结构 面试必背 15 题
+#=============================================
+
+#-----------------------------
+# 一、文件结构类（高频）
+#-----------------------------
+1. MyISAM 引擎一张表有几个文件？分别是什么？
+答：3 个
+   .frm  表结构
+   .MYD  数据
+   .MYI  索引
+
+2. InnoDB 独立表空间一张表有几个文件？
+答：2 个
+   .frm  表结构
+   .ibd  数据+索引（聚簇索引）
+
+3. .frm 文件是干嘛的？
+答：存储表结构定义（字段、类型、索引、约束），所有引擎都有。
+
+4. MyISAM 和 InnoDB 最大的文件区别？
+答：MyISAM 数据和索引分离；InnoDB 数据和索引存在一起（.ibd）。
+
+5. ibdata1 是什么？
+答：InnoDB 共享表空间，存储数据字典、undo、系统数据。
+
+#-----------------------------
+# 二、InnoDB 逻辑结构：段、区、页（必考）
+#-----------------------------
+6. InnoDB 最小 I/O 单元是什么？
+答：页（Page）
+
+7. InnoDB 默认页大小是多少？
+答：16K
+
+8. 什么是区（Extent）？
+答：连续多个页组成，默认大小 1M。
+
+9. 什么是段（Segment）？
+答：一个表通常就是一个段，由多个区组成。
+   分区表：一个分区 = 一个段。
+
+10. 段 → 区 → 页 关系是什么？
+答：段由多个区组成，区由连续多个页组成。
+    表 → 段 → 区 → 页
+
+11. 为什么 InnoDB 要设计“段区页”？
+答：减少磁盘碎片、提升连续 I/O、管理更高效。
+
+#-----------------------------
+# 三、对比类（面试高频）
+#-----------------------------
+12. MyISAM 支持事务吗？
+答：不支持
+
+13. InnoDB 支持事务吗？
+答：支持（默认引擎）
+
+14. MyISAM 和 InnoDB 索引区别？
+答：MyISAM：非聚簇索引（数据和索引分开）
+    InnoDB：聚簇索引（数据就是索引，索引就是数据）
+
+15. MySQL 一台服务器运行时，哪些是物理文件？
+答：.frm .ibd .MYD .MYI ibdata1 ib_logfile binlog 等
+```
+
+
+
+
 
 #mysql用户权限管理
 
+```BASH
 #创建用户并设置密码
 create user '[新用户名]'@'[作用域]' identified by '[密码]';
 flush privileges;　　//创建完要记得刷新权限表
+create user oldboy@'10.0.0.%' identified by '123';
+
+#查看用户
+select user,host from mysql.user;
 
 #授权加创建用户
-
 grant [权限] on [数据库名].[表名] to '[用户名]'@'[作用域]' identified by '[密码]';
 flush privileges;　　//记得刷新权限表
 
 #删除用户 二选一
-
 drop user '[用户名]'@'[作用域]';　　
 delete from mysql.user where user='[用户名]' and host='[作用域];  
 flush privileges;　　//刷新权限表
+drop user oldboy@‘10.0.0.%’；
+
 
 #修改用户密码
 
-#mysql  # 配置文件添加 跳过授权表skip-grant-tables　　//添加
-
-mysql> update user set authentication_string=password('123') where user='root';
-mysql> flush privileges;　　//刷新权限表
-
 用户的定义: username@'主机域' 
+# set password 命令修改密码
+SET PASSWORD FOR 'username'@'host' = PASSWORD('new_password');
+SET PASSWORD FOR 'root'@'localhost' = PASSWORD('root123');
+
+# 推荐alter命令修改用户密码
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'root123';
+alter user 'root'@'%' identified by 'root123';
+
+# mysql-5.6  
+update mysql.user set password=PASSWORD('oldboy123') where user='root' and host='localhost';
+# mysq-5.7 版本修改用户密码
+update mysql.user set authentication_string=PASSWORD('oldboy123') where user='root' and host='localhost';
+
+# 授权命令,用户不存在会创建
+grant all privileges on *.* to oldboy@’10.0.0.%’ identified by ‘123’;
+
+#最后都要刷新授权表
+flush privileges;
+
 
 #刚装完mysql初始化密码
-mysqladmin -uroot -p password ‘oldboy123’
+mysqladmin -uroot -p password ‘Ckh123.com’
+
 
 #误删除所有用户
 
 #关闭数据库
 [root@db02 mysql-5.7.20]# /etc/init.d/mysqld stop
+
 #启动数据库
-[root@db02 mysql-5.7.20]# mysqld_safe --skip-grant-tables --skip-networking
+[root@db02 mysql-5.7.20]# mysqld_safe --skip-grant-tables --skip-networking &  #如果没加&符号前台运行,ctrl+z;bg
+#或
+vi /etc/my.cnf
+[mysqld] 后面添加
+skip-grant-tables
+skip-networking
+
+mysql #直接登录
 #使用mysql库
 mysql> use mysql
 #错误方法1、创建root用户
 mysql> create user root@’localhost’;
+
 #错误方法2、创建root用户
 mysql> insert into user(user,host,password) values('root','10.0.0.55',PASSWORD('123'));
+
 #正确方法创建root用户
 mysql> insert into mysql.user values ('localhost','root',PASSWORD('123'),
 'Y',
@@ -251,20 +569,216 @@ mysql> insert into mysql.user values ('localhost','root',PASSWORD('123'),
 
 3306 [(none)]>quit
 pkill mysql
+systemctl start mysqld
+[root@db03 ~]# mysql -uroot -p
+3306 [(none)]>show grants for 'root'@'localhost';
+
+
+--------------------------mysql-5.7 推荐下面方法 5.6使用也可以, 效果和上面insert语句一样.
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' IDENTIFIED BY '123' WITH GRANT OPTION;
+flush privileges;
+
+select * from mysql.user where user='root'\G;
 
 #忘记root密码
+
 #关闭数据库
 [root@db02 mysql-5.7.20]# /etc/init.d/mysqld stop
+
 #启动数据库
 [root@db02 mysql-5.7.20]# mysqld_safe --skip-grant-tables --skip-networking
+
 #修改root用户密码
 mysql> update user set password=PASSWORD('oldboy123') where user='root' and host='localhost';
 
+
+
+```
+
+
+
+mysql权限大全
+
+```BASH
+#=============================================
+#           MySQL 权限完整列表（必背）
+#=============================================
+
+#=========================
+# 一、全局权限 ( *.* )
+#=========================
+ALL PRIVILEGES        # 所有权限（万能）
+CREATE                # 创建库/表
+DROP                  # 删除库/表
+DELETE                # 删除数据
+INSERT                # 插入数据
+UPDATE                # 更新数据
+SELECT                # 查询数据
+ALTER                 # 修改表结构
+INDEX                 # 创建/删除索引
+RELOAD                # 刷新权限
+SHUTDOWN              # 关闭MySQL
+PROCESS               # 查看进程
+FILE                  # 读写文件
+GRANT OPTION          # 授权他人
+SUPER                 # 超级权限（杀线程、改配置）
+REPLICATION SLAVE     # 从库复制权限
+REPLICATION CLIENT    # 查看主从状态
+CREATE USER           # 创建用户
+SHOW DATABASES        # 查看所有库
+
+#=========================
+# 二、数据库级别权限 ( db.* )
+#=========================
+CREATE                # 在该库下创建表
+DROP                  # 删除该库/表
+DELETE                # 库内删数据
+INSERT                # 库内插数据
+SELECT                # 库内查询
+UPDATE                # 库内更新
+ALTER                 # 库内改表
+INDEX                 # 库内索引
+CREATE ROUTINE        # 创建存储过程
+ALTER ROUTINE         # 修改存储过程
+EXECUTE               # 执行存储过程
+LOCK TABLES           # 锁表
+
+#=========================
+# 三、表级别权限 ( db.tb )
+#=========================
+SELECT                # 查询表
+INSERT                # 插入表
+DELETE                # 删除表
+UPDATE                # 更新表
+ALTER                 # 修改表
+INDEX                 # 索引
+CREATE                # 创建表
+DROP                  # 删除表
+TRIGGER               # 触发器
+
+#=========================
+# 四、列级别权限（最细）
+#=========================
+SELECT (col1,col2)    # 只查某些列
+INSERT (col1,col2)    # 只插某些列
+UPDATE (col1,col2)    # 只改某些列
+
+#=========================
+# 五、管理类权限（DBA专用）
+#=========================
+CREATE USER           # 用户管理
+SHOW DATABASES        # 查看所有库
+SUPER                 # 核心管理
+PROCESS               # 查看连接
+RELOAD                # flush privileges
+GRANT OPTION          # 可转授权限
+
+#=========================
+# 六、最常用 3 套权限（工作直接用）
+#=========================
+
+# 1. 只读账号（最常用）
+GRANT SELECT ON *.* TO 'user'@'%';
+
+# 2. 普通读写账号（开发）
+GRANT SELECT,INSERT,UPDATE,DELETE ON db.* TO 'user'@'%';
+
+# 3. DBA超级管理员
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+
+
 #一般给开发创建用户权限
-grant select,update,delete,insert on *.* to oldboy@’10.0.0.%’ identified by ‘123’;
+grant select,update,delete,insert on db.* to user@’10.0.0.%’ identified by ‘123’;
+```
+
+
+
+mysql权限高频面试题
+
+```BASH
+#==================================================
+#           MySQL 权限 面试必考题（含答案）
+#==================================================
+
+#--------------------------
+# 1. 基础概念类（必考）
+#--------------------------
+1. MySQL 权限分为哪几个级别（从大到小）？
+答：全局权限(*.*) → 库权限(db.*) → 表权限(db.tb) → 列权限。
+
+2. MySQL 权限存在哪几个系统表里？
+答：
+mysql.user       # 全局权限
+mysql.db         # 库权限
+mysql.tables_priv# 表权限
+mysql.columns_priv# 列权限
+
+3. % 代表什么意思？
+答：代表任何IP地址都可以连接。
+
+4. localhost 代表什么？
+答：代表只能本机连接。
+
+#--------------------------
+# 2. 常用权限类
+#--------------------------
+5. 给一个用户创建只读权限，命令是什么？
+答：
+GRANT SELECT ON *.* TO 'user'@'%';
+
+6. 给一个用户分配某一个库的读写权限，命令是什么？
+答：
+GRANT SELECT,INSERT,UPDATE,DELETE ON testdb.* TO 'user'@'%';
+
+7. SUPER 权限是干嘛的？
+答：超级权限，可以杀线程、修改全局变量、主从复制管理。
+
+8. REPLICATION SLAVE 是干嘛的？
+答：从库连接主库的复制权限。
+
+9. GRANT OPTION 作用？
+答：允许把自己的权限再授权给别人。
+
+#--------------------------
+# 3. 操作命令类
+#--------------------------
+10. 查看当前用户权限的命令？
+答：show grants;
+
+11. 查看指定用户权限？
+答：show grants for 'user'@'%';
+
+12. 回收权限用什么命令？
+答：revoke。
+例：revoke delete on *.* from 'user'@'%';
+
+13. 授权后必须执行什么命令？
+答：flush privileges; 刷新权限。
+
+#--------------------------
+# 4. 综合面试题
+#--------------------------
+14. root 远程连接不上一般是什么原因？
+答：
+1) root 只允许 localhost 登录
+2) 没有给 root@'%' 授权
+3) 防火墙没开 3306
+4) 绑定地址 bind-address 限制
+
+15. 生产环境为什么不能给普通账号 SUPER、ALL PRIVILEGES？
+答：
+1) 权限过大，危险
+2) 可删库、可删数据、可杀连接
+3) 不符合最小权限原则
+```
+
+
+
+
 
 
 # mysql连接管理
+```BASH
 ## 连接工具
 
 	mysql 
@@ -279,21 +793,29 @@ grant select,update,delete,insert on *.* to oldboy@’10.0.0.%’ identified by 
 	第三方连接工具 sqlyog、navicat
 
 ## 连接方式
+
 socket连接
 	mysql -uroot -pold -S /tmp/mysql.sock 
 	msyql -uroot -p 
 tcp/ip 
 	mysql -uroot -p123 -h10.0.0.5 -P3306 
+```
+
+
 
 # mysql启动关闭流程
-mysql.server 启动  ---> mysql_safe 启动   --> mysqld 
-service mysqld start   ./bin/mysqld_safe &
+```BASH
+mysql.server 启动     ---> mysql_safe 启动   --> mysqld 
+   ^						   ^
+   |						   |
+service mysqld start    ./bin/mysqld_safe &
 
+启动
 /etc/init.d/mysqld start ------> mysqld_safe ------> mysqld
 
 关闭
 /etc/init.d/mysqld stop 
-mysqladmin -uroot -poldboy123 shutdown
+mysqladmin -uroot -p**** shutdown
 
 kill -9 pid ?
 killall mysqld ?
@@ -303,20 +825,141 @@ pkill mysqld ?
 - 2、号称可以达到和Oracle一样的安全性，但是并不能100%达到
 - 3、在业务繁忙的情况下，丢数据（补救措施，高可用）
 
+---------------------------------------------------------------------
+#==================================================
+#              MySQL 启动 → 运行 → 关闭 全流程
+#==================================================
+
+#=========================
+# 一、MySQL 启动流程（重点）
+#=========================
+1. 读取配置文件
+   - my.cnf / my.ini
+   - 加载端口、数据目录、内存、字符集等
+
+2. 初始化核心内存结构
+   - 缓冲池 (Buffer Pool)
+   - 日志缓冲、表缓存等
+
+3. 启动后台线程
+   - 主线程、IO线程、Purge清理线程、锁线程
+
+4. 打开物理文件
+   - ibdata1、ib_logfile、redo log、binlog
+   - 加载表空间文件 .ibd
+
+5. 恢复阶段（崩溃恢复）
+   - 应用 redo log 前滚
+   - 回滚未提交事务 undo log
+
+6. 启动监听
+   - 打开 3306 端口
+   - 生成 /tmp/mysql.sock
+   - 开始接收客户端连接
+
+7. 启动完成
+   - 可以登录 mysql
+   - 提供读写服务
+
+
+#=========================
+# 二、MySQL 关闭流程（重点）
+#=========================
+1. 停止接收新连接
+   - 关闭 3306 端口
+   - 关闭 socket 文件
+
+2. 等待活跃事务执行完毕
+   - 不允许新事务
+   - 等待运行中 SQL 结束
+
+3. 刷新脏页到磁盘
+   - 将 Buffer Pool 里的修改数据写入 .ibd
+
+4. 关闭所有存储引擎
+   - InnoDB 做 checkpoint
+   - 确保数据完全落盘
+
+5. 关闭线程、释放内存
+   - 退出所有后台线程
+   - 释放缓冲池
+
+6. 退出进程 mysqld
+   - 删除 pid 文件
+   - 完全关闭
+
+
+#=========================
+# 三、常用启动/关闭命令
+#=========================
+
+# 1. 启动
+systemctl start mysqld
+service mysqld start
+/etc/init.d/mysqld start
+
+# 2. 关闭（推荐安全关闭）
+systemctl stop mysqld
+service mysqld stop
+/etc/init.d/mysqld stop
+
+# 3. 重启
+systemctl restart mysqld
+
+# 4. 强制关闭（不推荐，可能丢数据）
+pkill mysqld
+kill -9 进程号
+
+
+#=========================
+# 四、启动关闭 3 个关键点（面试必考）
+#=========================
+1. 启动必须做：崩溃恢复（redo + undo）
+2. 关闭必须做：刷脏页、做 checkpoint
+3. kill -9 会丢数据，绝对不能乱用！
+
+
+#=========================
+# 五、一句话总结流程
+#=========================
+启动：读配置 → 开内存 → 启线程 → 开文件 → 崩溃恢复 → 监听端口
+关闭：停连接 → 等事务 → 刷数据 → 关引擎 → 退进程
+```
+
+
+
 
 # mysql实例初始化配置
+
+
+```BASH
+优先级结论：
+● 1、命令行   		 #mysqld --port=3307 --datadir=/data/mysql2
+● 2、defaults-file  #mysqld --defaults-file=/etc/my3306.cnf  #指定配置文件 ，其他的配置文件都不读。
+● 3、配置文件   
+● 4、预编译
+
+
 配置文件读取顺序：
 /etc/my.cnf
 /etc/mysql/my.cnf
 $MYSQL_HOME/my.cnf（前提是在环境变量中定义了MYSQL_HOME变量）
-defaults-extra-file （类似include）
+defaults-extra-file （类似include） # mysqld --defaults-extra-file=/path/extra.cnf
 ~/my.cnf
 
-优先级结论：
-● 1、命令行
-● 2、defaults-file
-● 3、配置文件
-● 4、预编译
+
+
+1）MySQL 5.7 初始化（最常用）
+mysqld --initialize --user=mysql --datadir=/data/mysql
+会生成临时密码（记下来）
+安全初始化
+2）MySQL 5.6 初始化
+mysql_install_db --user=mysql --datadir=/data/mysql
+初始无密码
+3）MySQL 8.0 初始化
+mysqld --initialize --user=mysql --datadir=/data/mysql
+和 5.7 一样
+```
 
 
 
@@ -406,13 +1049,15 @@ mysql -S /data/3307/mysql.sock -e "select @@server_id"
 mysql -S /data/3308/mysql.sock -e "select @@server_id"
 mysql -S /data/3309/mysql.sock -e "select @@server_id"
 
+
 ```
 # mysql客户端工具及sql
 # 客户端命令
-	mysql 
-		- 连接 
-		- 管理
-```
+```mysql
+mysql 
+ - 连接 （略）
+
+2） 管理：	
 #MySQL接口自带的命令
 \h 或 help 或？      查看帮助
 \G                  格式化查看数据（key：value）
@@ -422,16 +1067,16 @@ mysql -S /data/3309/mysql.sock -e "select @@server_id"
 \. 或 source         导入SQL数据
 \u或 use             使用数据库
 \q 或 exit 或 quit   退出
-```
-		- 接收用户sql语句     发送给服务器
-	
-	mysqladmin 
-			- 命令行管理工具
-	mysqldump
-			- 备份数据库和表工具
 
-help命令使用
-```
+3）接收用户的SQL语句
+● 2、将用户的SQL语句发送到服务器
+
+mysqladmin
+● 1、命令行管理工具
+mysqldump
+● 1、备份数据库和表的内容
+
+help命令的使用
 mysql> help
 mysql> help contents
 mysql> help select
@@ -439,9 +1084,8 @@ mysql> help create
 mysql> help create user
 mysql> help status
 mysql> help show
-```
+
 source命令的使用
-```
 #在MySQL中处理输入文件：
 #如果这些文件包含SQL语句则称为：
 #1.脚本文件
@@ -449,7 +1093,8 @@ source命令的使用
 mysql> SOURCE /data/mysql/world.sql
 #或者使用非交互式
 mysql</data/mysql/world.sql
-```
+
+
 mysqladmin命令的使用
 01）“强制回应 (Ping)”服务器。
 02）关闭服务器。
@@ -461,85 +1106,152 @@ mysqladmin命令的使用
 08）刷新日志文件和高速缓存。
 09）启动和停止复制。
 10）显示客户机信息。
-```
 #查看MySQL存活状态
-[root@db01 ~]# mysqladmin -uroot -p123 ping
+mysqladmin -uroot -p123 ping
 #查看MySQL状态信息
-[root@db01 ~]# mysqladmin -uroot -p123 status
+mysqladmin -uroot -p123 status
 #关闭MySQL进程
-[root@db01 ~]# mysqladmin -uroot -p123 shutdown
+mysqladmin -uroot -p123 shutdown
 #查看MySQL参数
-[root@db01 ~]# mysqladmin -uroot -p123 variables
+mysqladmin -uroot -p123 variables
 #删除数据库
-[root@db01 ~]# mysqladmin -uroot -p123 drop DATABASE
+mysqladmin -uroot -p123 drop DATABASE
 #创建数据库
-[root@db01 ~]# mysqladmin -uroot -p123 create DATABASE
+mysqladmin -uroot -p123 create DATABASE
 #重载授权表
-[root@db01 ~]# mysqladmin -uroot -p123 reload
+mysqladmin -uroot -p123 reload
 #刷新日志
-[root@db01 ~]# mysqladmin -uroot -p123 flush-log
+mysqladmin -uroot -p123 flush-log
 #刷新缓存主机
-[root@db01 ~]# mysqladmin -uroot -p123 reload
+mysqladmin -uroot -p123 reload
 #修改口令
-[root@db01 ~]# mysqladmin -uroot -p123 password
+mysqladmin -uroot -p123 password
 ```
+
 
 # 接收用户的sql语句
-- 什么是sql ?  结构化的查询语句
-- sql的种类    
-	- DDL: 数据库定义语句 #库 表
-		create database
-		drop database
-		alter database
-		create table 
-		drop table 
-		alter table
-	- DCL：数据控制语言   #针对权限进行控制
-		grant 
-		revoke 
-	- DML：数据操作语言
-		insert 
-		update
-		delete 
-	- DQL：数据查询语言
-		select 
 
-# ddl 数据定义语言
+
+```sql
+-- SQL 全称：Structured Query Language
+-- 中文：结构化查询语言
+-- 用来操作数据库的语言
+
+-- ==============================================
+-- SQL 五大种类 完整版（一个SQL全包含）
+-- ==============================================
+-- 1. DDL ： Data Definition Language     数据定义语言
+-- 2. DML ： Data Manipulation Language    数据操作语言
+-- 3. DQL ： Data Query Language           数据查询语言
+-- 4. DCL ： Data Control Language          数据控制语言
+-- 5. TCL ： Transaction Control Language   事务控制语言
+
+
+-- 1. DDL 数据定义语言：定义库、表、结构（CREATE、ALTER、DROP、TRUNCATE）
+-- 管：库、表、索引、结构
+-- 关键字： CREATE、ALTER、DROP、TRUNCATE、RENAME
+CREATE DATABASE testdb;
+CREATE TABLE user (id INT);
+ALTER TABLE user ADD name VARCHAR(10);
+TRUNCATE TABLE user;
+DROP TABLE user;
+DROP DATABASE testdb;
+
+-- 2. DML 数据操作语言：操作数据（增、删、改）
+-- 关键字： INSERT、UPDATE、DELETE
+INSERT INTO user(id,name) VALUES(1,'zhangsan');
+UPDATE user SET name='lisi' WHERE id=1;
+DELETE FROM user WHERE id=1;
+
+-- 3. DQL 数据查询语言：查询数据
+-- 关键字： SELECT
+SELECT * FROM user;
+
+-- 4. DCL 数据控制语言：权限、用户管理
+-- 关键字： GRANT、REVOKE、CREATE USER
+GRANT SELECT ON *.* TO 'test'@'%';
+REVOKE SELECT ON *.* FROM 'test'@'%';
+CREATE USER 'test'@'%' IDENTIFIED BY '123';
+
+-- 5. TCL 事务控制语言：事务提交/回滚
+-- 管：事务提交、回滚
+-- 关键字： COMMIT、ROLLBACK、SAVEPOINT
+BEGIN;
+INSERT INTO user VALUES(2,'wangwu');
+COMMIT;
+-- ROLLBACK;
+
+
+```
+
+
+
+# DDL（Data Definition Language）数据定义语言
+
+```SQL
 ## 库对象: 库名字,库属性
-create database testa charset utf8;
-show create database testa ;
+库对象：库名字、库属性
+开发规范：库名小写
+创建库：create database|schema
+-- 创建oldboy数据库;
+create database oldboy;
+#创建OLDBOY数据库
+create database OLDBOY;
+#查看数据库
+show databases;
+#查看oldboy的创建语句（DQL）
+show create database oldboy;
+#查看创建数据库语句帮助
 help create database
+#创建testa数据库添加属性
+create database testa charset utf8;
+create database testa charset utf8mb4;
 
-alter database testa charset gbk;
-
+-- 删库：drop database
 drop database testa;
 
-## 表对象: 列名,列属性,约束
-help create table 
-create table student(
-sid int,
-sname varchar(20),
-sage tinyint,
-sgender enum('m','f'),
-cometime datetime);
-数据类型
-	int： 整数 -231 ~ 231 -1
-	varchar：字符类型 （变长）
-	char： 字符类型 （定长）
-	tinyint： 整数 -128 ~ 128
-	enum： 枚举类型
-	datetime： 时间类型 年月日时分秒
-	
-## 创建表加其他属性
+# 修改定义库：alter database
+-- 修改oldboy数据库属性;
+alter database oldboy charset gbk;
+-- 查看oldboy的创建语句（DQL）;
+show create database oldboy;
+
+
+# 表对象:列名、列属性、约束
+# 创建表：create table （开发做）
+-- #查看创建表语句帮助;
+help create table
+-- #创建表;
 mysql> create table student(
+  sid INT,
+  sname VARCHAR(20),
+  sage TINYINT,
+  sgender ENUM('m','f'),
+  cometime DATETIME);
+  
+数据类型
+int： 整数 -2次方31 ~ 2次方331 -1
+varchar：字符类型 （变长）
+char： 字符类型 （定长）
+tinyint： 整数 -128 ~ 128
+enum： 枚举类型
+datetime： 时间类型 年月日时分秒
+
+-- #创建表加其他属性;
+create table student(
 sid INT NOT NULL PRIMARY KEY AUTO_INCREMENT COMMENT ‘学号’,
 sname VARCHAR(20) NOT NULL COMMENT ‘学生姓名’,
 sage TINYINT UNSIGNED COMMENT ‘学生年龄’,
 sgender ENUM('m','f')  NOT NULL DEFAULT ‘m’ COMMENT ‘学生性别’,
 cometime DATETIME NOT NULL COMMENT ‘入学时间’)chatset utf8 engine innodb;
+
+-- #查看建表语句;
 show create table student;
-show tables
+-- #查看表;
+show tables;
+-- #查看表中列的定义信息;
 desc student;
+
 数据属性
 	not null： 非空
 	primary key： 主键（唯一且非空的）
@@ -549,78 +1261,280 @@ desc student;
 	unsigned： 非负数
 	comment： 注释
 
-## 修改表定义 alter table 
+
+
+# 修改表定义：alter table （开发做）
+-- #修改表名;
 alter table student rename stu;
+alter table stu rename student;
+-- #添加列和列定义;
 alter table stu add age int;
+--#添加多个列;
 alter table stu add test varchar(20),add qq int;
+-- #指定位置进行添加列（表首）;
 alter table stu add classid varchar(20) first;
-alter table stu add phone int alter age;
+-- #指定位置进行添加列（指定列）;
+alter table stu add phone int after age;
+-- #删除指定的列及定义;
 alter table stu drop qq;
+alter table student drop classid;
+-- #修改列及定义（列属性）;
 alter table stu modify sid varchar(20);
+-- #修改列及定义（列名及属性）;
 alter table stu change phone telphone char(20);
+alter table student change sid id int ;
+alter table student change sname name varchar(20);
+alter table student change sgender gender enum('m','f');
+alter table student drop sage;
+alter table student change test classname varchar(20);
+alter table student modify id int auto_increment;
 
-## 删除表
-drop table stu;
+-- #删除表;
+drop table student;
 
-# dcl 数据控制语言
+
+# 表 + 所有字段 + 已有数据 全部转成 utf8   collate排序规则 utf8mb4_unicode_ci = 不区分大小写的通用排序规则
+ALTER TABLE student CONVERT TO CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+
+```
+
+
+
+# DCL（Data Control Language）数据控制语言
+
+```BASH
 ## 授权 grant 
+
 - 授权root@10.0.0.51用户所有权限 (非超级管理员)
-grant all on *.* to root@'10.0.0.51' identified by 'old123'
+  grant all on *.* to root@'%' identified by 'old123'
 - 怎么去授权一个超级管理员
-grant all on *.* to root@'10.0.0.51' identified by 'old123' with grant option;
+  grant all on *.* to root@'%'' identified by 'old123' with grant option;
+  GRANT ALL PRIVILEGES ON *.* TO 'root'@'%'' IDENTIFIED BY 'old123' WITH GRANT OPTION;
+
 - 其他参数（扩展）
-max_queries_per_hour：一个用户每小时可发出的查询数量
-max_updates_per_hour：一个用户每小时可发出的更新数量
-max_connetions_per_hour：一个用户每小时可连接到服务器的次数
-max_user_connetions：允许同时连接数量
+  max_queries_per_hour：一个用户每小时可发出的查询数量
+  max_updates_per_hour：一个用户每小时可发出的更新数量
+  max_connetions_per_hour：一个用户每小时可连接到服务器的次数
+  max_user_connetions：允许同时连接数量
 
 ## 收回权限revoke  
-revoke select on *.* from root@'10.0.0.51'; 
-show grants from root@'10.0.0.51';
 
-# dml 数据操作语言 
-- insert 
-insert into stu values('linux01',1,NOW(),'zhangsan',20,'m',NOW(),110,123456);
+revoke select on *.* from root@'%''; 
+show grants from root@'%'';
 
-insert into stu(classid,birth,sname,sage,sgender,comtime,telnum,qq) values('linux01',1,NOW(),'zhangsan',20,'m',NOW(),110,123456);
 
-insert into stu(classid,birth.sname,sage,sgender,comtime,telnum,qq) values('linux01',1,NOW(),'zhangsan',20,'m',NOW(),110,123456),('linux02',2,NOW(),'zhangsi',21,'f',NOW(),111,1234567);
+
+```
+
+
+
+# DML：（Data Manipulation Language）数据操作语言
+
+```sql
+-- 操作表的数据行信息
+-- insert
+-- #基础用法，插入数据
+
+
+| student | CREATE TABLE `student` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `gender` enum('m','f') COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `cometime` datetime DEFAULT NULL,
+  `age` int(11) DEFAULT NULL,
+  `telphone` char(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `classname` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci |
+
+insert into student values(null,'zhangsan','m',NOW(),'18',110,'linxu');
+
+-- #规范用法，插入数据
+insert into student(name,gender,cometime,age,telphone,classname) values('lisi','f',NOW(),20,110,"python");
+
+-- #插入多条数据
+insert into student(name,gender,cometime,age,telphone,classname) values('lisi','f',NOW(),20,110,"python"),('wu','f',now(),20,118,'go');
+
+
 
 
 - update 
-update student set sgender='f'; #不规范
-update student set sgender='f' where sid=1 ;
-update student set sgender='f' where 1=1;  #如果非要全表修改
+-- #不规范
+update student set gender='f';
+-- #规范update修改
+update student set gender='f' where id=1;
+update student set gender='m' where id=4 or id=1;
+update student set gender='f' where id in(1,3);\
+
+-- #如果非要全表修改
+update student set gender='f' where 1=1;
+
 
 - delete 
-delete from student; #不规范
-delete from studnet where id=3;
-truncate table student; # ddl删除表  
+-- #不规范
+delete from student;
+-- #规范删除（危险）
+delete from student where id=3;
+-- #DDL删除表
+-- 如果你需要删除表中的所有行，并且不需要回滚操作，TRUNCATE 是一个更快的选择;
+truncate table student;
+
+
+delete from student;  truncate table student; 区别
+命令	   类型	自增 ID	能否回滚  速度
+DELETE	 DML	保留	   能	    慢
+TRUNCATE DDL	重置	  不能	   极快
+DELETE： 一行一行删数据， 属于 DML
+TRUNCATE： 直接清空整张表，直接摧毁重建表  属于 DDL
 
 - update 代替delete
-alter table student add status enum(1,0) default 1;
-update student set enum='0' where sid=1;
+1）额外添加一个状态列
+alter table student add status enum('1','0') default 1;
+2）使用update
+update student set status='0' where id=1;
+3）应用查询存在的数据
 select * from student where status=1;
+● 2、使用触发器（了解） trigger
 
-# dql 数据查询语言
-select countrycode,district from city;
-select countrycode from city;
-select countrycode,district from city limit 2;
-select id,countrycode,district from city limit 2,2;
-select name,population from city where countrycode='CHN';
-select name,population from city where countrycode='CHN' and district='heilongjiang';
-select name.population,countrycode from city where countrycode like '%H%' limit 10;
+-- 触发器：当执行 delete 时，自动改为逻辑删除
+DELIMITER //  -- 临时修改语句结束符
+CREATE TRIGGER trigger_student_del
+BEFORE DELETE ON student
+FOR EACH ROW
+BEGIN
+    -- 直接抛错，不让删除
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = '禁止物理删除！请使用逻辑删除：update student set status=0 where id=xxx';
+END //
+DELIMITER ;
+
+-- 测试效果
+DELETE FROM student WHERE id=1;
+-- 删除触发器
+DROP TRIGGER trigger_student_del;
+DROP TRIGGER IF EXISTS trigger_student_del;
+
+SHOW TRIGGERS;
+
+```
+
+
+
+# DQL（Data Query Language）数据查询语言
+
+```sql
+# https://dev.mysql.com/doc/index-other.html
+# Example Databases 下载
+# wget https://downloads.mysql.com/docs/world-db.tar.gz
+# tar xf world-db.tar.gz && cd world-db
+# mysql -uroot -proot123 < world.sql
+
+-- 先认识 world 库的 3 张表（关联字段）
+-- 1. city  城市表    关键字段：ID(主键)、Name(城市名)、CountryCode(国家编码)
+-- 2. country 国家表  关键字段：Code(国家编码,主键)、Name(国家名)、Continent(洲)
+-- 3. countrylanguage 语言表 关键字段：CountryCode(国家编码)、Language(语言)
+-- 关联关系：city.CountryCode = country.Code
+--          countrylanguage.CountryCode = country.Code
+
+
+use world;
+-- #基础查询
+
+-- 1. 查询所有数据 *代表所有列
+SELECT * FROM city;
+-- 2. 查询指定列
+SELECT Name, Population FROM city;
+-- 3. 去重查询 DISTINCT
+SELECT DISTINCT Continent FROM country;
+
+-- 条件查询
+-- 1. 查询中国(CN)的所有城市
+SELECT * FROM city WHERE CountryCode='CHN';
+-- 2. 查询人口大于100万的城市
+SELECT * FROM city WHERE Population > 1000000;
+-- 3. 多条件 and/or
+SELECT * FROM city WHERE CountryCode='CHN' AND Population>50000;
+
+-- 排序 ORDER BY / 分页 LIMIT
+-- 1. 按人口降序排序（大→小）
+SELECT * FROM city ORDER BY Population DESC;
+-- 2. 查询前10条数据
+SELECT * FROM city LIMIT 10;
+SELECT * FROM city LIMIT 2,2;
+
+-- #排序查询（顺序）
 select id,name,population,countrycode from city order by countrycode limit 10;
+-- #排序查询（倒叙）
 select id,name,population,countrycode from city order by countrycode desc limit 10;
+
+
+-- #模糊查询
+select name,population,countrycode from city where countrycode like '%H%' limit 10;
+
+-- #范围查询(>,<,>=,<=,<>)
 select * from city where population>=1410000;
+-- #范围查询OR语句
 select * from city where countrycode='CHN' or countrycode='USA';
+-- #范围查询IN语句
 select * from city where countrycode in ('CHN','USA');
 
 
+-- 分组统计 GROUP BY + 聚合函数
+-- 统计每个国家的城市数量
+SELECT CountryCode, COUNT(*) AS city_count FROM city GROUP BY CountryCode;
+
+-- 1. 内连接 INNER JOIN（取交集，两张表都匹配的数据）
+-- 作用：只查询相互匹配的数据
+
+-- 查询：城市名 + 对应的国家名
+SELECT 
+	c.Name AS 城市名, 
+	cou.Name AS 国家名 
+FROM city c 
+INNER JOIN country cou 
+ON c.CountryCode = cou.Code; -- 关联条件：国家编码相等
+
+-- 2. 左连接 LEFT JOIN（左表全显示，右表匹配，不匹配为 NULL）
+-- 作用：左表数据全部保留，右表有就显示，没有显示 NULL
+-- 左表：country 国家表
+-- 右表：countrylanguage 语言表
+-- 查询：所有国家 + 对应的官方语言（没有语言也显示国家）
+SELECT 
+  cou.Name AS 国家名,
+  cl.Language AS 语言
+FROM country cou
+LEFT JOIN countrylanguage cl 
+ON cou.Code = cl.CountryCode;
+
+-- 3. 右连接 RIGHT JOIN（右表全显示，左表匹配）
+-- 作用：右表数据全部保留，左表匹配
+-- 右表：city 城市表 全显示
+-- 左表：country 匹配显示
+SELECT 
+  cou.Name AS 国家名,
+  c.Name AS 城市名
+FROM country cou
+RIGHT JOIN city c 
+ON cou.Code = c.CountryCode;
+
+-- 子查询(查询嵌套)
+-- 查询人口最多的城市
+SELECT * FROM city 
+WHERE Population = (SELECT MAX(Population) FROM city);
+
+
+
+```
+
+
+
+
 # 字符集定义
+```bash
 ● 1什么是字符集
 计算机是以二进制存储数据,我们再屏幕上看到文字在存储之前被转换成二进制,在显示的时候也要根据二进制找到对应的字符. 可想而知,特定的文字对应着固定的二进制.否则转换会发生混乱.
 文字与二进制的对应关系的一套规范就称为字符集(character set)或者叫字符编码 (character encoding)
+
 ● 2.MySQL数据库的字符集
 	1）字符集（CHARACTER）
 	2）校对规则（COLLATION）
@@ -636,46 +1550,75 @@ select * from city where countrycode in ('CHN','USA');
 show charset;
 show collation;
 
-# 字符集设置
-- 操作系统级别
-source /etc/sysconfig/i18n
-echo $LANG
-zh_CN.UTF-8
+字符集   特点	             能不能存中文	能不能存表情 😊	推荐度
+latin1	老编码， 只支持英文	   ❌ 不能	  ❌ 不能	        不推荐
+utf8	MySQL 假 utf8，3 字节	✅ 能	  ❌ 不能	        淘汰
+utf8mb4	真 utf8，4 字节	        ✅ 能	  ✅ 能	         生产必用
 
-- mysql实例级别
-编译时候指定
-cmake . 
--DDEFAULT_CHARSET=utf8 \
--DDEFAULT_COLLATION=utf8_general_ci \
--DWITH_EXTRA_CHARSETS=all \
+
+字符集（CHARSET）：决定 能存什么字     推荐utf8mb4 
+排序规则（COLLATE）：决定 文字怎么排序、比大小  推荐utf8mb4_unicode_ci
+```
+
+
+
+# 字符集设置
+```sql
+-- 操作系统级别
+  source /etc/sysconfig/i18n
+  echo $LANG
+  zh_CN.UTF-8
+
+-- mysql实例级别
+  编译时候指定
+  cmake . 
+  -DDEFAULT_CHARSET=utf8mb4 \
+  -DDEFAULT_COLLATION=utf8mb4_unicode_ci \
+  -DWITH_EXTRA_CHARSETS=all \
 
 配置文件设置字符集
 [mysqld]
-character-set-server=utf8
+character-set-server=utf8mb4
 
 建库级别
-create database oldboy charset utf8 default collate=utf8_general_ci;
-
+create database oldboy charset utf8mb4 default collate=utf8mb4_unicode_ci;
+create database oldboy charset utf8mb4 default collate = utf8mb4_unicode_ci;
 建表级别
 create table test(
 id int(4) not null auto_increment,
 name char(20) not null,
 primary key (id)
-)engine=innodb auto_increment=13 default charset=utf8;
+)engine=innodb auto_increment=13 default charset=utf8mb4;
+-- auto_increment=13 表示自增数字从13开始，不写默认是从1开始
+
+-- 思考问题：如果在生产环境中，字符集不够用或者字符集不合适该怎么处理？
+-- 答： 生产环境更改数据库（含数据）字符集的方法
+alter database oldboy character set utf8mb4 collate utf8mb4_unicode_ci;
+alter table t1 character set utf8mb4;
 
 
-思考问题：如果在生产环境中，字符集不够用或者字符集不合适该怎么处理？
-alter database oldboy character set utf8 collate utf8_general_ci;
-alter table t1 character set utf8;
+
+```
+
+
 
 # select 高级用法
-- 多表连接查询
 
+```sql
+- 多表连接查询
 select t1.sname,t2.mark from t1,t2 where t1.sid=t2.sid and t1.sname=’zhang3’;
 
+-- 先认识 world 库的 3 张表（关联字段）
+-- 1. city  城市表    关键字段：ID(主键)、Name(城市名)、CountryCode(国家编码)
+-- 2. country 国家表  关键字段：Code(国家编码,主键)、Name(国家名)、Continent(洲)
+-- 3. countrylanguage 语言表 关键字段：CountryCode(国家编码)、Language(语言)
+-- 关联关系：city.CountryCode = country.Code
+--          countrylanguage.CountryCode = country.Code
+
 ## 传统连接  内连接 取交集
-- 世界上小于100人的人口城市是哪个国家的？
-select city.name,city.countrycode,country.name 
+USE world;
+-- 世界上小于100人的人口城市是哪个国家的？
+select city.name as 城市名,city.countrycode,country.name as 国家民,city.population
 from city,country 
 where city.countrycode=country.code 
 and city.population<100;
@@ -687,42 +1630,394 @@ WHERE population > 1000000
 ORDER BY population;
 
 ## 企业中多表连接查询（内连接）
-select city.name,city.countrycode,country.name 
-from city join country on city.countrycode=country.code 
+select city.name as 城市名,city.countrycode,country.name as 国家名,city.population
+from city inner join country on city.countrycode=country.code 
 where city.population<100;
 
-建议：使用join语句时，小表在前，大表在后。
-- 外连接
-select city.name,city.countrycode,country.name 
+-- 建议：使用join语句时，小表在前，大表在后。
+
+- 左连接
+select city.name as 城市名,city.countrycode,country.name as 国家名,city.population
 from city left join country 
 on city.countrycode=country.code 
 and city.population<100;
 
+-- 上面左连接查出来 population人数大于100也显示出来了
+执行规则（LEFT JOIN 铁律）
+左表 city ：所有行 100% 全部显示（无论 ON 条件是否成立）
+右表 country ：只有满足 code匹配 + 人口<100 才显示，不满足显示 NULL
+结果：city 表的 population 还是原来的数字，大于 100 的依然会显示！
+
+-- INNER JOIN	内连接	只查匹配的数据
+-- LEFT JOIN	左连接	左表全显示，右表匹配
+-- RIGHT JOIN	右连接	右表全显示，左表匹配
+
+--正确写法
+select city.name as 城市名,city.countrycode,country.name as 国家名,city.population
+from city 
+left join country
+on city.countrycode=country.code  -- 🔴 只写表关联条件
+-- 🟢 真正的过滤条件，放这里！
+where city.population < 100; 
+
+
 - UNION（合并查询）
-	union：去重复合并
-	union all ：不去重复
-	使用情况：union<union all
-	#范围查询OR语句
-	select * from city where countrycode='CHN' or countrycode='USA';
-	#范围查询IN语句
-	select * from city where countrycode in ('CHN','USA');
-	替换为：
-	select * from city where countrycode='CHN' 
-	union  all
-	select * from city where countrycode='USA' limit 10
+用途：把多个「完全不同的查询」结果，拼到一张表里展示
+UNION：合并 + 自动去重（速度慢）
+UNION ALL：合并 + 不去重（速度快，生产首选）
+MySQL 5.6 版本有硬性规定：UNION 里的每个 SELECT 带 LIMIT，必须加括号 () 包裹！
+
+#范围查询OR语句
+select * from city where countrycode='CHN' or countrycode='USA';
+#范围查询IN语句
+select * from city where countrycode in ('CHN','USA');
+
+替换为：
+(select * from city where countrycode='CHN' limit 10)
+union  all
+(select * from city where countrycode='USA' limit 10);
+
+
+-- 查询中国(CN)前2个城市
+(SELECT Name, CountryCode, Population FROM city WHERE CountryCode='CHN' LIMIT 2)
+UNION all
+-- 查询美国(US)前2个城市
+(SELECT Name, CountryCode, Population FROM city WHERE CountryCode='USA' LIMIT 2);
+
+
+```
+
+
+
+# mysql数据类型
+
+数值类型 + 字符串类型 + 日期时间类型
+
+## 数值类型
+
+| 分类   | 数据类型  | 占用字节   | 说明                                      | 常用场景                                          |
+| ------ | --------- | ---------- | ----------------------------------------- | ------------------------------------------------- |
+| 整数   | TINYINT   | 1 字节     | 极小整数；有符号：-128~127，无符号：0~255 | 状态标记 (0/1)、性别、年龄、开关字段              |
+| 整数   | SMALLINT  | 2 字节     | 较小整数（−215∼215−1）                    | 年份、小型统计数量、区域编号                      |
+| 整数   | MEDIUMINT | 3 字节     | 中型整数（−223∼223−1）                    | 中小型业务计数、行政区划编码                      |
+| 整数   | INT       | 4 字节     | 常规整数（−231∼231−1）                    | **主键自增 ID、订单数量、人口统计（日常最常用）** |
+| 整数   | BIGINT    | 8 字节     | 大整数（−263∼263−1）                      | 雪花 ID、超大订单编号、海量数据主键               |
+| 浮点数 | FLOAT     | 4 字节     | 单精度浮点、近似存储                      | 科学实验数据、非精密小数（**禁止存金额**）        |
+| 浮点数 | DOUBLE    | 8 字节     | 双精度浮点、近似存储                      | 大数据科学运算、非财务类小数                      |
+| 定点数 | DECIMAL   | 变长 (M+2) | 定点精确存储，整数 + 小数精准保存         | **金额、商品单价、财务账务（必须精准计算）**      |
+| BIT    | BIT       | 1~64 位    | 位字段，自定义位数存储二进制              | 多选项位标记、权限位掩码存储                      |
+
+**补充知识点**
+
+1. `DECIMAL(M,D)`：M 总有效位数、D 小数位，存储长度随 M 动态变化；
+2. 带`UNSIGNED`无符号修饰时：数值下限变为 0，上限翻倍；
+3. 金额业务**永远优先 DECIMAL，禁用 FLOAT/DOUBLE**（浮点存在精度丢失）。
+
+
+
+## 字符串类型
+
+| 分类 | 类型       | 占用字节                                                 | 说明                                                  | 常用场景                                               |
+| ---- | ---------- | -------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------ |
+| 文本 | CHAR(M)    | 固定：`M × 单字符字节(utf8mb4=4B)`，M 最大 255           | 固定长度字符串，不足长度自动补空格，上限 255 字符     | 手机号、身份证号、固定长度编码、验证码                 |
+| 文本 | VARCHAR(M) | 变长：实际内容字节 + 1/2 字节长度标识，总上限 65535 字节 | 可变长度字符串，最大占用 65535 字节，按需分配存储空间 | **姓名、地址、昵称（业务最常用字符串）**               |
+| 文本 | TINYTEXT   | 实际内容 + 1 字节，最大 255 字节                         | 可变长文本，最多存储 255 字节内容                     | 简短简介、备注、商品小标题                             |
+| 文本 | TEXT       | 实际内容 + 2 字节，最大 65535 字节                       | 可变长文本，上限 65535 字节                           | 商品详情、短篇文案、留言内容                           |
+| 文本 | MEDIUMTEXT | 实际内容 + 3 字节，最大 16777215 字节                    | 中型大容量文本                                        | 中篇文章、产品说明书、长表单备注                       |
+| 文本 | LONGTEXT   | 实际内容 + 4 字节，最大 4294967295 字节                  | 超大容量长文本                                        | 小说全文、大型文档、富文本博文                         |
+| 枚举 | ENUM       | 1~2 字节                                                 | 单选枚举，只能从预设值里选 1 个数据                   | 性别`('m','f')`、状态`('0','1')`、学历（固定单选选项） |
+| 集合 | SET        | 1~8 字节                                                 | 多选集合，可从预设值里多选任意多个                    | 用户兴趣标签、多选权限、爱好勾选                       |
+
+**补充知识点**
+
+1. **VARCHAR 上限 65535 是字节，不是字符**：`utf8mb4`单个汉字占 4 字节，因此 VARCHAR 实际可存字符≈16000 个；
+2. **CHAR 固定长度优势：查询速度更快**，固定长度字段索引效率优于 VARCHAR；
+3. **大文本 (TEXT 系列) 不能加默认值，不建议做索引**，超长内容优先用 LONGTEXT。
+
+
+
+## 日期类型
+
+| 分类     | 数据类型  | 占用字节 | 说明                                                         | 常用场景                               |
+| -------- | --------- | -------- | ------------------------------------------------------------ | -------------------------------------- |
+| 日期时间 | YEAR      | 1 字节   | 仅存储年份，格式`YYYY`，取值范围：1901～2155                 | 入学年份、出生年份、产品投产年份       |
+| 日期时间 | DATE      | 3 字节   | 只存年月日，格式`YYYY-MM-DD`，范围：`1000-01-01 ~ 9999-12-31` | 用户生日、订单下单日期、活动日期       |
+| 日期时间 | TIME      | 3 字节   | 时分秒`HH:MM:SS`，支持正负时长，范围`-838:59:59 ~ 838:59:59` | 课程时长、视频播放时长、考勤耗时       |
+| 日期时间 | DATETIME  | 8 字节   | 年月日 + 时分秒`YYYY-MM-DD HH:MM:SS`，范围同 DATE，**不受时区影响** | 数据创建时间、业务操作时间（项目首选） |
+| 日期时间 | TIMESTAMP | 4 字节   | 时间戳自动转日期，范围`1970-01-01 ~ 2038-01-19`，跟随数据库时区变化，可设置`ON UPDATE CURRENT_TIMESTAMP`自动更新 | 数据最后修改时间、日志记录时间         |
+
+ **关键补充知识点**
+
+1. **TIMESTAMP 特性**：字段配置 `update CURRENT_TIMESTAMP` 后，该行数据更新时自动刷新为当前时间；受系统时区制约，2038 年后数据溢出，新项目优先 DATETIME。
+2. **DATETIME 优势**：无 2038 年限制、不受时区影响，**企业开发存储创建时间标配**。
+3. 插入数据简写：`CURRENT_DATE`(当前日期)、`NOW()`/`CURRENT_TIMESTAMP`(当前年月日时分秒)。
+
+
+
+## 二进制数据类型
+
+| 分类   | 类型         | 占用字节                                                   | 说明                                                         | 常用场景                                     |
+| ------ | ------------ | ---------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------- |
+| 二进制 | BINARY(M)    | 固定占用 M 字节，M≤255                                     | 固定长度二进制串，对标 CHAR，存储原始二进制字节，不做字符集转码 | 固定长度密钥、硬件设备标识码、短二进制哈希值 |
+| 二进制 | VARBINARY(M) | 实际二进制数据字节 + 1~2 字节长度标识，整体上限 65535 字节 | 可变长二进制串，对标 VARCHAR，按需占用存储空间               | 不定长加密密文、零散二进制数据包             |
+| BLOB   | TINYBLOB     | 数据 + 1 字节头部，最大 255 字节                           | 最小容量二进制大对象                                         | 图标缩略图、小型二进制配置文件               |
+| BLOB   | BLOB         | 数据 + 2 字节头部，最大 65535 字节                         | 标准容量二进制大对象                                         | 小尺寸图片、文件片段、短二进制附件           |
+| BLOB   | MEDIUMBLOB   | 数据 + 3 字节头部，最大 16777215 字节                      | 中大容量二进制大对象                                         | 高清图片、普通 PDF 文档、中等压缩包          |
+| BLOB   | LONGBLOB     | 数据 + 4 字节头部，最大 4294967295 字节                    | 超大容量二进制大对象                                         | 原图、短视频、大型安装包、完整压缩文件       |
+
+ **补充知识点**
+
+1. **BLOB 不推荐存大图 / 大文件**：生产环境一般只存文件路径，文件放服务器 / 对象存储，数据库只存 URL，减少库体积、提升查询性能；
+2. BINARY/VARBINARY 和 CHAR/VARCHAR 本质区别：前者**按二进制字节比对**，后者按字符集编码比对，不受字符集排序规则影响。
+
+
+
+## **列属性介绍**
+
+| 属性           | 简要说明           | 示例                                        | 使用场景         | 适用类型 |
+| -------------- | ------------------ | ------------------------------------------- | ---------------- | -------- |
+| NOT NULL       | 非空，必填         | name varchar(20) NOT NULL                   | 账号、手机号必填 | 全部     |
+| DEFAULT        | 设置默认值         | status tinyint DEFAULT 1                    | 状态默认启用     | 全部     |
+| AUTO_INCREMENT | 自增 + 1           | id int AUTO_INCREMENT                       | 主键编号         | 数值     |
+| PRIMARY KEY    | 主键 (唯一 + 非空) | id int PRIMARY KEY                          | 数据唯一标识     | 全部     |
+| UNIQUE         | 字段值唯一         | phone char(11) UNIQUE                       | 手机号不能重复   | 全部     |
+| UNSIGNED       | 无符号、无负数     | age tinyint UNSIGNED                        | 年龄、库存       | 数值     |
+| ZEROFILL       | 数字前置补 0       | num int(4) ZEROFILL                         | 业务编号         | 数值     |
+| COMMENT        | 字段注释           | name varchar (20) COMMENT ' 姓名'           | 字段备注说明     | 全部     |
+| CHARSET        | 字段字符集         | name varchar(20) CHARSET utf8mb4            | 单独指定编码     | 字符     |
+| COLLATE        | 排序规则           | name varchar(20) COLLATE utf8mb4_unicode_ci | 字符串排序比对   | 字符     |
+
+完整建表示例（融合全部属性）
+
+```SQL
+CREATE TABLE `user` (
+  id INT UNSIGNED ZEROFILL AUTO_INCREMENT PRIMARY KEY COMMENT '用户主键ID',
+  username VARCHAR(30) CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '登录用户名',
+  password CHAR(32) CHARSET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '密码(二进制区分大小写)',
+  phone CHAR(11) UNIQUE NOT NULL COMMENT '手机号码',
+  status TINYINT UNSIGNED DEFAULT 1 COMMENT '账号状态:1正常,0禁用',
+  create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  remark TEXT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '用户备注'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci COMMENT='用户信息主表';
+
+
+-- 关键补充要点
+字符集 / 排序规则：只针对字符型字段生效，INT、DATE、BLOB等无法指定 CHARSET/COLLATE；
+utf8mb4_bin：二进制排序，大小写严格区分，密码字段推荐使用；utf8mb4_unicode_ci：不区分大小写，常规姓名、地址使用；
+生产规范：字符集统一在表设置 DEFAULT CHARSET，极少单独给字段指定字符集。
+
+password CHAR(32) CHARSET utf8mb4 COLLATE utf8mb4_bin；
+这里COLLATE utf8mb4_bin，控制的是：字符串比较时，区不区分大小写
+对查询匹配有很大影响； Admin123 和 admin123 必须是两个不同密码！
+utf8mb4_bin：按原始二进制字节对比，不仅区分大小写，还区分全角 / 半角、特殊符号，精准度最高，是密钥类首选。
+```
+
+
+
+
 
 # 索引管理及执行计划
-- 什么是索引
-	1）索引就好比一本书的目录，它能让你更快的找到自己想要的内容。
-	2）让获取的数据更有目的性，从而提高数据库检索数据的性能。
-	
 
-2.索引类型介绍
+## 索引底层算法介绍
+
+```SQL
+-- 什么是索引
+  1）索引就好比一本书的目录，它能让你更快的找到自己想要的内容。
+  2）让获取的数据更有目的性，从而提高数据库检索数据的性能。
+
+2.索引底层算法介绍
 	1)BTREE:B+树索引
 	2)HASH：HASH索引
 	3)FULLTEXT：全文索引
 	4)RTREE：R树索引
 	
+MySQL 索引最核心、最主流的底层算法只有 2 个
+1. B+ Tree （99% 索引都用它！）
+2. Hash （偶尔用，极少）
+
+B+tree 介绍
+一棵 “多路平衡查找树”，专门为磁盘、为数据库设计的超级快查找结构。
+B+ Tree 优点（必须记住）
+查询超级快：几百万数据只需要 3~4 次查找
+稳定：每次查询速度几乎一样
+支持范围查询：
+where id > 100
+order by id
+between and
+这些只有 B+ Tree 能做！
+适合磁盘存储：MySQL 就是靠它撑起来的
+哪些索引用 B+ Tree？全部都是！
+主键索引
+唯一索引
+普通索引
+联合索引
+
+B Tree 和 B+ Tree 区别
+1. B Tree 结构
+           [10,20]
+          /    |    \
+   [5,7] [12,15] [22,25]
+特点：
+每个节点存数据
+叶子、非叶子都存数据
+不适合范围查询
+
+2. B+ Tree 结构（MySQL 使用）
+           [10,20]
+          /    |    \
+   [5,7] [12,15] [22,25]
+     |     |      |
+[5,7] → [12,15] → [22,25] → 链表
+特点：
+只有叶子节点存真实数据
+叶子节点用链表串起来
+范围查询 / 排序 /like 超快
+磁盘 IO 最少（MySQL 选它的原因）
+总结：
+B Tree：每个节点都存数据，不适合范围查询。
+B+ Tree：只有叶子存数据，自带链表，范围 / 排序超快 → MySQL 唯一选择！
+
+
+--  B树/B+树/B*树三者区别、分裂/合并、页(16KB)、树高(通常3~4层)
+-- B Tree 与 B+Tree 与 B*Tree
+B Tree 结构
+特点：
+每个节点存数据
+叶子、非叶子都存数据
+不适合范围查询
+
+【B+Tree】
+非叶子：只存键+子页指针
+叶子：主键+整行数据 + 单向链表
+空间利用率：50%
+分裂：随时分裂
+适用：MySQL InnoDB（主流）
+
+【B*Tree】
+非叶子：存键 + 双向链表
+叶子：存数据 + 双向链表
+空间利用率：66.7%
+分裂：更少、更晚
+适用：MyISAM、文件系统、部分数据库
+
+
+
+
+-- 聚簇索引（主键索引）VS 普通索引 区别？
+主键索引（聚簇）：叶子存整行数据
+普通索引（二级）：叶子只存主键值，需要回表
+
+
+
+Hash 索引（哈希索引） 它是什么？
+把字段值算一个哈希值（key），直接定位数据。
+哈希算法
+name → 哈希值 → 指针指向数据
+张三 → 0x123 → 数据行
+李四 → 0x456 → 数据行
+优点
+等值查询 = 极速
+where name='张三'
+
+FULLTEXT 全文索引（用于：文章、内容搜索）
+专门用来做 文章里搜关键词
+SELECT * FROM article WHERE content LIKE '%数据库%';
+普通索引用不了 % 开头 %，只有全文索引能做。
+
+底层原理（画图）
+文章内容：
+"我在学习MySQL数据库，索引非常重要"
+全文索引会自动分词：
+我 → 文章1
+学习 → 文章1
+MySQL → 文章1
+数据库 → 文章1
+索引 → 文章1
+重要 → 文章1
+
+结构就是：关键词 → 对应文章 ID
+关键词     |  文章ID
+---------------------
+数据库     →  1,5,9
+索引       →  1,3,6
+学习       →  2,4,8
+
+3. 优点
+搜文章、搜内容极快
+支持 MATCH AGAINST 语法
+比 LIKE '%关键词%' 快 100 倍
+4. 缺点
+只能用于 TEXT / VARCHAR
+企业一般不用，都用 Elasticsearch（ES）
+
+-- R-Tree 管二维（坐标、地图、区域） R-Tree 只有地图功能才用
+-- RTREE：专门做地理位置查询； 地图、经纬度、地理位置
+
+
+
+
+MySQL DBA / 高级开发必备索引知识清单
+## 一、索引分类 & 建索引语法（实操必会）
+#1 索引种类
+- PRIMARY 主键索引(聚簇)、UNIQUE唯一、INDEX普通、联合索引、前缀索引、覆盖索引、FULLTEXT、SPATIAL(R树)
+#2 DDL语法
+# 创建/删除/修改索引
+ALTER TABLE xxx ADD [PRIMARY/UNIQUE/INDEX] idx_xxx(col1,col2);
+DROP INDEX idx_xxx ON tbl;
+# 前缀索引：col(n)、分区索引、函数索引(MySQL8.0+)
+
+## 二、底层数据结构（原理面试核心）
+#1 InnoDB默认BTREE(B+Tree)
+# B树/B+树/B*树三者区别、分裂/合并、页(16KB)、树高(通常3~4层)
+#2 聚簇&二级索引核心
+- 聚簇索引：叶子=整行数据；二级索引：叶子=主键id、回表
+- 覆盖索引：不需要回表，查询字段全部在索引列内
+#3 Hash索引(Memory引擎)：等值快、不支持范围/排序/like前缀
+#4 RTree：空间地理POINT/POLYGON；FullText分词索引
+
+## 三、联合索引：最左前缀法则（优化重中之重）
+#1 生效规则：联合(a,b,c)
+where a=?               ✅走索引
+where a=? and b=?       ✅
+where a=? and b=? and c ✅
+where b=?               ❌失效
+#2 失效场景：
+范围条件(> < between like%)右边列索引失效
+例：idx(a,b,c) where a=10 and b>20 and c=30 → c不走索引
+#3 隐式转换导致索引失效(字符串不加引号、字段类型不一致)
+-- phone char(11) 建唯一索引 UNI
+-- ① 正确：加引号，走索引
+explain select * from user where phone='168';
+-- ② 错误：纯数字不带引号，隐式转换，索引失效
+explain select * from user where phone=168;
+
+## 四、SQL优化+执行计划explain（日常排错）
+# explain关键字段：type/key/key_len/rows/Extra
+# type性能排序：system>const>eq_ref>ref>range>index>ALL(全表扫描最差)
+- key：实际使用索引名；key_len：索引占用字节(判断联合索引用到几个字段)
+- Extra:Using filesort(文件排序)、Using temporary(临时表)、Using index(覆盖索引)
+# 优化准则
+1. 避免索引失效：!=、is not null、%xxx前置模糊查询
+2. 索引选择性(Cardinality)：基数越高索引越优
+3. 不要滥用索引：增删改会维护索引，大字段/text不建常规索引
+
+## 五、高阶进阶（资深DBA）
+#1 索引物理层面
+InnoDB页结构、页分裂/页合并、索引碎片、OPTIMIZE TABLE优化碎片
+#2 特殊索引
+函数索引、降序索引、不可见索引(invisible)、分区表索引
+#3 生产规范
+1. 主键推荐自增int(减少页分裂)，禁用随机字符串做主键
+2. 单表索引不宜过多(建议≤5个)
+3. 超长varchar使用前缀索引，计算最优前缀长度
+#4 慢SQL排查：慢日志+explain+索引裁剪
+```
+
+
+
+## 索引管理
+
+```sql
 3.索引管理
 	索引建立在表的列上(字段)的。
 	在where后面的列建立索引才会加快查询速度。
@@ -733,119 +2028,359 @@ and city.population<100;
 普通索引*****
 唯一索引
 
+-- 测试数据
+CREATE TABLE `user` (
+  `id` int(10) unsigned zerofill NOT NULL AUTO_INCREMENT COMMENT '用户主键ID',
+  `username` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '登录用户名',
+  `password` char(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '密码(二进制区分大小写)',
+  `phone` char(11) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '手机号码',
+  `status` tinyint(3) unsigned DEFAULT '1' COMMENT '账号状态:1正常,0禁用',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `remark` text COLLATE utf8mb4_unicode_ci COMMENT '用户备注',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `phone` (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户信息主表';     
+
+insert into user(username,password,phone,status,create_time,remark)\
+values('lisi','****','123',1,NOW(),"YYYYY"),\
+('wangwu','****','167',1,NOW(),"eeee"),
+('liuliu','****','168',1,NOW(),"rr");
+
+-- 不小心删除了username字段 ，添加回来
+-- ALTER TABLE user ADD username varchar(30) NOT NULL COMMENT '登录用户名' AFTER id;
+
 2、添加索引：
-alter table add index index_name(name)
-create index index_name on test(name);
-desc table;
-show index from table;
-alter table test drop key index_name;
-alter table student add unique key uni_xxx(xxx);
+#创建索引
+-- alter table test add index index_name(name);
+alter table user add index index_name(username);
+#创建索引
+-- create index 索引名 on 表名(字段名);
+create index username on user(username);
+#查看索引
+-- desc table;
+desc user;
+#显示结果
+Key 显示	全称	含义
+PRI	PRIMARY	主键索引
+UNI	UNIQUE	唯一索引
+MUL	INDEX	普通索引 / 联合索引
+(空)	无	没有索引
 
-select count(*) from city;
-select count(distinct name) from city;  # distinct 去重复 
+#查看索引
+-- show index from table;
+show index from user;
+# show index from user; 13列极简解释
+Table          索引所属表名
+Non_unique     0=唯一索引(主键/UNI) 1=普通索引(MUL)
+Key_name       索引名称(PRIMARY=主键)
+Seq_in_index   联合索引字段顺序(单列=1)
+Column_name    索引字段名
+Collation      排序方式(A=升序)
+Cardinality    索引基数(值越多索引效果越好)
+Sub_part       前缀索引长度(NULL=全字段索引)
+Packed         索引压缩方式(一般NULL)
+Null           字段是否允许NULL(空=不允许)
+Index_type     索引类型(默认BTREE=B+树)
+Comment        字段注释
+Index_comment  索引注释
 
-- 前缀索引
-alter table test add index index_name(name(10));
-避免对大列建索引,如果有，就使用前缀索引
+#删除索引
+-- alter table 表名 drop key 索引名;
+alter table user drop key index_name;
+alter table user drop key username;
+DROP INDEX idx_xxx ON tbl;
+#添加主键索引（略）
+ALTER TABLE user ADD PRIMARY KEY (id);
 
-- 联合索引
-多个字段建立一个索引
-例：
-where a.女生 and b.身高 and c.体重 and d.身材好 #查询条件
-index(a,b,c) #联合索引顺序 
-特点：前缀生效特性
-a,ab,ac,abc,abcd 可以走索引或部分走索引
-b bc bcd cd c d ba ... 不走索引
-- 原则：把最常用来做为条件查询的列放在最前面
+#添加唯一性索引
+alter table 表明 add unique key 索引名字(字段名);
+alter table user add unique key username(username);
 
-create table pepople(id int,name varchar(20),age tinyint,memy int,gender enum('m','f'));
-alter table people add index idx_gam(gender,age,meney);
+#查看表中数据行数
+select count(*) as 总行数 from user;
+#查看去重数据行数    # distinct 去重复 
+-- insert into user values(null,'liuliu','***','168',NOW(),'RR');  --添加要给相同名字的
+select count(distinct name) from city; 
+
+--  前缀索引 避免对大列建索引,如果有，就使用前缀索引
+-- username(3) 表示前三个字符
+alter table user add index username(username(3));
+  
+-- 联合索引；  多个字段建立一个索引
+  where a.女生 and b.身高 and c.体重 and d.身材好 #查询条件
+  index(a,b,c) #联合索引顺序 
+  特点：前缀生效特性
+  a,ab,ac,abc,abcd 可以走索引或部分走索引
+  b bc bcd cd c d ba ... 不走索引
+-- 原则：把最常用来做为条件查询的列放在最前面
+alter table user add index idx_up(username,phone);
+
+-- 覆盖索引  Extra有Using index #查询的结果全部都市索引上，不需要回表查询
+explain select id,username from user where username='liuliu';
+# 需要手动单独建索引（物理真实存在，show index可查到）
+1.普通单列索引  add index idx(col)
+2.唯一索引      add unique index idx(col)
+3.主键索引      add primary key(col)
+4.联合索引      add index idx(col1,col2,col3)
+5.前缀索引      add index idx(col(3))
+6.全文/空间索引 add fulltext/spatial index
+
+# 不用建索引，只是查询现象（逻辑概念，无实体索引）
+覆盖索引：依托上面已建好的任意B+索引，SQL查询字段全落在索引列→触发Using index、免回表
+```
+
+
+
 
 
 # explain
+
+```SQL
 explain select name,countrycode from city where id=1;
 
-● 1.全表扫描1）在explain语句结果中type为ALL
-	● 2）什么时候出现全表扫描?
-	  ○   2.1 业务确实要获取所有数据
-	  ○   2.2 不走索引导致的全表扫描
-		■     2.2.1 没索引
-		■     2.2.2 索引创建有问题
-		■     2.2.3 语句有问题
-生产中,mysql在使用全表扫描时的性能是极其差的，所以MySQL尽量避免出现全表扫描
-● 2.索引扫描
-	2.1 常见的索引扫描类型:
-	1）index
-	2）range
-	3）ref
-	4）eq_ref
-	5）const
-	6）system
-	7）null
-从上到下，性能从最差到最好，我们认为至少要达到range级别
-index：Full Index Scan，index与ALL区别为index类型只遍历索引树。
-range：索引范围扫描，对索引的扫描开始于某一点，返回匹配值域的行。显而易见的索引范围扫描是带有between或者where子句里带有<,>查询。
-alter table city add index idx_city(population);
-explain select * from city where population>30000000;
+3306 [world]>explain select name,countrycode from city where id=1 \G;
+*************************** 1. row ***************************
+           id: 1
+  select_type: SIMPLE
+        table: city
+         type: const
+possible_keys: PRIMARY
+          key: PRIMARY
+      key_len: 4
+          ref: const
+         rows: 1
+        Extra: NULL
+1 row in set (0.00 sec)
 
-ref：使用非唯一索引扫描或者唯一索引的前缀扫描，返回匹配某个单独值的记录行。
-alter table city drop key idx_code;
-explain select * from city where countrycode='chn';
-explain select * from city where countrycode in ('CHN','USA');
-explain select * from city where countrycode='CHN' union all select * from city where countrycode='USA';
+# 逐条解析 \G 结果
+id:1                 # 单表简单SQL，查询编号1
+select_type:SIMPLE   # 无子查询、无union，普通简单查询
+table:city           # 查询目标表city
+type:const           # 主键精准等值，常量查询，最优级别，仅定位1行
+possible_keys:PRIMARY# 优化器可选索引：主键索引
+key:PRIMARY          # 实际执行使用主键索引；   实际使用索引名
+key_len:4            # id为int(4字节)，索引占用4字节 → 判断联合索引用了几个字段  
+ref:const            # 索引匹配常量：where id=1；索引匹配来源；三种取值：const、字段名、func
+rows:1               # 预估扫描仅1行， 越少越好
+Extra:NULL           # 无额外操作：无回表、无排序、无临时表
 
-eq_ref：类似ref，区别就在使用的索引是唯一索引，对于每个索引键值，表中只有一条记录匹配，简单来说，就是多表连接中使用primary key或者 unique key作为关联条件A
+-- select_type 查询类型
+类型	           说明                        示例 SQL
+SIMPLE	        简单查询，无子查询、无 union   
+-- EXPLAIN SELECT name FROM city WHERE id=1;
+PRIMARY	        最外层主SQL       
+-- EXPLAIN SELECT name FROM city WHERE id=(SELECT MAX(id) FROM city);
+SUBQUERY	    WHERE里子查询    
+-- EXPLAIN SELECT * FROM city WHERE countrycode=(SELECT code FROM country LIMIT 1);
+DERIVED			FROM里派生临时表 (子查询生成临时表)  
+-- EXPLAIN SELECT a.* FROM (SELECT * FROM city LIMIT 10) a;
+UNION			union后面的 SQL    
+-- EXPLAIN SELECT id FROM city WHERE id<10 UNION SELECT id FROM city WHERE id>100;
+UNION RESULT	union合并结果集   
+-- 同上 UNION 语句最后一行自动生成 UNION RESULT
 
-join B 
-on A.sid=B.sid
+-- type【重中之重：访问类型，性能优先级从优→劣】 常见类型
+system > const > eq_ref > ref > range > index > ALL
+# system：系统表，仅1行数据，极罕见
+# const：主键/唯一索引精准匹配，常量，仅匹配1行(=固定值)
+# eq_ref：关联查询主键/唯一索引，关联每条只匹配1行（多表join最优）
+# ref：普通索引等值匹配，命中多行（最常用）
+# range：索引范围查询 > < between in like '前缀%'，用到索引范围段
+# index：全索引树扫描（只扫索引不回表，优于全表）
+# ALL：全表扫描【重点优化目标】
+生产底线：至少 range/ref，杜绝 ALL
 
-const、system：当MySQL对查询某部分进行优化，并转换为一个常量时，使用这些类型访问。
-如将主键置于where列表中，MySQL就能将该查询转换为一个常量
-explain select * from city where id=1000;
+-- 英文单词
+eq_ref
+EQ = Equal（等值） + ref = reference（索引引用）
+全称：Equal Reference
 
-NULL：MySQL在优化过程中分解语句，执行时甚至不用访问表或索引，例如从一个索引列里选取最小值可以通过单独索引查找完成。
-explain select * from city where id=1000000000000000000000000000;
-
-Extra（扩展）
-	Using temporary
-	Using filesort 使用了默认的文件排序（如果使用了索引，会避免这类排序）
-	Using join buffer
+-- Extra 
+# 1.Using index ✅ 覆盖索引，无回表，最优
+# 2.Using filesort ❌ 文件排序：无法用索引排序，需要额外排序(ORDER BY没走索引)
+# 3.Using temporary ❌ 临时表：GROUP BY/UNION创建临时内存/磁盘表
+# 4.Using where：存储引擎取数后在server层过滤(正常现象)
+# 5.Using join buffer：join没走索引，使用连接缓冲区
+# 6.Impossible where：where条件永远不成立，无结果
 
 如果出现Using filesort请检查order by ,group by ,distinct,join 条件列上没有索引
 explain select * from city where countrycode='CHN' order by population;
-	
 当order by语句中出现Using filesort，那就尽量让排序值在where条件中出现	
 explain select * from city where population>30000000 order by population;
-select * from city where population=2870300 order by population;
+		select * from city where population=2870300 order by population;
 
-key_len: 越小越好
-	● 前缀索引去控制
-rows: 越小越好
+
+
+
+-- type详细介绍
+## 1.system（最优，极少出现）
+# 表只有1条数据、系统元数据表，MyISAM/Memory常见
+# 场景：系统表、表数据总行数=1
+## 2.const（主键/唯一索引精准等值 =常量，你刚才 id=1 就是）
+# 条件：主键/UNIQUE索引 等值查询 where id=1
+# 特征：优化器预转为常量，rows=1
+## 3.eq_ref（多表JOIN顶级）
+# JOIN时：被关联字段是主键/唯一索引，每条匹配唯一一行
+# 示例：city JOIN country ON city.countrycode=country.code（code主键）
+# 一一对应，每条只命中1行
+## 4.ref（普通索引等值，开发最常用）
+# 普通单列/联合索引等值匹配，可命中多行
+# where username='test'  username建普通索引
+-- ## 5.ref_or_null（ref变种）
+# 索引字段等值+可查NULL：where phone='138' or phone is null
+# 字段建有索引且允许NULL
+-- ## 6.fulltext（全文索引专属）
+# MATCH(col) AGAINST('关键词') 使用全文索引
+## 7.range（索引范围查询）
+# > < >= <= between in() like '前缀%'
+# where id>100 and id<200
+# 走索引区间扫描，优于全表
+## 8.index（整棵索引树全扫，比ALL快）
+# 只访问索引字段（覆盖索引但全索引遍历），不走聚簇数据
+# select id from user; id是主键，遍历整棵主键索引
+## 9.ALL（全表扫描，最差，优化重点）
+# 没任何可用索引，从头到尾扫整表数据
+# where status=1 status无索引 → type=ALL
+
+
+# 了解
+-- NULL：MySQL在优化过程中分解语句，执行时甚至不用访问表或索引，例如从一个索引列里选取最小值可以通过单独索引查找完成。
+-- explain select * from city where id=1000000000000000000000000000;
+-- explain select * from city where 1=2; # 同样Impossible WHERE，type全NULL
+
+
+
+
+
+
+
+```
+
+mysql5.7官方文件 explain连接类型介绍
+
+```BASH
+EXPLAIN 连接类型说明 # https://dev.mysql.com/doc/refman/5.7/en/explain-output.html
+EXPLAIN 执行结果中的type字段用于描述数据表的关联方式；在 JSON 格式的输出结果里，该信息对应access_type字段的值。下面按性能从优到劣依次介绍各类连接类型：
+1. system
+数据表仅有 1 行数据（系统内置系统表），是const类型的特殊场景。
+2. const
+数据表最多只匹配到一行数据，在 SQL 语句执行初期就完成读取。由于数据唯一，优化器可将该行字段值视作常量参与后续计算；该类型仅读取一次数据表，查询速度极快。
+使用条件：使用等值条件完整匹配主键（PRIMARY KEY）或唯一索引（UNIQUE）所有索引字段，示例 SQL 中TBL_NAME表会被识别为 const 表：
+sql
+SELECT * FROM TBL_NAME WHERE PRIMARY_KEY=1;
+SELECT * FROM TBL_NAME WHERE PRIMARY_KEY_PART1=1 AND PRIMARY_KEY_PART2=2;
+3. eq_ref
+关联前表的每一条记录，本表仅匹配返回一行数据；除system、const外，这是性能最优的关联类型。
+使用条件：关联条件完整命中主键或非空唯一索引（UNIQUE NOT NULL）的全部索引字段，使用=做等值比对。对比值可以是常量，也可以是前面关联表的字段。
+示例中REF_TABLE采用 eq_ref 关联：
+sql
+SELECT * FROM REF_TABLE,OTHER_TABLE WHERE REF_TABLE.KEY_COLUMN=OTHER_TABLE.COLUMN;
+SELECT * FROM REF_TABLE,OTHER_TABLE WHERE REF_TABLE.KEY_COLUMN_PART1=OTHER_TABLE.COLUMN AND REF_TABLE.KEY_COLUMN_PART2=1;
+4. ref
+关联前表每条数据时，本表匹配所有符合索引条件的数据行。
+使用条件：仅用到联合索引最左前缀，或索引并非主键 / 唯一索引（无法通过索引锁定单行）；使用=、<=>等值匹配索引列。若匹配结果行数很少，ref 属于高效关联类型。
+示例：
+sql
+SELECT * FROM REF_TABLE WHERE KEY_COLUMN=EXPR;
+SELECT * FROM REF_TABLE,OTHER_TABLE WHERE REF_TABLE.KEY_COLUMN=OTHER_TABLE.COLUMN;
+SELECT * FROM REF_TABLE,OTHER_TABLE WHERE REF_TABLE.KEY_COLUMN_PART1=OTHER_TABLE.COLUMN AND REF_TABLE.KEY_COLUMN_PART2=1;
+5. fulltext
+借助全文索引（FULLTEXT）完成表关联查询。
+6. ref_or_null
+逻辑和 ref 基本一致，额外针对索引字段为NULL的数据做补充检索；多用于子查询优化。
+示例 SQL 会触发 ref_or_null：
+sql
+SELECT * FROM REF_TABLE WHERE KEY_COLUMN=EXPR OR KEY_COLUMN IS NULL;
+7. index_merge
+启用索引合并优化，一条 SQL 同时使用多个独立索引分别检索再合并结果；结果集key字段会列出所有用到的索引，key_len标注各索引使用的最长索引段。
+8. unique_subquery
+优化IN格式子查询，子查询字段是主键时，用索引精准查找替换原 IN 子查询逻辑，替代部分场景下的 eq_ref：
+sql
+VALUE IN (SELECT PRIMARY_KEY FROM SINGLE_TABLE WHERE SOME_EXPR)
+9. index_subquery
+与 unique_subquery 类似，适配非唯一索引的 IN 子查询优化：
+sql
+VALUE IN (SELECT KEY_COLUMN FROM SINGLE_TABLE WHERE SOME_EXPR)
+10. range
+通过索引检索指定区间内的数据，仅扫描索引命中范围数据，优于全表扫描。结果key字段标识所用索引，key_len记录使用的索引长度，ref字段为 NULL。
+可用运算符：=、<>、>、>=、<、<=、IS NULL、<=>、BETWEEN、LIKE、IN()。
+示例：
+sql
+SELECT * FROM TBL_NAME WHERE KEY_COLUMN = 10;
+SELECT * FROM TBL_NAME WHERE KEY_COLUMN BETWEEN 10 and 20;
+SELECT * FROM TBL_NAME WHERE KEY_COLUMN IN (10,20,30);
+SELECT * FROM TBL_NAME WHERE KEY_PART1 = 10 AND KEY_PART2 IN (10,20,30);
+11. index
+和全表扫描ALL逻辑相近，但遍历的是索引树，分两种场景：
+覆盖索引（Using index）：查询所需全部字段都在索引中，仅扫描索引即可拿到全部数据，不再回表读取原数据，性能远优于全表扫描，Extra 字段显示Using index；
+索引排序遍历：按索引顺序遍历索引、再回表读取完整行数据，Extra 字段不会出现 Using index。
+触发条件：查询需要的字段全部隶属于同一个索引。
+12. ALL
+全表扫描，遍历整张数据表；在前表非 const 的场景下性能极差，是需要优先优化的关联类型。
+优化方案：添加合适索引，通过常量或关联前置表字段过滤数据，避免全表扫描。
+补充说明
+性能优先级（从优→劣）：
+system > const > eq_ref > ref > fulltext > ref_or_null > index_merge > unique_subquery > index_subquery > range > index > ALL
+
+```
+
+
+
+
 
 # 建立索引的原则（规范）
-● 1、选择唯一性索引
-唯一性索引的值是唯一的，可以更快速的通过该索引来确定某条记录。
-主键索引和唯一键索引，在查询中使用是效率最高的。
-select count(*) from world.city;
-select count(distinct countrycode) from world.city;
-select count(distinct countrycode,population ) from world.city;
-注意：如果重复值较多，可以考虑采用联合索引
+````SQL
+# 索引创建精简6条规范
+## 1.优先唯一/主键索引
+# 唯一值字段建唯一/主键，查询效率最优；重复多改用联合索引
 
-● 2．为经常需要排序、分组和联合操作的字段建立索引
+## 2.排序分组字段建索引
+# order by/group by/distinct字段建索引，规避文件排序Using filesort
 
-● 3．为常作为查询条件的字段建立索引
-  ○   3.1 经常查询
-  ○   3.2 列值的重复值少
-注：如果经常作为条件的列，重复值特别多，可以建立联合索引
+## 3.高频查询字段建索引
+# where常用字段，基数高(重复少)单列索引；重复量大改用联合索引
 
-● 4．尽量使用前缀来索引
-● 5．限制索引的数目
-索引的数目不是越多越好。每个索引都需要占用磁盘空间，索引越多，需要的磁盘空间就越大。 修改表时，对索引的重构和更新很麻烦。越多的索引，会使更新表变得很浪费时间。
-● 6．删除不再使用或者很少使用的索引 表中的数据被大量更新，或者数据的使用方式被改变后，原有的一些索引可能不再需要。数据库管理
-员应当定期找出这些索引，将它们删除，从而减少索引对更新操作的影响。
+## 4.超长字符用前缀索引
+# 长varchar，取前N字符建前缀索引，节省空间
+
+## 5.严控索引总量
+# 索引过多占用磁盘，增删改开销变大，单表索引不宜过多
+
+## 6.定期清理无效索引
+# 废弃、极少使用索引及时删除，降低DML维护成本
 	
 
-## 重点关注
+# 8类索引失效精简总结 
+## 1.无查询条件/条件无索引 → 全表扫描
+# select * from tbl; 大数据严禁全表，加where/limit+索引
+
+## 2.筛选数据超25% → 优化：limit分页，海量数据迁移Redis
+
+## 3.频繁DML导致索引统计失真
+# 解决：重建索引/analyze table更新统计信息
+
+## 4.索引字段做运算、套函数(+-*/、函数)
+# 错：where id-1=9  对：where id=10
+
+## 5.隐式字段类型转换(字符串字段查数字)
+# telnum varchar查数字120失效，加引号'120'生效
+
+## 6.<>、not in通常失效；in/or建议拆分union all
+# >/</in返回大量数据也会放弃索引，建议搭配limit
+
+## 7.like通配符%前置失效(%abc)；后缀%(abc%)可走range
+# 全文模糊检索改用ES
+
+## 8.联合索引违背最左前缀
+# idx(money,age,sex)，跳过首列money直接查age/sex → 索引失效
+
+
+
+
+
+
+# 8类索引失效详细版本
+
 1.没有查询条件，或者查询条件没有建立索引
 #全表扫描
 select * from table;
@@ -854,18 +2389,20 @@ select  * from tab where 1=1;
 	1）对用户查看是非常痛苦的。
 	2）对服务器来讲毁灭性的。
 	3）SQL改写成以下语句：
+
 ```
 #情况1
 #全表扫描
 select * from table;
 #需要在price列上建立索引
-selec  * from tab  order by  price  limit 10;
+select  * from tab  order by  price  limit 10;
 #情况2
 #name列没有索引
 select * from table where name='zhangsan'; 
 1、换成有索引的列作为查询条件
 2、将name列建立索引
 ```
+
 2.查询结果集是原表中的大部分数据，应该是25％以上
 explain select * from city where population>3000 order by population;
 	1）如果业务允许，可以使用limit控制。
@@ -877,6 +2414,7 @@ explain select * from city where population>3000 order by population;
 重建索引就可以解决
 
 4.查询条件使用函数在索引列上或者对索引列进行运算，运算包括(+，-，*等)
+
 #例子
 错误的例子：select * from test where id-1=9; 
 正确的例子：select * from test where id=10;
@@ -894,20 +2432,25 @@ explain select * from test where telnum='120';
 select * from tab where telnum <> '1555555';
 explain select * from tab where telnum <> '1555555';
 单独的>,<,in 有可能走，也有可能不走，和结果集有关，尽量结合业务添加limit
-or或in尽量改成union
+or或in尽量改成union all
 EXPLAIN  SELECT * FROM teltab WHERE telnum IN ('110','119');
+
 #改写成
 EXPLAIN SELECT * FROM teltab WHERE telnum='110'
 UNION ALL
 SELECT * FROM teltab WHERE telnum='119'
 
 7．like "%_" 百分号在最前面不走
+
 #走range索引扫描
+
 EXPLAIN SELECT * FROM teltab WHERE telnum LIKE '31%';
+
 #不走索引
 EXPLAIN SELECT * FROM teltab WHERE telnum LIKE '%110';
 
 %linux%类的搜索需求，可以使用Elasticsearch -------> ELK
+
 8.单独引用联合索引里非第一位置的索引列
 CREATE TABLE t1 (
 id INT,
@@ -919,60 +2462,83 @@ money INT);
 ALTER TABLE t1 ADD INDEX t1_idx(money,age,sex);
 DESC t1
 SHOW INDEX FROM t1
+
 #走索引的情况测试
 EXPLAIN SELECT NAME,age,sex,money FROM t1 WHERE money=30 AND age=30  AND sex='m';
+
 #部分走索引
 EXPLAIN SELECT NAME,age,sex,money FROM t1 WHERE money=30 AND age=30;
 EXPLAIN SELECT NAME,age,sex,money FROM t1 WHERE money=30  AND sex='m'; 
+
 #不走索引
 EXPLAIN SELECT  NAME,age,sex,money FROM t1 WHERE age=20
 EXPLAIN SELECT NAME,age,sex,money FROM t1 WHERE age=30 AND sex='m';
 EXPLAIN SELECT NAME,age,sex,money FROM t1 WHERE sex='m';
 
 
+
+````
+
+
+
+
 # 存储引擎  
-● 1、文件系统：
-  ○ 1.1 操作系统组织和存取数据的一种机制。
-  ○ 1.2 文件系统是一种软件。
-● 2、文件系统类型：ext2 3 4 ，xfs 数据
-  ○ 2.1 不管使用什么文件系统，数据内容不会变化
-  ○ 2.2 不同的是，存储空间、大小、速度。
-● 3、MySQL引擎：
-  ○ 3.1 可以理解为，MySQL的“文件系统”，只不过功能更加强大。
-● 4、MySQL引擎功能：
-  ○ 4.1 除了可以提供基本的存取功能，还有更多功能事务功能、锁定、备份和恢复、优化以及特殊功能
-总之，存储引擎的各项特性就是为了保障数据库的安全和性能设计结构。
+```BASH
+存储引擎 = MySQL 数据表的数据读写管理器
+MySQL 服务是外壳，一张表选用哪个引擎，就由它负责：存文件、读数据、加锁、事务、索引落地。
+特点：单库不同表可以使用不同存储引擎
+# 建表指定引擎
+CREATE TABLE t(...) ENGINE=InnoDB;
+# 查看当前默认引擎
+show variables like 'default_storage_engine';
 
-## MySQL自带提供以下存储引擎:
-01）InnoDB
-02）MyISAM
-03）MEMORY
-04）ARCHIVE
-05）FEDERATED
-06）EXAMPLE
-07）BLACKHOLE
-08）MERGE
-09）NDBCLUSTER
-10）CSV
+# MySQL主流存储引擎:
+
+## 1.InnoDB(默认，生产首选)
+# 特性
+1.支持事务、ACID、行级锁、MVCC、外键
+2.聚簇索引，数据和索引捆绑
+3.崩溃自动恢复，支持热备份
+# 适用：增删改频繁、业务数据表
+
+## 2.MyISAM(老项目遗留)
+# 特性
+1.不支持事务、外键，表级锁
+2.非聚簇，索引与数据分开存储
+3.查询速度快，占用资源少
+# 缺点：宕机易丢数据
+# 适用：静态历史数据、只查不改
+
+## 3.Memory(Heap内存引擎)
+# 全数据存内存，断电数据清空，表级锁
+# 适用：临时统计表、缓存临时数据，索引HASH/BTREE可选
+
+## 4.Archive
+# 高压缩存储，只支持插入、查询，无索引
+# 适用：海量日志归档
+
+## 5.CSV
+# 文件为csv文本，无内置索引，方便外部程序读写
+
+
 还可以使用第三方存储引擎.
-
 MySQL当中插件式的存储引擎类型
+
 MySQL的两个分支
 	- perconaDB
 	- mariaDB
 
-```
+
 # 查看当前支持的引擎
 show engines;
 # 查看innodb的表有哪些
 select table_schema,table_name,engine from information_schema.tables where engine='innodb';
 # 查看myisam的表有哪些
 select table_schema,table_name,engine from information_schema.tables where engine='myisam';
-```
+
 
 ## innodb和myisam的区别
-- 物理上区别:
-```
+物理上区别:
 #查看所有user的文件
 [root@db01 mysql]# ll user.*
 -rw-rw---- 1 mysql mysql 10684 Mar  6  2017 user.frm
@@ -985,7 +2551,12 @@ select table_schema,table_name,engine from information_schema.tables where engin
 -rw-rw---- 1 mysql mysql   8710 Aug 14 16:23 city.frm
 -rw-rw---- 1 mysql mysql 688128 Aug 14 16:23 city.ibd
 ```
+
+
+
 ## innodb存储引擎的简介
+
+```SQL
 在MySQL5.5版本之后，默认的存储引擎，提供高可靠性和高性能。
 优点:
 01）事务安全（遵从 ACID）
@@ -1000,26 +2571,58 @@ select table_schema,table_name,engine from information_schema.tables where engin
 10）用于在内存中缓存数据和索引的缓冲区池
 
 innodb核心特性
-	重点:
+重点:
 	MVCC
 	事务
 	行级锁
 	热备份
 	Crash Safe Recovery（自动故障恢复）
 
+InnoDB 五大核心特性精简详解
+1. 事务 (ACID)
+满足原子、一致性、隔离性、持久性
+原子：一个事务要么全成功 commit，要么全失败 rollback（转账 A 扣钱 B 加钱，失败两边回滚）
+一致：事务前后数据合法，约束不被破坏；
+隔离：多事务互不干扰，靠隔离级别控制脏读 / 不可重复读 / 幻读
+持久：commit 后数据永久落地磁盘，宕机不丢失
+2.MVCC 多版本并发控制
+快照读不加锁，实现读写并发
+每行数据隐藏字段：trx_id(修改事务 ID)、roll_pointer(指向 undo 历史版本)
+普通select= 快照读：读取 undo 里历史版本，读不阻塞写、写不阻塞读
+update/delete/insert = 当前读，加行锁
+作用：大幅提升并发，是 InnoDB 高并发基石。
+3. 行级锁（Record Lock+Gap+Next-key）
+行锁：只锁定被修改的单行，其他行可正常读写，并发高（对比 MyISAM 全表锁）
+主键精准等值：加 Record 行锁；范围查询加临键锁 (Next-key)+ 间隙锁 (Gap)，防止幻读
+无索引→降级为表锁
+4.Crash Safe Recovery 崩溃自动恢复（依靠 redo+undo）
+redo 日志：崩溃重做：事务提交先写 redo，宕机重启，通过 redo 把已提交数据刷入磁盘，保证持久化
+undo 日志：回滚 + MVCC：未提交事务，重启用 undo 回滚撤销数据
+断电、宕机重启自动修复数据，不会损坏表、丢失已提交数据。
+5. 热备份
+数据库不停机、不锁表，在线备份数据
+mysqldump 加 --single-transaction：利用 MVCC 快照，全库一致性备份，业务正常读写
+XtraBackup 物理热备：拷贝 ibd 文件，在线增量备份
+MyISAM 需要锁表冷备，InnoDB 支持在线热备，不影响线上业务。
+一句话总结
+事务保证数据逻辑安全，MVCC + 行锁拉高并发，redo/undo 实现宕机自愈，MVCC 支撑在线热备。
+
+
+
+
+
 - 查看存储引擎 
-select @@default_storage_engine;
+  select @@default_storage_engine;
 
 - 使用show 确认每个表的存储引擎
-show create table city\G 
-show table status like 'CountryLanguage'\G 
+  show create table city\G 
+  show table status like 'CountryLanguage'\G 
 
 - 使用 INFORMATION_SCHEMA 确认每个表的存储引擎
 #查看表的存储引擎
-SELECT TABLE_NAME, ENGINE FROM INFORMATION_SCHEMA.TABLESWHERE TABLE_NAME='City' AND TABLE_SCHEMA='world'\G
+SELECT TABLE_NAME, ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='city' AND TABLE_SCHEMA='world'\G
 
 ## 存储引擎的设置
-```
 #在配置文件的[mysqld]标签下添加
 [mysqld]
 default-storage-engine=<Storage Engine>
@@ -1028,106 +2631,299 @@ SET @@storage_engine=<Storage Engine>
 #建表的时候指定存储引擎
 CREATE TABLE t (i INT) ENGINE = <Storage Engine>;
 ```
+
+
+
+
+
+
+
+
+
 # Innodb存储引擎——表空间介绍
-5.5版本以后出现共享表空间概念
-表空间的管理模式的出现是为了数据库的存储更容易扩展
 
-5.6版本中默认是独立表空间
+## 一、基础概念
 
-### 查看共享表空间
+**表空间 (Tablespace)：InnoDB 最高层逻辑存储容器**，物理对应磁盘文件（`.ibdata`/`.ibd`），向下拆分为：**段 Segment → 区 Extent → 页 Page（默认 16KB，最小 IO 单元）**
+
+- 页：16KB，B + 树节点、行数据存放单位
+- 区：64 页 = 1MB，磁盘空间批量分配单位
+- 段：一张索引 = 2 段（叶子段 + 非叶子段），由多个区组成
+
+> InnoDB 一共**5 大类表空间**，整理表格如下：
+
+
+
+| 表空间类型            | 物理文件名                   | 存储内容                                                     | 关键特点 & 优缺点                                            | 配置 / 版本                                    |
+| :-------------------- | :--------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- | :--------------------------------------------- |
+| **系统表空间**        | ibdata1（可扩展 ibdata2...） | 数据字典、Change Buffer、Doublewrite、旧版 Undo；未开独立表空间时存全库表 + 索引 | ✅必启、全局共享❌**空间只增不减，删表不释放磁盘给 OS**；文件膨胀难回收 | innodb_data_file_path 配置文件大小             |
+| **独立表空间 (单表)** | 库名 / 表名.ibd              | 当前单张表**全部数据 + 二级索引**                            | ✅DROP/TRUNCATE 直接删文件、释放磁盘；支持单表迁移、表压缩、透明加密❌表多则小文件过多 | `innodb_file_per_table=ON`(5.6 + 默认开启)     |
+| **通用表空间**        | 自定义 xxx.ibd               | 多张不同表共用一个 ibd                                       | 手动创建、多表聚合，适合小表汇总，减少零散小文件             | `CREATE TABLESPACE xxx ADD DATAFILE 'xxx.ibd'` |
+| **Undo 回滚表空间**   | undo_001、undo_002...        | Undo 日志（事务回滚、MVCC 快照读）                           | 8.0 独立拆分、可动态扩容缩容、在线收缩空间；5.7 及以前 Undo 存在 ibdata1 里 | innodb_undo_tablespaces 控制数量               |
+| **临时表空间**        | ibtmp1                       | 临时表、group by/join 排序中间临时数据                       | **MySQL 重启自动清空重建**；运行中自动扩容，不持久化落地数据 | innodb_temp_data_file_path                     |
+
+## 二、重点参数说明
+
+```BASH
+1. innodb_file_per_table（生产默认 ON）
+-- 查看状态
+show variables like 'innodb_file_per_table';
+ON：新建表生成单独.ibd，删除表立刻归还磁盘；OPTIMIZE TABLE可回收碎片空间
+OFF：所有表数据全写入 ibdata1，无论删多少数据，ibdata1 体积不会变小（经典磁盘暴涨坑）
+
+2. 系统表空间 ibdata1 配置示例（my.cnf）
+# 初始1G，自动扩展最大10G
+innodb_data_file_path=ibdata1:1G:autoextend:max:10G
+
+三、日常运维常用 SQL
+-- 查看所有表空间文件
+SELECT FILE_NAME,TABLESPACE_NAME FROM INFORMATION_SCHEMA.FILES;
+
+-- 把已有表迁移到通用表空间
+ALTER TABLE test_tbl TABLESPACE ts_common;
+
+-- 回收独立表空间碎片
+OPTIMIZE TABLE test_tbl;
+
+四、选型总结
+线上业务：默认独立表空间（innodb_file_per_table=ON），方便空间回收、单表备份迁移
+大量零散小表：创建通用表空间，多表合并存储，减少海量小文件
+Undo：8.0 默认独立 undo 文件，避免 ibdata1 无限膨胀
+
+
+
+3306 [world]>show variables like 'innodb_file_per_table';  
++-----------------------+-------+
+| Variable_name         | Value |
++-----------------------+-------+
+| innodb_file_per_table | ON    |
++-----------------------+-------+
+
+# 每个表单独一个文件
+[root@db world]# ll /application/mysql/data/world/
+total 1000
+-rw-rw---- 1 mysql mysql   8710 Jun  5 04:39 city.frm  
+-rw-rw---- 1 mysql mysql 573440 Jun  5 04:39 city.ibd
+。。。。。。
+-rw-rw---- 1 mysql mysql     67 Jun  5 04:39 db.opt
+
+当前环境：独立表空间开启，三张表真实数据全部在各自.ibd，
+ibdata1（系统表空间）不再存业务数据，只存：数据字典、DoubleWrite、ChangeBuffer、Undo 日志（5.7 及以下 undo 在 ibdata，8.0undo 独立文件）。
+如果innodb_file_per_table=OFF：没有.ibd 文件，三张表的数据 + 索引全部写入 ibdata1/ibdata2，只保留 frm+db.opt，删表 ibdata 不会缩容。
+
+-- city.frm
+表结构元数据文件，和存储引擎无关：
+1. 字段名、字段类型、长度、默认值、非空、主键约束
+2. 字段字符集、注释、外键定义、表行格式
+3. 普通索引(记录索引名，哪些字段创建的)、主键的定义元数据
+不含任何真实行数据、索引数据
+-- city.ibd
+InnoDB 独立表空间文件（单表独占）：
+1. 整张表所有行数据（聚集索引叶子）
+2. 主键 + 全部二级索引（B + 树非叶子 + 叶子页）
+3. MVCC 隐藏列（trx_id、roll_ptr）、事务多版本快照数据
+4. 本表单表空间头、段 / 区管理页、Change Buffer 位图页
+5. 空闲空间、碎片管理信息
+
+-- db.opt	
+库级配置文本文件：
+记录当前world库默认字符集 + 排序规则 collation
+示例内容：default-character-set=utf8mb4 / default-collation=utf8mb4_unicode_ci
+新建表不指定字符集时，默认继承该配置
+[root@db world]# cat db.opt
+default-character-set=utf8mb4
+default-collation=utf8mb4_general_ci
+
+
+
 ```
-#物理查看
-[root@db01 ~]# ll /application/mysql/data/
--rw-rw---- 1 mysql mysql 79691776 Aug 14 16:23 ibdata1
-#命令行查看
-mysql> show variables like '%path%';
-innodb_data_file_path =bdata1:12M:autoextend
-```
-5.6版本中默认存储:
-		1.系统数据
-		2.undo
-		3.临时表
-5.7版本中默认会将undo和临时表独立出来，5.6版本也可以独立，只不过需要在初始化的时候进行配置
-设置方法
-- 编辑配置文件
-[root@db01 ~]# vim /etc/my.cnf
-[mysqld]
-innodb_data_file_path=ibdata1:50M;ibdata2:50M:autoextend
 
-### 独立表空间
-对于用户自主创建的表，会采用此种模式，每个表由一个独立的表空间进行管理
-- 物理查看
-[root@db01 ~]# ll /application/mysql/data/world/
--rw-rw---- 1 mysql mysql 688128 Aug 14 16:23 city.ibd
-#命令行查看
-mysql> show variables like '%per_table%';
-innodb_file_per_table=ON
+
+
+
 
 # Innodb核心特性——事务
 
-● 事务ACID特性
-Atomic（原子性）
-所有语句作为一个单元全部成功执行或全部取消。
-Consistent（一致性）
-如果数据库在事务开始时处于一致状态，则在执行该事务期间将保留一致状态。
-Isolated（隔离性）
-事务之间不相互影响。
-Durable（持久性）
-事务成功完成后，所做的所有更改都会准确地记录在数据库中。所做的更改不会丢失。
+ACID 四大特性
+
+| 特性                | 说明                                                         |
+| ------------------- | ------------------------------------------------------------ |
+| **原子 Atomic**     | 事务是最小单元，**要么全成功 commit，要么全失败 rollback**，不能半截提交。例：转账 A 扣钱、B 加钱，任意出错两边全部回滚 |
+| **一致 Consistent** | 事务执行前后，数据约束合法（主键唯一、外键、字段非空），不会出现脏数据 |
+| **隔离 Isolate**    | 多个事务并发互不干扰，由**4 种隔离级别**控制脏读 / 不可重复读 / 幻读 |
+| **持久 Durable**    | `commit`提交后，数据永久落盘，宕机断电不丢失，依靠 redo 日志保障 |
+
+```SQL
+ACID 四者关系（重点，解开误区）
+原子性 (A)：保证操作要么全成、全败，解决业务逻辑一致性（靠 undo 回滚实现）
+隔离性 (I)：并发环境下，避免多个事务互相篡改，破坏一致性（锁 + MVCC）
+持久性 (D)：提交成功的数据永久保存，宕机不会莫名丢失，保证一致性不被硬件故障破坏（redo）
+一致性 (C)：最终结果要求，前面三者全部服务于 C
+一致性就是：事务提交完毕，表数据既要符合字段、主键、外键等数据库规则，又符合业务算数 / 业务规则，不存在畸形、错乱、不合逻辑的数据。
+
 
 - 事务自动提交
-show variables like 'autocommit';
+3306 [world]>show variables like 'autocommit';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| autocommit    | ON    |
++---------------+-------+
+
 set autocommit=0; #临时关闭
 #永久关闭
 vim /etc/my.cnf 
 [mysqld]
 autocommit=0
 
-- 事务演示
----成功提交
+-- 事务演示
+-- 成功提交
+create database demo charset utf8mb4;
+use demo
 create table stu(id int,name varchar(10),sex enum('f','m'),money int);
 begin;
 insert into stu(id,name,sex,money) values(1,'zhang3','m',100), (2,'zhang4','m',110);
 commit;
----事务回滚
+-- 事务回滚
 begin;
 update stu set name='zhang3';
 delete from stu;
 rollback; 
+select * from stu;
 
 ● 事务隐式提交情况
 1）现在版本在开启事务时，不需要手工begin，只要你输入的是DML语句，就会自动开启事务。
 2）有些情况下事务会被隐式提交
-	例如:
-	在事务运行期间，手工执行begin的时候会自动提交上个事务
-	在事务运行期间，加入DDL、DCL操作会自动提交上个事务
-	在事务运行期间，执行锁定语句（lock tables、unlock tables）
-	load data infile
-	select for update
-	在autocommit=1的时候
+例如:
+在事务运行期间，手工执行begin的时候会自动提交上个事务
+在事务运行期间，加入DDL、DCL操作会自动提交上个事务
+在事务运行期间，执行锁定语句（lock tables、unlock tables）
+前提： autocommit=1（默认自动提交，单条 SQL 默认执行完立刻 commit）
+3 类特殊 SQL：
+LOCK TABLES / UNLOCK TABLES：隐式结束当前事务
+LOAD DATA INFILE：DML 批量导入，受事务控制
+SELECT ... FOR UPDATE：当前读、加行锁、开启隐式事务，不会自动提交
+
+示例： 	
+SET autocommit = 1;
+CREATE TABLE t(id INT PRIMARY KEY,money INT);
+INSERT INTO t VALUES(1,1000),(2,2000);
+
+-- 1，SELECT ... FOR UPDATE
+# 会话1
+SET autocommit=1;
+SELECT * FROM t WHERE id=1 FOR UPDATE; -- 锁住id=1，事务未提交
+# 会话2
+UPDATE t SET money=999 WHERE id=1; -- 阻塞等待
+# 会话1执行提交，锁释放
+COMMIT;
+
+-- 2、LOCK TABLES 会强制提交正在运行的事务
+SET autocommit=1;
+START TRANSACTION;
+UPDATE t SET money=111 WHERE id=1; -- 修改未提交
+
+LOCK TABLES t WRITE; -- 触发隐式COMMIT，上面update直接落地，事务结束
+# 现在t被加独占表锁，其他会话无法读写
+
+UNLOCK TABLES; -- 释放表锁
+规则：LOCK TABLES 是 DDL 类锁定语法，强制关闭现有事务
+
+-- 3、LOAD DATA INFILE
+-- 方式1：自动提交
+SET autocommit=1;
+LOAD DATA INFILE '/tmp/t.txt' INTO TABLE t; -- 导入完自动commit
+-- 方式2：包裹事务可回滚
+START TRANSACTION;
+LOAD DATA INFILE '/tmp/t.txt' INTO TABLE t;
+ROLLBACK; -- 导入数据全部撤销
+
+
+```
+
+
 
 ## 事务日志redo基本功能
+```BASH
 1）Redo是什么？
-redo,顾名思义“重做日志”，是事务日志的一种。
+	redo,顾名思义“重做日志”，是事务日志的一种。
 2）作用是什么？
-在事务ACID过程中，实现的是“D”持久化的作用。
-
+	在事务ACID过程中，实现的是“D”持久化的作用。
 特性:WAL(Write Ahead Log)日志优先写
 REDO：记录的是，内存数据页的变化过程
 
-3）REDO工作过程
-#执行步骤
-update t1 set num=2 where num=1;
-1）首先将t1表中num=1的行所在数据页加载到内存中buffer page
-2）MySQL实例在内存中将num=1的数据页改成num=2
-3）num=1变成num=2的变化过程会记录到 redo内存区域，也就是redo buffer page中
-#提交事务执行步骤
-commit;
-1）当敲下commit命令的瞬间，MySQL会将redo buffer page写入磁盘区域redo log
-2）当写入成功之后，commit返回ok
+3）# Redo简化流程(WAL预写日志)
+# update t1 set num=2 where num=1;
+#1 数据页载入BufferPool内存
+#2 内存修改页面：1→2，生成redo写入redo_buffer
+#3 页面标记脏页，不立刻落地磁盘
+# commit;
+#1 redo_buffer数据刷入磁盘ib_logfile
+#2 日志落盘成功，事务提交OK（数据页仍在内存）
+
+# 后台
+# checkpoint慢慢把脏页刷入ibd；日志文件循环覆盖
 
 ### redo数据实例恢复过程
+如果此时服务器断电:
+1)启动MySQL的过程中，读取redo log。(MySQL启动的很慢)
+2)首先将数据页中的原数据1  加载到内存中。
+3)将redolog中的修改过程，加载到内存中。
+4)在内存中将数据修改(1改成2)。
+5)写入磁盘。
+
+
+[root@db world]# ll /application/mysql/data
+total 176152
+-rw-rw---- 1 mysql mysql       56 Jun  4 16:36 auto.cnf
+-rw-rw---- 1 mysql mysql     5421 Jun  4 16:36 db.err
+-rw-rw---- 1 mysql mysql        5 Jun  5 05:48 db.pid
+drwx------ 2 mysql mysql       52 Jun  5 10:58 home
+-rw-rw---- 1 mysql mysql 79691776 Jun  5 10:58 ibdata1
+-rw-rw---- 1 mysql mysql 50331648 Jun  5 10:58 ib_logfile0  # redo.log 文件
+-rw-rw---- 1 mysql mysql 50331648 Jun  4 16:36 ib_logfile1 
+。。。。
+
+
+3306 [world]>show variables like '%innodb_log%';
++-----------------------------+----------+
+| Variable_name               | Value    |
++-----------------------------+----------+
+| innodb_log_buffer_size      | 8388608  |
+| innodb_log_compressed_pages | ON       |
+| innodb_log_file_size        | 50331648 |
+| innodb_log_files_in_group   | 2        |
+| innodb_log_group_home_dir   | ./       |
++-----------------------------+----------+
+
+# 1.innodb_log_buffer_size=8388608(8M)
+# redo内存缓冲区,DML产生的redo先写到「log buffer 内存」;commit/缓冲区满/定时触发刷盘到磁盘redo文件
+# 大写入业务调大 (32M/64M)，减少磁盘频繁刷写。
+
+# 2.innodb_log_compressed_pages=ON
+# 压缩表的数据变更写入redo，保障压缩表崩溃可恢复，默认不动
+# 3.innodb_log_file_size=50331648(48M)
+# 单个redo磁盘文件大小，太小频繁checkpoint、太大宕机恢复慢
+# 单个文件上限：5.6/5.7 推荐 1G 以内；超大导入场景可设 512M~1G
+
+# 4.innodb_log_files_in_group=2
+# redo日志文件个数2个:ib_logfile0、ib_logfile1，循环覆写
+# 不能设为 1，生产一般保持 2~4 个。
+
+# 5.innodb_log_group_home_dir=./
+# redo文件存放路径，./代表mysql数据目录
+
+
+
+
+
+```
+
+
+
 ## 事务日志undo
+
+```BASH
 1）undo是什么？
 undo,顾名思义“回滚日志”，是事务日志的一种。
 2）作用是什么？
@@ -1138,6 +2934,7 @@ redo和undo的存储位置
 [root@db01 data]# ll /application/mysql/data/
 -rw-rw---- 1 mysql mysql 50331648 Aug 15 06:34 ib_logfile0
 -rw-rw---- 1 mysql mysql 50331648 Mar  6  2017 ib_logfile1
+
 #undo位置
 [root@db01 data]# ll /application/mysql/data/
 -rw-rw---- 1 mysql mysql 79691776 Aug 15 06:34 ibdata1
@@ -1145,7 +2942,61 @@ redo和undo的存储位置
 
 在MySQL5.6版本中undo是在ibdata文件中，在MySQL5.7版本会独立出来。
 
+
+#=====================
+# 一、Undo 日常工作流程
+#=====================
+#1.DML更新数据前，记录修改前原始数据生成undo
+#2.undo写入独立undo表空间文件
+#3.事务未提交：rollback通过undo还原旧数据，实现原子回滚
+#4.事务已提交：undo不立刻删除，供MVCC快照读；无事务引用后，Purge线程异步清理undo空间
+
+
+#=====================
+# 二、MySQL宕机重启：Redo+Undo协同故障恢复流程
+#=====================
+#步骤1：加载redo日志，重做【已提交但脏页没刷磁盘】的数据，把数据落盘(依靠redo持久性)
+#步骤2：扫描undo日志，找出所有【未提交/异常中断事务】，利用undo回滚撤销脏修改
+#步骤3：事务状态全部规整完毕，InnoDB引擎正常启动对外提供服务
+
+
+```
+
+## redo 与 undo 区别表格（InnoDB 日志核心）
+
+
+
+| 对比项       | Redo Log（重做日志）                                         | Undo Log（回滚日志）                                         |
+| ------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| **英文全称** | Re-do Log                                                    | Un-do Log                                                    |
+| **核心作用** | **崩溃恢复、保证持久性 D**宕机后把已提交事务数据刷磁盘       | **事务回滚 + MVCC 多版本**1.rollback 撤销未提交修改2. 生成历史快照实现快照读 |
+| **记录内容** | **物理修改：磁盘页改动（哪个页、改了什么字节）**例：163 号 page，offset20 位置值从 100 改成 200 | **逻辑 SQL 反向数据**改 update 就存修改前原值；insert 存删除标记；delete 存插入数据 |
+| **写入时机** | **修改内存 Buffer Pool 前先写 redo（先写日志）**事务提交不立刻刷数据页，redo 落盘即可 | 数据修改 Buffer Pool 时同步生成 undo，写入 undo 段           |
+| **生命周期** | 事务提交后不马上删，**脏页刷完磁盘才被覆盖复用**             | 事务提交后 undo 不立即删除，MVCC 快照还在引用就保留，无用后 purge 线程清理 |
+| **故障表现** | 宕机→靠 redo 重做，**已提交数据不丢失**                      | 宕机未提交事务→靠 undo 回滚撤销改动                          |
+| **存放位置** | ib_logfile0、ib_logfile1（固定大小循环文件）                 | 5.7 前在 ibdata1；8.0 独立 undo_xx 表空间 ibd 文件           |
+
+ **一句话速记**
+
+1. **Redo：存改后数据，用来 “出事了重做、保提交不丢”**
+2. **Undo：存改前老数据，用来 “回滚撤销 + 多版本读”**
+
+补充实战示例
+
+```bash
+UPDATE user SET money=900 WHERE id=1; --原1000
+- redo：记录对应数据页被修改成900（物理页变更）
+- undo：记录原值1000，rollback时写回1000；别的事务快照读读取1000
+
+额外区分
+redo 保证 D 持久性
+undo 支撑 A 原子性 + I 隔离性 (MVCC)
+```
+
+
+
 ### 事务中的锁
+
 1）什么是“锁”？
 “锁”顾名思义就是锁定的意思。
 2）“锁”的作用是什么？
@@ -1154,24 +3005,108 @@ redo和undo的存储位置
 排他锁：保证在多事务操作时，数据的一致性。
 共享锁：保证在多事务工作期间，数据查询时不会被阻塞。
 
-### 多版本并发控制（MVCC）
-1）只阻塞修改类操作，不阻塞查询类操作
-2）乐观锁的机制（谁先提交谁为准）
+```bash
+#=====================
+# InnoDB 事务锁：共享锁(S)、排他锁(X)
+#=====================
+# 1. 共享锁 S (Shared Lock)
+#  作用：多事务可同时加S锁读取数据，读操作互不阻塞
+#  限制：持有S锁期间，其他事务无法加排他锁修改数据
+#  手动加锁：SELECT ... LOCK IN SHARE MODE
 
-### 锁的粒度
-● MyIsam：低并发锁（表级锁）
-● Innodb：高并发锁（行级锁）
+# 2. 排他锁 X (Exclusive Lock)
+#  作用：独占数据，防止并发篡改，保障修改后数据一致
+#  限制：持有X锁时，其他事务既不能读、也不能改，全部阻塞
+#  触发场景：UPDATE/DELETE、SELECT ... FOR UPDATE（自动/手动加X锁）
 
-### 事务的隔离级别
-四种隔离级别：
-    READ UNCOMMITTED（独立提交）  允许事务查看其他事务所进行的未提交更改
-    READ COMMITTED (读提交)      允许事务查看其他事务所进行的已提交更改
-    REPEATABLE READ(重复读)      确保每个事务的 SELECT 输出一致 # InnoDB 的默认级别
-    SERIALIZABLE   (串行)        将一个事务的结果与其他事务完全隔离
+#=====================
+# 锁兼容规则（核心）
+#=====================
+# S + S：兼容，可共存
+# S + X：互斥，阻塞
+# X + 任意锁：互斥，阻塞
+
+#=====================
+# 补充要点
+#=====================
+# 1. 普通SELECT 是MVCC快照读，**不加锁**，读写互不影响
+# 2. 锁生命周期：事务内加锁，commit/rollback 才释放
+# 3. 有索引走行锁；无索引，行锁降级为全表锁
+
+
+# ======================
+# 二、锁粒度（从细到粗）
+# ======================
+# 1. 行锁(默认)：只锁定命中数据行，并发最高，InnoDB主力锁
+#    触发：DML、for update 走有效索引时生效
+# 2. 表锁：锁定整张表，并发极低
+#    触发：LOCK TABLES、索引失效/无索引(行锁降级)
+# 3. 意向锁(IS/IX)：表级辅助锁，标记表内存在行锁，避免全表扫描判断锁
+
+# ======================
+# 三、MVCC 多版本并发控制    Multi-Version Concurrency Control
+# ======================
+# 1. 适用：RC、RR隔离级别，**快照读(普通SELECT)不加锁**
+# 2. 依赖：undo日志 + 行隐藏事务字段，生成数据历史快照
+# 3. 作用：读写不阻塞，大幅提升并发；配合隔离级别解决读异常
+# 4. 区分：
+#    快照读：普通SELECT，走MVCC无锁
+#    当前读：UPDATE/DELETE/FOR UPDATE，走行锁
+
+
+# ======================
+# 二、悲观锁 & 乐观锁（两种并发控制思想）
+# ======================
+# 悲观锁
+# 含义：默认并发一定会产生数据冲突，**提前加锁**阻止别人操作
+# 实现：依赖上面的共享锁、排他锁、行锁、表锁
+# 场景：写操作频繁、并发冲突高的业务
+# 排他锁、共享锁 = 悲观锁的具体实现
+
+
+# 乐观锁 
+# 含义：默认冲突概率很低，**全程不加锁**，更新时再校验数据是否被改动
+# 实现：依赖版本号/时间戳字段做校验
+# 场景：读多写少、冲突少，追求高并发性能 谁先提交谁为准
+
+# ======================
+# 三、三大并发读异常（隔离级别要解决的问题）
+# ======================
+# 1. 脏读
+# 含义：一个事务读到了**其他事务未提交**的修改数据
+# 问题：对方事务回滚后，读到的数据就变成无效脏数据
+# 出现场景：读未提交 隔离级别
+
+# 2. 不可重复读
+# 含义：**同一个事务内**，两次查询同一条数据，结果不一致  #同一行数据不一样
+# 原因：间隔期间其他事务执行UPDATE并提交
+# 侧重点：单条数据内容被修改
+# 出现场景：读已提交(RC) 隔离级别
+
+# 3. 幻读
+# 含义：**同一个事务内**，按条件多次查询，数据行数忽多/忽少 #数据行不一样
+# 原因：间隔期间其他事务执行INSERT/DELETE并提交
+# 侧重点：数据条数发生变化（新增/消失行）
+# 出现场景：可重复读(RR)仍会存在，InnoDB靠间隙锁缓解，串行化彻底解决
 
 ```
+
+### 事务的隔离级别
+
+```sql
+事务隔离级别（由低→高）
+READ UNCOMMITTED（独立提交）  允许事务查看其他事务所进行的未提交更改
+READ COMMITTED (读提交 RC)      允许事务查看其他事务所进行的已提交更改
+REPEATABLE READ(重复读 RR)      确保每个事务的 SELECT 输出一致 # InnoDB 的默认级别
+SERIALIZABLE   (串行)        将一个事务的结果与其他事务完全隔离
+
 #查看隔离级别
-mysql> show variables like '%iso%';
+3306 [(none)]>show variables like 'tx_isolation';
++---------------+-----------------+
+| Variable_name | Value           |
++---------------+-----------------+
+| tx_isolation  | REPEATABLE-READ |
++---------------+-----------------+
 #修改隔离级别为RU
 [mysqld]
 transaction_isolation=read-uncommit
@@ -1183,23 +3118,78 @@ mysql> insert into stu(id,name,sex,money) values(2,'li4','f',123);
 transaction_isolation=read-commit
 ```
 
+乐观锁  悲观锁 实战
+
+```BASH
+一、悲观锁（基于排他行锁）
+
+# 核心：提前加锁，阻塞并发修改，强数据一致
+# 前提：关闭自动提交，查询字段带索引
+CREATE TABLE goods(id INT PRIMARY KEY,stock INT);
+INSERT goods VALUES(1,10);
+
+-- 会话1 加锁执行业务
+SET autocommit=0;
+START TRANSACTION;
+SELECT * FROM goods WHERE id=1 FOR UPDATE; -- 加排他行锁
+UPDATE goods SET stock=stock-1 WHERE id=1;
+COMMIT; -- 提交释放锁
+
+-- 会话2 操作同行会阻塞，直至锁释放
+特点：并发低，易产生锁等待。
+二、乐观锁（版本号实现，主流）
+# 核心：全程无锁，更新时校验版本判断数据是否被篡改
+CREATE TABLE goods(id INT PRIMARY KEY,stock INT,version INT DEFAULT 0);
+INSERT goods VALUES(1,10,0);
+
+SELECT stock,version FROM goods WHERE id=1; -- 查询获取版本号
+-- 版本匹配则更新，版本号自增；行数为0代表数据已被修改（冲突）
+UPDATE goods SET stock=stock-1,version=version+1 WHERE id=1 AND version=0;
+
+时间戳替代方案
+ALTER TABLE goods ADD update_time DATETIME;
+UPDATE goods SET stock=stock-1,update_time=NOW() WHERE id=1 AND update_time='旧时间';
+特点：无锁高并发，冲突需业务层重试。
+
+极简总结
+# 悲观锁：加锁阻塞，适合写多、要求强一致场景
+# 乐观锁：字段校验，无锁高并发，适合读多写少场景
+
+
+```
+
+
+
 # mysql日志
-日志文件      选项                文件名/表名称                    程序
-错误         --log=error        host_name.err
-常规         --general_log      host_name.log/general.log
-慢速查询     --slow_query_log    host_name-slow.log           mysqldumpslow
-			--long_query_time   
-二进制       --log-bin            host_name-bin.000001        mysqlbinlog
-			 --expire-logs-days   
-审计         --audit_log
-			--audit_log_file      audit.log  
+
+| 日志文件                       | 相关选项                              | 文件名 / 表名称                           | 常用程序        |
+| ------------------------------ | ------------------------------------- | ----------------------------------------- | --------------- |
+| **错误日志**                   | `--log-error`                         | `host_name.err`                           | N/A             |
+| **常规日志（通用日志）**       | `--general_log`                       | `host_name.log` / `general_log`（表名）   | N/A             |
+| **慢速查询日志（慢查询日志）** | `--slow_query_log``--long_query_time` | `host_name-slow.log` / `slow_log`（表名） | `mysqldumpslow` |
+| **二进制日志（binlog）**       | `--log-bin``--expire-logs-days`       | `host_name-bin.000001`                    | `mysqlbinlog`   |
+| **审计日志**                   | `--audit_log``--audit_log_file` ...   | `audit.log`                               | N/A             |
+
+```bash
+# 错误日志：--log-error，记录错误/警告，生产必开，用于排错
+# 通用日志：--general_log，记录所有SQL，性能开销大，默认关闭，临时排查用
+# 慢查询日志：--slow_query_log --long_query_time，记录慢SQL，生产必开，优化性能用
+# Binlog：--log-bin --expire-logs-days，记录所有变更，主从/恢复用，生产必须开
+# 审计日志：--audit_log，合规审计用，按需开启
+```
+
+
+
+
 
 ## 错误日志
+
+```sql
 默认位置: $MYSQL_HOME/data/ 
 开启方式 (安装完默认开启 )
-```
 vim /etc/my.cnf 
 [mysqld]
+# $hostname 改成主机名 这个配置默认就是这样的，也可以不用写
 log_error=/application/mysql/data/$hostname.err 
 
 #查看方式
@@ -1207,49 +3197,86 @@ show variables like 'log_error';
 
 ```
 ## 一般查询日志
+
+```sql
 作用：
 记录mysql所有执行成功的SQL语句信息，可以做审计用，但是我们很少开启。
-默认位置：
-$MYSQL_HOME/data/
+默认位置：$MYSQL_HOME/data/
 开启方式:（MySQL安装完之后默认不开启）
-```
 #编辑配置文件
 [root@db01 ~]# vim /etc/my.cnf
 [mysqld]
 general_log=on
-general_log_file=/application/mysql/data/$hostnamel.log
+general_log_file=/application/mysql/data/$hostnamel.log  #$hostname 改成主机名 
 #查看方式
 mysql> show variables like '%gen%';
 ```
 
 ## 二进制日志
-作用：
-记录已提交的DML事务语句，并拆分为多个事件（event）来进行记录
-记录所有DDL、DCL等语句
-总之，二进制日志会记录所有对数据库发生修改的操作
 
-二进制日志模式:
-statement：语句模式，上图中将update语句进行记录（默认模式）。
-row：行模式，即数据行的变化过程，上图中Age=19修改成Age=20的过程事件。
-mixed：以上两者的混合模式。
-企业推荐使用row模式
+```bash
+# ======================
+# 一、二进制日志（Binlog）核心概念
+# ======================
+# 作用：记录所有DDL/DML/DCL变更（不记录SELECT/查询），用于主从复制、数据恢复、审计
+# 格式：host_name-bin.000001, 000002... 循环生成，由index文件维护顺序
 
-优缺点:
-statement模式：
-	优点：简单明了，容易被看懂，就是sql语句，记录时不需要太多的磁盘空间。
-	缺点：记录不够严谨。
-row模式：
-	优点：记录更加严谨。
-	缺点：有可能会需要更多的磁盘空间，不太容易被读懂。
+# 核心配置（/etc/my.cnf）
+[mysqld]
+log_bin=mysql-bin               # 开启binlog，指定前缀
+binlog_format=ROW              # 推荐ROW格式（记录行级变更，避免主从不一致）
+expire_logs_days=7             # 日志保留7天，自动清理过期文件
+max_binlog_size=1G             # 单个binlog文件最大1G，超过自动生成新文件
+server_id=1                     # 主从复制必须，主从节点ID唯一不重复
 
-binlog的作用:
-	1）如果我拥有数据库搭建开始所有的二进制日志，那么我可以把数据恢复到任意时刻
-	2）数据的备份恢复
-	3）数据的复制
+# ======================
+# 二、Binlog三种格式对比
+# ======================
+# STATEMENT：记录SQL语句，体积小但主从可能不一致（如RAND()、NOW()）
+# ROW：记录行级变更，体积大但主从100%一致（企业推荐）
+# MIXED：默认模式，混合使用两种格式，MySQL自动判断使用哪种
+
+# ======================
+# 三、常用操作命令
+# ======================
+-- 查看binlog是否开启
+SHOW VARIABLES LIKE '%log_bin%';
+
+-- 查看当前所有binlog文件
+SHOW BINARY LOGS;
+
+-- 查看当前正在写入的binlog文件
+SHOW MASTER STATUS;
+
+-- 查看binlog内容（需用mysqlbinlog工具）
+mysqlbinlog /var/lib/mysql/mysql-bin.000001
+
+-- 按时间范围恢复数据（示例）
+mysqlbinlog --start-datetime="2026-06-01 00:00:00" --stop-datetime="2026-06-01 12:00:00" /var/lib/mysql/mysql-bin.000001 | mysql -u root -p
+
+--  查看二进制日志后，发现delete语句开始位置是1347  按position位置截取
+mysqlbinlog --start-position=120 --stop-position=1347 /application/mysql/data/mysql-bin.000002 >/tmp/binlog.sql
+
+
+-- 清理binlog（需谨慎）
+PURGE BINARY LOGS BEFORE '2026-06-01 00:00:00';  # 清理指定时间前的日志
+RESET MASTER;                                     # 重置所有binlog（主库慎用）
+
+# ======================
+# 四、生产环境使用要点
+# ======================
+# 1. 必须开启binlog，否则无法主从复制和数据恢复
+# 2. 推荐使用ROW格式，避免主从不一致问题
+# 3. 配置合理的expire_logs_days，防止磁盘占满
+# 4. binlog文件需定期备份，配合全量备份做数据恢复
+# 5. 主从复制时，server_id必须唯一，否则会导致复制异常
+```
+
+
 
 二进制日志的管理操作实战
 
-```
+```bash
 # mysql5.6开启 
 [root@db01 data]# vim /etc/my.cnf
 [mysqld]
@@ -1262,9 +3289,7 @@ mysql 5.7开启binlog必须要加上server-id。
 log-bin=mysql-bin
 binlog_format=row
 server_id=1
-```
 
-```
 #物理查看
 [root@db01 data]# ll /application/mysql/data/
 -rw-rw---- 1 mysql mysql      285 Mar  6  2017 mysql-bin.000001
@@ -1272,9 +3297,8 @@ server_id=1
 mysql> show binary logs;
 mysql> show master status;
 #查看binlog事件
-mysql> show binlog events in 'mysql-bin.000007';
+mysql> show binlog events in 'mysql-bin.000001';
 
-```
 事件介绍
 	1）在binlog中最小的记录单元为event
 	2）一个事务会被拆分成多个事件（event）
@@ -1283,9 +3307,20 @@ mysql> show binlog events in 'mysql-bin.000007';
 	2）所谓的位置就是event对整个二进制的文件的相对位置。
 	3）对于一个二进制日志中，前120个position是文件格式信息预留空间。
 	4）MySQL第一个记录的事件，都是从120开始的。
+	
+	
+	
+```
+
+
 
 row模式下二进制日志分析及数据恢复
-```
+```sql
+set autocommit=0; #临时关闭
+
+show master status;
+-- 刷新一个新的binlog
+flush logs;
 show master status;
 create database binlog;
 use binlog
@@ -1299,6 +3334,7 @@ insert into binlog_table values(2);
 insert into binlog_table values(3);
 show master status;
 commit;
+
 delete from binlog_table where id=1;
 show master status;
 commit;
@@ -1309,14 +3345,38 @@ show master status;
 select * from binlog_table;
 drop table binlog_table;
 drop database binlog;
-```
-恢复数据到delete之前 
-```
-mysql> show binlog events in 'mysql-bin.000013';
+
+
+-- show binlog events in 'mysql-bin.000002';
+# 一、常见 Event_type 分类及释义（MySQL 5.6/5.7/8.0 通用）
+# 基础文件事件
+Format_desc        # 日志文件头部描述事件，每个binlog文件首个事件，记录版本、格式
+Rotate             # 日志切换事件，代表写完当前文件，切换到下一个binlog
+
+# 事务边界事件（InnoDB 事务必备）
+Query              # 记录普通SQL/事务开始(BEGIN)、提交(COMMIT)、DDL语句
+Xid                # 事务提交标记（XA事务/InnoDB事务结束标识）
+
+# DML数据变更事件（由 binlog_format 决定出现哪种）
+# STATEMENT/MIXED 模式：主要走 Query 事件记录SQL
+# ROW 模式（主流）：行级变更专属事件
+Table_map          # 记录表名、表结构映射，行事件前置事件
+Write_rows         # 对应 INSERT 操作，新增数据行
+Delete_rows        # 对应 DELETE 操作，删除数据行
+Update_rows        # 对应 UPDATE 操作，更新数据行
+
+# 其他少见事件
+Intvar             # 记录自增ID、LAST_INSERT_ID() 等变量值
+User_var           # 记录用户自定义变量
+Stop               # MySQL正常停止时产生的结束事件
+
+
+-- 恢复数据到delete之前 
+mysql> show binlog events in 'mysql-bin.000002';
 #使用mysqlbinlog来查看
-[root@db01 data]# mysqlbinlog /application/mysql/data/mysql-bin.000013
-[root@db01 data]# mysqlbinlog /application/mysql/data/mysql-bin.000013|grep -v SET
-[root@db01 data]# mysqlbinlog --base64-output=decode-rows -vvv mysql-bin.000013
+mysqlbinlog /application/mysql/data/mysql-bin.000002
+mysqlbinlog /application/mysql/data/mysql-bin.000002|grep -v SET
+# mysqlbinlog --base64-output=decode-rows -vvv mysql-bin.000002
 ### UPDATE `binlog`.`binlog_table`
 ### WHERE
 ###   @1=2 /* INT meta=0 nullable=1 is_null=0 */
@@ -1350,17 +3410,19 @@ drop database binlog
 
 #截取二进制日志
 查看二进制日志后，发现delete语句开始位置是1347
-[root@db01 data]# mysqlbinlog --start-position=120 --stop-position=1347 /application/mysql/data/mysql-bin.000013 >/tmp/binlog.sql
+[root@db01 data]# mysqlbinlog --start-position=120 --stop-position=1347 /application/mysql/data/mysql-bin.000002 >/tmp/binlog.sql
 
 
 mysql -uroot -p123
 mysql> set sql_log_bin=0;
 mysql> source /tmp/binlog.sql  #临时关闭binlog
+
 mysql> show databases;
 mysql> use binlog
 mysql> show tables;
 mysql> select * from binlog_table;
 ```
+
 
 存在问题:
 数据库或表被误删除的是很久之前创建的（一年前）
@@ -1375,7 +3437,7 @@ mysql> select * from binlog_table;
     2）-d 参数接库名
 
 模拟数据
-```
+```sql
 #为了让大家更清晰看到新的操作
 #刷新一个新的binlog
 mysql> flush logs;
@@ -1400,10 +3462,23 @@ mysql> quit
 [root@db01 data]# mysqlbinlog -d db1 --base64-output=decode-rows -vvv /application/mysql/data/mysql-bin.000014
 ```
 **删除、刷新binlog**
+
+```BASH
 刷新binlog日志
     1）flush logs;
     2）重启数据库时会刷新
     3）二进制日志上限（max_binlog_size）
+[(none)]>show variables like 'max_binlog_size';
++-----------------+------------+
+| Variable_name   | Value      |
++-----------------+------------+
+| max_binlog_size | 1073741824 |
++-----------------+------------+
+#计算  默认是 1G 就会刷新 binlog 日志
+1073741824/1024/1024
+
+
+
 
 删除二进制日志
     1）原则 - 在存储能力范围内，能多保留则多保留
@@ -1411,8 +3486,10 @@ mysql> quit
 
 删除方式
 1.根据存在时间删除日志
-#临时生效
+
+#临时生效   只保留7天内的
 SET GLOBAL expire_logs_days = 7;
+
 #永久生效
 [root@db01 data]# vim /etc/my.cnf
 [mysqld]
@@ -1423,24 +3500,23 @@ PURGE BINARY LOGS BEFORE now() - INTERVAL 3 day;
 msyql> purge binary logs before NOW() - interval 3 day;
 
 3.根据文件名删除
-
 show binary logs;#查看
-
 PURGE BINARY LOGS TO 'mysql-bin.000010';
 purge binary logs to 'mysql-bin.000002';
 
-
 4.使用reset master  重置,从mysql-bin.000001 开始
 mysql> reset master;
+```
+
+
 
 # 慢查询日志
+
+```sql
 作用： 记录慢SQL语句的日志,定位低效SQL语句的工具日志
-
-
 默认位置： $MYSQL_HOME/data/$hostname-slow.log
-
 开启方式（默认没有开启）：
-```
+
 [root@db01 ~]# vim /etc/my.cnf
 [mysqld]
 #开关
@@ -1451,11 +3527,13 @@ slow_query_log_file=/application/mysql/data/slow.log
 long_query_time=0.05
 #没走索引的语句也记录:
 log_queries_not_using_indexes
-#查询语句的执行行数检查返回少于该参数指定行的SQL不被记录到慢查询日志 
-min_examined_row_limit=100（鸡肋）
+#查询语句的扫描行数少于该参数指定行的SQL不被记录到慢查询日志   #默认0 不做行数限制，只要超时就记录
+min_examined_row_limit=0
+
+
 ```
 模拟慢查询语句
-```
+```sql
 use world
 show tables
 #将city表中所有内容加到t1表中
@@ -1471,38 +3549,210 @@ commit;
 delete from t1 where id>2000;
 quit
 [root@db01 ~]# cat /application/mysql/data/slow.log
-```
 
 #输出记录次数最多的10条SQL语句
-$PATH/mysqldumpslow -s c -t 10 /database/mysql/slow-log
+mysqldumpslow -s c -t 10 /application/mysql/data/slow.log
 
 参数说明:
--s:
-    是表示按照何种方式排序，c、t、l、r分别是按照记录次数、时间、查询时间、返回的记录数来排序，ac、at、al、ar，表示相应的倒叙；
--t:
-	是top n的意思，即为返回前面多少条的数据；
--g:
-	后边可以写一个正则匹配模式，大小写不敏感的；
+-s:是表示按照何种方式排序，c 次数、t 时间、l 查询时间、r 返回的记录数 来排序，
+		ac、at、al、ar，表示相应的倒叙；
+-t:是top n的意思，即为返回前面多少条的数据；
+-g:后边可以写一个正则匹配模式，大小写不敏感的；
 
 #得到返回记录集最多的10个查询
-$PATH/mysqldumpslow -s r -t 10 /database/mysql/slow-log
+mysqldumpslow -s r -t 10 /application/mysql/data/slow.log
+
 #得到按照时间排序的前10条里面含有左连接的查询语句
-$PATH/mysqldumpslow -s t -t 10 -g “left join”/database/mysql/slow-log
+mysqldumpslow -s t -t 10 -g “left join” /application/mysql/data/slow.log
+
+-- 拿到慢 SQL → explain 分析执行计划
+explain SELECT * FROM user WHERE username='xxx';
+
+```
+
+
 
 第三方推荐（扩展）
-#tinghua mirror
-yum install https://mirrors.tuna.tsinghua.edu.cn/percona/yum/percona-release-latest.noarch.rpm
+
+
+
+```bash
+yum install -y percona-toolkit-3.0.11-1.el6.x86_64.rpm
+-------------------------------------------------------------------------------------------
+
+# 安装官方 percona-release
+yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+# 2. 启用 tools 源（生成 repo 文件）
+percona-release enable-only tools release
+#官方源太慢
+#把官方地址替换成腾讯云（关键）
+sed -i 's#repo.percona.com#mirrors.cloud.tencent.com/percona#g' /etc/yum.repos.d/percona-*.repo
 yum clean all && yum makecache
+------------------------------或者
+# 1. 创建 percona.repo
+cat > /etc/yum.repos.d/percona.repo <<'EOF'
+[percona-tools]
+name=Percona Tools (Tencent Cloud Mirror)
+baseurl=https://mirrors.cloud.tencent.com/percona/yum/
+enabled=1
+gpgcheck=0
+EOF
+# 2. 清缓存、建缓存
+yum clean all
+yum makecache
+# 3. 安装工具（pt-toolkit、xtrabackup）
+yum install -y percona-toolkit percona-xtrabackup
+---------------------------------
 
-[root@db03 ~]# yum list percona*
-$ percona-release enable tools
-$ yum install -y percona-toolkit
+yum install percona-toolkit
 
-#xtrabackup对应mysql版本
+
+# xtrabackup对应mysql版本
 percona-xtrabackup-24       # for 5.6/5.7
 percona-xtrabackup-80       # for 8.0
 
-[root@db03 ~]# pt-query-digest /application/mysql/data/slow.log
+使用percona公司提供的pt-query-digest工具分析慢查询日志
+pt-query-digest /application/mysql/data/slow.log
+
+[root@db yum.repos.d]# pt-query-digest /application/mysql/data/slow.log
+*******************************************************************
+ Using the default of SSL_verify_mode of SSL_VERIFY_NONE for client
+ is deprecated! Please set SSL_verify_mode to SSL_VERIFY_PEER
+ possibly with SSL_ca_file|SSL_ca_path for verification.
+ If you really don't want to verify the certificate and keep the
+ connection open to Man-In-The-Middle attacks please set
+ SSL_verify_mode explicitly to SSL_VERIFY_NONE in your application.
+*******************************************************************
+  at /usr/bin/pt-query-digest line 12150.
+*******************************************************************
+ Using the default of SSL_verify_mode of SSL_VERIFY_NONE for client
+ is deprecated! Please set SSL_verify_mode to SSL_VERIFY_PEER
+ possibly with SSL_ca_file|SSL_ca_path for verification.
+ If you really don't want to verify the certificate and keep the
+ connection open to Man-In-The-Middle attacks please set
+ SSL_verify_mode explicitly to SSL_VERIFY_NONE in your application.
+*******************************************************************
+  at /usr/bin/pt-query-digest line 12150.
+
+# 3 software updates are available:
+#   * The current version for DBD::mysql is 5.013
+#   * The current version for Percona::Toolkit is 3.7.1
+#   * The current version for Perl is 5.42.0
+
+
+# 50ms user time, 100ms system time, 28.94M rss, 241.96M vsz
+# Current date: Sat Jun  6 04:12:16 2026
+# Hostname: db
+# Files: /application/mysql/data/slow.log
+# Overall: 6 total, 3 unique, 0.21 QPS, 0.01x concurrency ________________
+# Time range: 2026-06-06 03:39:05 to 03:39:34
+# Attribute          total     min     max     avg     95%  stddev  median
+# ============     ======= ======= ======= ======= ======= ======= =======
+# Exec time          262ms    21ms    73ms    44ms    71ms    18ms    50ms
+# Lock time           20ms    55us    15ms     3ms    14ms     5ms     2ms
+# Rows sent              0       0       0       0       0       0       0
+# Rows examine     187.22k   3.98k  63.73k  31.20k  62.55k  24.22k  47.07k
+# Query size           186      28      34      31   33.28    1.70   30.19
+
+# Profile
+# Rank Query ID                            Response time Calls R/Call V/M
+# ==== =================================== ============= ===== ====== ====
+#    1 0x049A46817126F277D990BC7C09F20BDA   0.1742 66.6%     4 0.0436  0.01 INSERT SELECT t?
+#    2 0x7FE0BDA11B6681AF6F6EB4D37DDD5C23   0.0604 23.1%     1 0.0604  0.00 DELETE t?
+#    3 0xEC97A6454DCD8D137C91989972B6F3C0   0.0270 10.3%     1 0.0270  0.00 CREATE TABLE city t1
+
+# Query 1: 4 QPS, 0.17x concurrency, ID 0x049A46817126F277D990BC7C09F20BDA at byte 999
+# This item is included in the report because it matches --limit.
+# Scores: V/M = 0.01
+# Time range: 2026-06-06 03:39:22 to 03:39:23
+# Attribute    pct   total     min     max     avg     95%  stddev  median
+# ============ === ======= ======= ======= ======= ======= ======= =======
+# Count         66       4
+# Exec time     66   174ms    21ms    73ms    44ms    71ms    18ms    56ms
+# Lock time      4   956us    55us   458us   239us   445us   147us   366us
+# Rows sent      0       0       0       0       0       0       0       0
+# Rows examine  63 119.50k   7.97k  63.73k  29.88k  62.55k  21.08k  47.07k
+# Query size    66     124      31      31      31      31       0      31
+# String:
+# Databases    world
+# Hosts        localhost
+# Users        root
+# Query_time distribution
+#   1us
+#  10us
+# 100us
+#   1ms
+#  10ms  ################################################################
+# 100ms
+#    1s
+#  10s+
+# Tables
+#    SHOW TABLE STATUS FROM `world` LIKE 't1'\G
+#    SHOW CREATE TABLE `world`.`t1`\G
+insert into t1 select * from t1\G
+
+
+# 一、开头SSL警告（可忽略，仅Perl模块弃用提示，不影响分析结果）
+*******************************************************************
+# 提示：旧SSL校验模式已废弃，建议开启证书校验；纯内网分析慢日志可直接忽略
+ Using the default of SSL_verify_mode of SSL_VERIFY_NONE for client
+ is deprecated! Please set SSL_verify_mode to SSL_VERIFY_PEER
+ possibly with SSL_ca_file|SSL_ca_path for verification.
+ If you really don't want to verify the certificate and keep the
+ connection open to Man-In-The-Middle attacks please set
+ SSL_verify_mode explicitly to SSL_VERIFY_NONE in your application.
+*******************************************************************
+  at /usr/bin/pt-query-digest line 12150.
+
+# 软件版本更新提示，当前工具、Perl版本偏低，按需升级即可
+# 3 software updates are available:
+#   * DBD::mysql 数据库驱动当前版本 5.013
+#   * Percona::Toolkit 工具包当前版本 3.7.1
+#   * Perl 脚本环境当前版本 5.42.0
+
+# 二、服务器&运行资源统计
+# 50ms 用户态耗时, 100ms 系统态耗时, 28.94M 物理内存占用, 241.96M 虚拟内存占用
+# Current date: 分析执行时间 2026-06-06 04:12:16
+# Hostname: 主机名 db
+# Files: 分析的慢日志文件 /application/mysql/data/slow.log
+
+# 三、日志整体汇总（全局指标）
+# Overall: 总计6条SQL, 3条独立SQL, 0.21 QPS(每秒查询数), 0.01 平均并发数
+# Time range: 慢日志记录时间范围 2026-06-06 03:39:05 ~ 03:39:34
+
+# 核心性能指标总览
+# Exec time 执行总耗时：262ms，单条最小21ms、最大73ms，平均44ms，95%线71ms
+# Lock time 锁等待总耗时：20ms，SQL锁竞争整体很小
+# Rows sent 返回客户端行数：0，都是无结果集的DML/DDL语句
+# Rows examine 存储引擎扫描总行数：187.22k，单条平均扫描31.20k行（扫描量大，优化重点）
+# Query size SQL语句字节大小：平均31字节，语句本身不长
+
+# 四、SQL排名（按响应时间降序，重点看Rank排行）
+# Rank 排名 | Query ID SQL唯一标识 | Response time 总耗时&占比 | Calls 执行次数 | R/Call 单次耗时 | V/M 波动系数
+# 1 排名第一(最耗性能)：INSERT SELECT 语句，执行4次，总耗时占比66.6%，核心优化对象
+# 2 排名第二：DELETE 语句，执行1次，总耗时占比23.1%
+# 3 排名第三：CREATE TABLE 建表语句，执行1次，总耗时占比10.3%
+
+# 五、TOP1 详细分析（问题SQL：insert into t1 select * from t1）
+# Count：共执行4次，占总条数66%
+# Exec time：总耗时174ms，单条最大73ms，执行耗时偏高
+# Lock time：总锁等待956us，锁压力很小
+# Rows examine：累计扫描119.50k行，占总扫描行数63%，**扫描行数过多是慢的主因**
+# 执行用户：root，客户端地址：localhost，操作库：world
+
+# Query_time distribution 执行耗时分布：
+# 10ms区间占比最高，说明这批SQL大多落在10ms~100ms区间，符合慢日志阈值规则
+
+# 执行前自动执行表结构查询（工具默认行为）
+# SHOW TABLE STATUS FROM `world` LIKE 't1'\G  查询表状态
+# SHOW CREATE TABLE `world`.`t1`\G             查询表建表语句
+
+# 最终问题SQL
+insert into t1 select * from t1\G
+# 风险说明：自复制插入数据，表数据会不断膨胀，且全表扫描导致行数巨大，持续拖慢性能
+```
+
+ 
 
 # MySQL的备份和恢复
 
@@ -1516,9 +3766,11 @@ percona-xtrabackup-80       # for 8.0
 2）尽量减少数据的丢失（公司的损失）
 
 ## 备份类型
-	- 冷备份  # 停业务备份
-	- 温备份  # 用户可读取数据,但不能修改数据情况下备份
-	- 热备份  # 用户可读取和修改的操作下 备份
+```bash
+- 冷备份  # 停业务备份
+- 温备份  # 用户可读取数据,但不能修改数据情况下备份
+- 热备份  # 用户可读取和修改的操作下 备份
+```
 
 ## 备份方式
 	- 逻辑备份   #基于sql语句的备份

@@ -88,7 +88,7 @@ port=3306
 socket=/tmp/mysql.sock
 [mysql]
 socket=/tmp/mysql.sock
-prompt=3306 [\\d]>
+prompt=\p [\\d]>
 EOF
 #加载配置
 systemctl daemon-reload
@@ -1049,10 +1049,14 @@ mysql -S /data/3307/mysql.sock -e "select @@server_id"
 mysql -S /data/3308/mysql.sock -e "select @@server_id"
 mysql -S /data/3309/mysql.sock -e "select @@server_id"
 
-
+#初始化密码
+mysqladmin -u root  -S /data/3307/mysql.sock password '123'
+mysqladmin -u root  -S /data/3308/mysql.sock password '123'
+mysqladmin -u root  -S /data/3309/mysql.sock password '123'
 ```
 # mysql客户端工具及sql
 # 客户端命令
+
 ```mysql
 mysql 
  - 连接 （略）
@@ -3606,7 +3610,7 @@ yum install -y percona-toolkit percona-xtrabackup
 
 yum install percona-toolkit
 
-
+yum install percona-xtrabackup-24
 # xtrabackup对应mysql版本
 percona-xtrabackup-24       # for 5.6/5.7
 percona-xtrabackup-80       # for 8.0
@@ -3925,8 +3929,6 @@ mysqldump 完整参数大全
 # 仅备份指定库下【单张表】（直接写 库名 表名）
 # 示例：mysqldump -uroot -p db_name table_name
 
-# 只导出视图定义
--R / --routines 仅存储过程/函数，视图需配合常规导出
 
 3. 过滤排除类（忽略库、忽略表、条件过滤）
 # 排除指定表，格式：库名.表名，可多次叠加
@@ -4146,23 +4148,30 @@ chown root:root /root/.my.cnf
 
 
 ## xtrabackup
-安装
-```
+
+```bash
 #下载epel源
 wget -O /etc/yum.repos.d/epel.repo  https://mirrors.aliyun.com/repo/epel-6.repo
 #安装依赖
 yum -y install perl perl-devel libaio libaio-devel perl-Time-HiRes perl-DBD-MySQL
 #下载Xtrabackup
 wget https://www.percona.com/downloads/XtraBackup/Percona-XtraBackup-2.4.4/binary/redhat/6/x86_64/percona-xtrabackup-24-2.4.4-1.el6.x86_64.rpm
-```
+
+#上面慢日志工具以及安装了源 可以直接安装
+yum install -y percona-xtrabackup-24
 
 备份方式（物理备份）
-    1）对于非innodb表（比如myisam）是直接锁表cp数据文件，属于一种温备。
-    2）对于innodb的表（支持事务），不锁表，cp数据页最终以数据文件方式保存下来，并且把redo和undo一并备走，属于热备方式。
-    3）备份时读取配置文件/etc/my.cnf
+1）对于非innodb表（比如myisam）是直接锁表cp数据文件，属于一种温备。
+2）对于innodb的表（支持事务），不锁表，cp数据页最终以数据文件方式保存下来，并且把redo和undo一并备走，属于热备方式。
+3）备份时读取配置文件/etc/my.cnf
+
+```
+
+
 
 **全量备份**
-```
+
+```bash
 #全备   自动会在backup目录下生成一个时间日期的文件夹
 innobackupex --user=root --password=123 /backup
 innobackupex --user=root --password=123 -S /tmp/mysql.sock  /backup
@@ -4187,7 +4196,7 @@ innobackupex --user=root --password=123 --no-timestamp -S /tmp/mysql.sock /backu
 ```
 **全备恢复**
 
-```
+```bash
 #准备备份
 #将redo进行重做，已提交的写到数据文件，未提交的使用undo回滚，模拟CSR的过程
 innobackupex --user=root --password=123 --apply-log /backup/full
@@ -4212,12 +4221,13 @@ systemctl start mysqld
 ```
 
 **增量备份及恢复**
-备份方式
-    1）基于上一次备份进行增量
-    2）增量备份无法单独恢复，必须基于全备进行恢复
-    3）所有增量必须要按顺序合并到全备当中
 
-```
+```bash
+备份方式
+1）基于上一次备份进行增量
+2）增量备份无法单独恢复，必须基于全备进行恢复
+3）所有增量必须要按顺序合并到全备当中
+    
 #不使用之前的全备，执行一次全备
 #innobackupex --user=root --password=123 --no-timestamp /backup/full
 innobackupex --user=root --password=123 --no-timestamp -S /tmp/mysql.sock /backup/full
@@ -4255,14 +4265,12 @@ innobackupex --user=root --password=123 --no-timestamp --incremental --increment
 #破坏数据
 [root@db01 ~]# rm -fr /application/mysql/data/
 systemctl stop mysqld
-```
 
 **增量恢复**
 	1）full+inc1+inc2
 	2）需要将inc1和inc2按顺序合并到full中
 	3）分步骤进行--apply-log
-
-```
+	
 #1 在全备中apply-log时，只应用redo，不应用undo
 innobackupex --apply-log --redo-only /backup/full/
 
@@ -4283,24 +4291,59 @@ systemctl start mysqld
 
 
 
-# mysql主从复制
+金融公司: 每小时增备,每天全备
+
+**思考:**
+
+## 企业级增量恢复实战
+
+**背景：**
+
+某大型网站，mysql数据库，数据量500G，每日更新量100M-200M
+
+**备份策略：**
+
+xtrabackup，每周六0:00进行全备，周一到周五及周日00:00进行增量备份。
+
+**故障场景：**
+
+周三下午2点出现数据库意外删除表操作。
+
+**如何恢复？？？**
+
+```bash
+先用全备加增备恢复到周二的时间, 周三0点到下午2点的数据通过binlog 恢复
+
+binglog的位置起点   在最后一次增备份的  文件里查看
+# cat xtrabackup_binlog_info  #这个文件里有 binlog文件位置信息
+
+```
+
+
+
+
+
+# mysql主从复制介绍
 
 ```css
+
 1. 主库的修改操作会记录二进制日志
 2. 从库会请求主库的二进制日志并在本地应用其内容.
 	IO: 请求主库,获取上一次执行过的新的事件,并存放到reaylog
 	sql: 从reaylog中将sql语句翻译给从库执行.
 
-
 主从复制核心功能:
 	辅助备份,处理物理损坏                   
-	扩展新型的架构:高可用,高性能,分布式架构等
+	扩展新型的架构:高可用,高性能,分布式架构,分担负载,等
+
+
 ```
 
 
 
 ## 主从复制原理
 
+```bash
 **主从复制的前提**
 
 1）两台或两台以上的数据库实例
@@ -4322,14 +4365,15 @@ systemctl start mysqld
 **主从复制涉及到的文件和线程**
 
 *主库：*
-1）主库binlog：记录主库发生过的修改事件
-2）dump thread：给从库传送（TP）二进制日志线程
+1）主库binlog：核心日志，数据变更的源头，主从复制、数据恢复都依赖它。
+2）dump thread：给从库推送二进制日志线程
 
 *从库：*
 1）relay-log（中继日志）：存储所有主库TP过来的binlog事件
-2）master.info：存储复制用户信息，上次请求到的主库binlog位置点
+2）master.info：记录主库ip 端口 账号 当前同步的binlog文件名+位置偏移量
 3）IO thread：接收主库发来的binlog日志，也是从库请求主库的线程
 4）SQL thread：执行主库TP过来的日志
+relay-log.info, 记录sql线程当前执行到relay-log的位置
 
 原理
 1）通过change master to语句告诉从库主库的ip，port，user，password，file，pos
@@ -4341,12 +4385,87 @@ systemctl start mysqld
 7）将TCP/IP缓存中的内容存到relay-log中
 8）SQL线程读取relay-log.info，读取到上次已经执行过的relay-log位置点，继续执行后续的relay-log日志，执行完成后，更新relay-log.info
 
-**主从复制搭建实战**
+
+# 整体架构图（字符画拓扑）
+
+【主库 Master】                网络传输                【从库 Slave】
+┌───────────────┐                                 ┌───────────────┐
+│ 客户端写操作    │                                 │ 只读对外提供查询 │
+│ INSERT/UPDATE/DELETE │                           │                │
+└───────┬───────┘                                 └───────┬───────┘
+        │ 1. 写入数据
+        ▼
+┌───────────────┐
+│ 执行SQL语句    │
+└───────┬───────┘
+        │ 2. 事务提交后，记录变更到二进制日志 binlog
+        ▼
+┌───────────────┐
+│ binlog 文件    │◄─── 记录所有 DDL/DML 数据变更
+└───────┬───────┘
+        │ 3. 从库 IO 线程 主动连接主库，拉取 binlog 日志
+        ▼  （网络同步日志内容）
+┌───────────────┐
+│ 从库 IO 线程   │
+└───────┬───────┘
+        │ 4. 把拉取到的 binlog 写入本地中继日志 relay-log
+        ▼
+┌───────────────┐
+│ relay-log 中继日志 │
+└───────┬───────┘
+        │ 5. 从库 SQL 线程 读取 relay-log
+        ▼
+┌───────────────┐
+│ 从库 SQL 线程  │
+└───────┬───────┘
+        │ 6. 重放日志中的SQL，在从库执行变更
+        ▼
+┌───────────────┐
+│ 从库数据最终与主库一致 │
+└───────────────┘
+
+
 ```
-[root@db03 system]# systemctl start mysqld3307.service #主库
-[root@db04 system]# systemctl start mysqld3308.service #从库
+
+
+
+## 面试精简版回答
+
+```txt
+一、超精简版（10 秒快速作答，适合开场简答）
+MySQL 主从复制依靠二进制日志 binlog实现：主库数据变更提交后写入 binlog，从库拉取日志并在本地回放，最终实现主从数据一致，默认是异步复制，多用于读写分离和数据备份。
+
+二、标准面试版（主流回答，30~60 秒，推荐首选）
+MySQL 主从复制核心是同步主库 binlog，一共涉及三个线程、两大日志：
+主库执行增删改、DDL 等写操作，事务提交后，变更会记录到binlog 二进制日志；
+从库的 IO 线程 连接主库，拉取 binlog 日志，存入从库本地relay-log 中继日志；
+从库的 SQL 线程 读取中继日志，逐条回放执行，完成数据同步。
+主库会启动 Binlog Dump 线程专门推送日志。MySQL 默认是异步复制，主库无需等待从库同步完成就响应客户端，因此主从会存在短暂延迟。
+
+三、深挖考点版（面试官追问细节时补充）
+核心线程
+主库：Binlog Dump 线程，向从库推送 binlog；
+从库：IO 线程（拉日志、写中继日志）、SQL 线程（回放日志），两个线程独立工作。
+关键文件
+主库：binlog，记录所有数据变更；
+从库：relay-log（中继日志）、master.info（记录主库地址、同步位点）、relay-log.info（记录回放位点），依靠位点实现断点续传。
+模式与特点
+默认异步复制：主从有延迟，性能高；
+还有半同步、组复制等模式，可保证数据可靠性；
+典型应用：读写分离、故障切换、数据热备。
+
+```
+
+
+
+## **主从复制搭建实战**
+
+```bash
+systemctl start mysqld3307.service #主库
+systemctl start mysqld3308.service #从库
+
 #主库操作
-[root@db03 ~]# cat /data/3307/my.cnf
+cat > /data/3307/my.cnf <\EOF
 [mysqld]
 basedir=/application/mysql
 datadir=/data/3307/data
@@ -4355,20 +4474,38 @@ log_error=/data/3307/mysql.log
 log-bin=/data/3307/mysql-bin  # 开启binlog日志
 server_id=1   # 主库server_id 为1 从库不等于1
 port=3307
+skip-name-resolve  # 关闭反向DNS解析
 [client]
 socket=/data/3307/mysql.sock
+EOF
 
 #创建主从复制用户
-[root@db03 ~]# mysql -uroot -S /data/3307/mysql.sock -p123
-mysql>grant replication slave on *.* to rep@'10.0.0.%' identified by '123';
-
+mysql -uroot -S /data/3307/mysql.sock -p123 -e "grant replication slave on *.* to rep@'10.0.0.%' identified by '123';"
 
 #全备主库发给从库恢复
-mysqldump -uroot -p -S /data/3307/mysql.sock -A --master-data=2 --single-transaction -R --triggers > /backup/full.sql
+#创建一点数据
+# mysql -uroot -p123 -S /data/3307/mysql.sock < world.sql
+# mysqldump -uroot -p -S /data/3307/mysql.sock -A --master-data=2 --single-transaction -R --triggers > /backup/full.sql
+mysqldump -uroot -p -S /data/3307/mysql.sock \
+--default-character-set=utf8mb4 \
+--single-transaction \
+--quick \
+--master-data=2 \
+-R -E --triggers \
+--all-databases > /backup/all_db_$(date +%Y%m%d).sql
+
+-- 参数说明
+# -R, --routines  # 备份 存储过程 + 自定义函数（生产必加）
+# -E, --events # 备份 定时事件 # （Event 计划任务，有定时任务必加）
+# --single-transaction  #快照备份
+# --quick  # 逐行流式导出大表，不一次性加载全表到内存，【大表必加，防止OOM】
+# --master-data=2 # 语句加注释，仅记录binlog 和 位置点
+# --triggers # 备份触发器（MySQL 5.1+ 默认开启，老版本需手动加）
+
 
 
 #从库操作
-[root@db04 ~]# cat /data/3308/my.cnf
+cat > /data/3308/my.cnf <EOF
 [mysqld]
 basedir=/application/mysql
 datadir=/data/3308/data
@@ -4379,10 +4516,11 @@ server_id=8  #server_id 8 ***
 port=3308
 [client]
 socket=/data/3308/mysql.sock
+EOF
 
-[root@db04 ~]# systemctl start mysqld3308
+systemctl start mysqld3308
 #恢复主库的数据
-[root@db04 ~]# mysql -uroot -S /data/3308/mysql.sock -p < /backup/full.sql
+mysql -uroot -S /data/3308/mysql.sock -p < /backup/all_db_$(date +%Y%m%d).sql
 # 查看主库的 position位置数
 [root@db03 ~]# mysql -uroot -p123 -S /data/3307/mysql.sock -e "show master status";
 
@@ -4402,11 +4540,11 @@ CHANGE MASTER TO
   MASTER_PORT=3306,
   MASTER_LOG_FILE='master2-bin.001',
   MASTER_LOG_POS=4,
-  MASTER_CONNECT_RETRY=10;
+  MASTER_CONNECT_RETRY=10; # MASTER_CONNECT_RETRY：从库IO线程连接主库失败后的重试间隔，单位：秒
 
 
 CHANGE MASTER TO
-  MASTER_HOST='10.0.0.4',
+  MASTER_HOST='10.0.0.9',
   MASTER_USER='rep',
   MASTER_PASSWORD='123',
   MASTER_PORT=3307,
@@ -4419,17 +4557,61 @@ mysql> start slave;
 mysql> show slave status\G
              Slave_IO_Running: Yes
             Slave_SQL_Running: Yes
+            
+-------------------------------------------------------------
+
+主从复制基本故障处理
+IO线程
+连接主库
+1）user password ip port
+2）网络：不通，延时高，防火墙
+请求binlog
+1）binlog不存在或者损坏
+更新relay-log和master.info
+
+SQL线程
+1）relay-log出现问题
+2）从库做写入了
+● 操作对象已存在（create）
+● 操作对象不存在（insert update delete drop truncate alter）
+● 约束问题、数据类型、列属性
 
 
+处理方法一：
+#临时停止同步
+mysql> stop slave;
+#将同步指针向下移动一个（可重复操作）
+mysql> set global sql_slave_skip_counter=1;
+#开启同步
+mysql> start slave;
 
-主从连接故障处理方法
-stop  slave;  
-reset slave all; 
-change master to  ... 
-start slave;
+处理方法二：
+#编辑配置文件
+[root@db01 ~]# vim /etc/my.cnf
+#在[mysqld]标签下添加以下参数  ,
+# 数字是报错号, 在 show slave status\G 里Last_SQl_Errno: 1032
+slave-skip-errors=1032,1062,1007
 
-1)重新备份数据库,恢复到从库
-2)给从从库设置为只读
+但是以上操作都是有风险存在的
+处理方法三：
+
+1）重新备份数据库，恢复到从库
+mysqldump -uroot -p -S /data/3307/mysql.sock \
+> --default-character-set=utf8mb4 \
+> --single-transaction \
+> --quick \
+> --master-data=2 \
+> -R -E --triggers \
+> --all-databases > /backup/all_db_$(date +%Y%m%d).sql
+
+-- 关闭当前会话binlog：导入数据不生成日志，防止后续同步错乱
+SET sql_log_bin = 0;
+-- 导入主库全量备份（你新备份的sql文件）
+source /root//backup/all_db_$(date +%Y%m%d).sql;
+-- 导入完成，恢复binlog（可选，退出会话也会自动恢复）
+SET sql_log_bin = 1;
+
+2）给从库设置为只读  (读写分离)
 read_only=1;
 # 临时生效
 mysql> set global read_only=1;
@@ -4437,12 +4619,16 @@ mysql> set global read_only=1;
 [root@db04 ~]# cat /data/3308/my.cnf
 [mysqld]
 read_only=1 添加
-
-mysql> show variables like '%read_only%';
-
+mysql> show variables like 'read_only%';
 ```
 
-# 延时从库
+
+
+
+
+## 延时从库
+
+```sql
 为什么要有延时从库
     数据库故障?
     物理损坏
@@ -4450,10 +4636,9 @@ mysql> show variables like '%read_only%';
     逻辑损坏
     普通主从复制没办法解决逻辑损坏
 
-
 企业中一般会延时3-6小时
 
-```
+
 #停止主从
 mysql>stop slave;
 #设置延时为180秒
@@ -4470,27 +4655,329 @@ mysql> stop slave;
 mysql> CHANGE MASTER TO MASTER_DELAY = 0;
 #开启主从
 mysql> start slave;
+
+
+
 ```
 
-# 半同步复制
-从MYSQL5.5开始，支持半自动复制。之前版本的MySQL Replication都是异步（asynchronous）的，主库在执行完一些事务后，是不会管备库的进度的。如果备库不幸落后，而更不幸的是主库此时又出现Crash（例如宕机），这时备库中的数据就是不完整的。简而言之，在主库发生故障的时候，我们无法使用备库来继续提供数据一致的服务了。
-半同步复制（Semi synchronous Replication）则一定程度上保证提交的事务已经传给了至少一个备库。
-出发点是保证主从数据一致性问题，安全的考虑。
+**延时从库恢复数据案例**
 
-半同步复制开启方法
+```bash
+思考问题：
+总数据量级500G，正常备份去恢复需要1.5-2小时
+1）配置延时3600秒
+mysql>CHANGE MASTER TO MASTER_DELAY = 3600;
+2）主库
+drop database db;
+
+
+3）怎么利用延时从库，恢复数据？
+提示：
+1、从库relaylog存放在datadir目录下
+2、mysqlbinlog 可以截取relaylog内容
+3、show relay log events in 'db01-relay-bin.000001';
+处理的思路：
+1）停止SQL线程
+mysql> stop slave sql_thread;
+2）截取relaylog到误删除之前点
+● relay-log.info 获取到上次运行到的位置点，作为恢复起点
+● 分析relay-log的文件内容，获取到误删除之前position
+
+------------------------------------------------------------------------1）关闭延时
+mysql -S /data/3308/mysql.sock -p123
+mysql> stop slave;
+mysql> CHANGE MASTER TO MASTER_DELAY = 0;
+mysql> start slave;
+
+2）模拟数据
+mysql -S /data/3307/mysql.sock -p123
+source  /root/world.sql
+use world;
+create table c1 select * from city;
+create table c2 select * from city;
+
+3）开启从库延时5分钟
+mysql -S /data/3308/mysql.sock
+show slave status \G
+mysql>stop slave;
+mysql>CHANGE MASTER TO MASTER_DELAY = 300;
+mysql>start slave;
+
+mysql -S /data/3307/mysql.sock
+use world;
+create table c3 select * from city;
+create table c4 select * from city;
+
+4）破坏，模拟删库故障。(以下步骤在5分钟内操作完成。)
+mysql -S /data/3307/mysql.sock
+drop database world;
+
+5）从库，关闭SQL线程
+# drop database 已经在从库的 relay-log 里了
+# 但 SQL 线程已停止，永远不会执行删除命令，数据保住了！
+mysql -S /data/3308/mysql.sock
+stop slave sql_thread;
+
+6）截取relay-log
+起点：
+cd /data/3308/data/
+cat relay-log.info
+./db01-relay-bin.000002
+283
+
+终点：
+mysql -S /data/3308/mysql.sock -p123
+show relaylog events in 'db01-relay-bin.000002'
+  db01-relay-bin.000002 | 268047 
+#也可以在命令行查看 #查看drop database world;前一个pos点  393
+mysqlbinlog db01-relay-bin.000002
+
+mysqlbinlog --start-position=283  --stop-position=268047 /data/3308/data/db01-relay-bin.000002 >/tmp/relay.sql
+
+在从库恢复relay.sql
+1）取消从库身份
+mysql -S /data/3308/mysql.sock -p123
+mysql> stop slave;
+mysql> reset slave all;
+2）恢复数据
+mysql> set sql_log_bin=0;  -- 当前会话关闭二进制日志记录
+mysql> source /tmp/relay.sql
+mysql> use world
+mysql> show tables;
+
+# 收尾（可选）
+从库 3308 数据已完整恢复
+可以将 3308 切换为新主库，对外提供服务
+主库 3307 废弃或重新搭建从库
+
+
+
+模拟故障及恢复：
+
+1）关闭延时
+mysql -S /data/3308/mysql.sock -p123
+mysql> stop slave;
+mysql> CHANGE MASTER TO MASTER_DELAY = 0;
+mysql> start slave;
+
+2）模拟数据
+mysql -S /data/3307/mysql.sock -p123
+source  /root/world.sql
+use world;
+create table c1 select * from city;
+create table c2 select * from city;
+
+3）开启从库延时5分钟
+mysql -S /data/3308/mysql.sock
+show slave status \G
+mysql>stop slave;
+mysql>CHANGE MASTER TO MASTER_DELAY = 300;
+mysql>start slave;
+
+mysql -S /data/3307/mysql.sock
+use world;
+create table c3 select * from city;
+create table c4 select * from city;
+
+4）破坏，模拟删库故障。(以下步骤在5分钟内操作完成。)
+mysql -S /data/3307/mysql.sock
+drop database world;
+
+5）从库，关闭SQL线程
+# drop database 已经在从库的 relay-log 里了
+# 但 SQL 线程已停止，永远不会执行删除命令，数据保住了！
+mysql -S /data/3308/mysql.sock
+stop slave sql_thread;
+
+6）截取relay-log
+起点：
+cd /data/3308/data/
+cat relay-log.info
+./db01-relay-bin.000002
+283
+
+终点：
+mysql -S /data/3308/mysql.sock -p123
+show relaylog events in 'db01-relay-bin.000002'
+  db01-relay-bin.000002 | 268047 
+#也可以在命令行查看 #查看drop database world;前一个pos点  393
+mysqlbinlog db01-relay-bin.000002
+
+mysqlbinlog --start-position=283  --stop-position=268047 /data/3308/data/db01-relay-bin.000002 >/tmp/relay.sql
+
+在从库恢复relay.sql
+1）取消从库身份
+mysql -S /data/3308/mysql.sock -p123
+mysql> stop slave;
+mysql> reset slave all;
+2）恢复数据
+mysql> set sql_log_bin=0;  -- 当前会话关闭二进制日志记录
+mysql> source /tmp/relay.sql
+mysql> use world
+mysql> show tables;
+
+# 收尾（可选）
+从库 3308 数据已完整恢复
+可以将 3308 切换为新主库，对外提供服务
+主库 3307 废弃或重新搭建从库
+
+
+
 ```
-#1）安装（主库）
-# mysql -uroot -p123
+
+
+
+
+
+
+
+## 半同步复制
+
+### 一、极简背诵版（10 秒简答，口头直接说）
+
+半同步复制介于异步和全同步之间。主库提交事务后，**不会立刻返回客户端**，会等待**至少一个从库**把 binlog 拉取并写入本地中继日志（relay-log）、返回确认包后，再响应客户端；如果等待超时，会自动降级为普通异步复制。
+
+作用：大幅降低异步模式的数据丢失风险，同时兼顾性能。
+
+------
+
+### 二、标准面试版（30~60 秒，主流回答，推荐）
+
+#### 1. 核心概念
+
+MySQL 半同步复制是基于插件实现的增强复制模式，弥补**默认异步复制**的数据丢失隐患，又规避**全同步复制**性能过低的问题，MySQL 5.5 及以上版本原生支持。
+
+#### 2. 核心工作流程
+
+1. 客户端在主库执行事务并提交，主库将变更写入 `binlog`；
+2. 主库 Binlog Dump 线程推送日志给从库 IO 线程；
+3. **从库 IO 线程接收 binlog 并落地到本地 relay-log 后，主动给主库发送 ACK 确认包**；
+4. 主库收到**至少一台从库**的 ACK 应答，才告知客户端「事务提交成功」；
+5. 从库后续由 SQL 线程**异步回放**中继日志，和普通主从逻辑一致。
+
+#### 3. 关键容错机制
+
+主库有**超时阈值**，若指定时间内没收到从库 ACK，会**自动降级为异步复制**，避免主库长时间阻塞、业务不可用。
+
+------
+
+### 三、深度拆解（面试官追问细节，必背考点）
+
+#### 1. 三种复制模式横向对比
+
+| 复制模式     | 核心逻辑                             | 数据安全性                     | 性能     | 生产使用场景                 |
+| :----------- | :----------------------------------- | :----------------------------- | :------- | :--------------------------- |
+| 异步（默认） | 主库写完 binlog 立即返回，不等从库   | 低（主库宕机可能丢未传输日志） | 最优     | 大部分读写分离、非核心业务   |
+| 半同步       | 等至少 1 个从库落地 relay-log 再返回 | 高（主流防丢数据方案）         | 轻微损耗 | 核心业务、要求数据尽量不丢失 |
+| 全同步       | 等待**所有从库**执行完 SQL 再返回    | 最高                           | 极差     | 几乎不用，仅极端强一致场景   |
+
+#### 2. 两大核心误区（面试高频坑）
+
+❌ 误区 1：半同步需要等待从库 **SQL 线程执行完日志**
+
+✅ 正解：**只等 IO 线程把 binlog 写入 relay-log**，不等 SQL 回放，这是性能损耗小的关键。
+
+❌ 误区 2：半同步永远不会退化成异步
+
+✅ 正解：主库等待超时后，自动降级为异步；网络恢复后，**不会自动切回半同步**，需要手动重启复制或插件。
+
+### 3. 依赖插件 & 核心参数（实操 + 面试考点）
+
+半同步是**独立插件**，主、从库需要分别加载：
+
+- 主库插件：`rpl_semi_sync_master`
+- 从库插件：`rpl_semi_sync_slave`
+
+常用系统变量（可动态修改）：
+
+```sql
+-- 主库：开启半同步
+SET GLOBAL rpl_semi_sync_master_enabled = 1;
+-- 从库：开启半同步
+SET GLOBAL rpl_semi_sync_slave_enabled = 1;
+
+-- 主库超时时间（单位：毫秒，默认 1000ms=1秒）
+-- 超过这个时间没收到ACK，降级为异步
+SET GLOBAL rpl_semi_sync_master_timeout = 1000;
+```
+
+### 4. 优缺点总结
+
+#### 优点
+
+1. 相比异步：数据落地到从库 relay-log，**极大降低主库宕机导致的数据丢失概率**；
+2. 相比全同步：仅多一次网络 ACK 交互，性能损耗很小；
+3. 自带超时降级机制，保证业务高可用。
+
+#### 缺点
+
+1. 相比纯异步，增加网络往返，**有轻微性能下降**；
+2. 降级为异步后，就失去半同步的安全特性；
+3. 无法做到 100% 绝对不丢数据（极端场景：从库写完 relay-log 未刷盘就宕机）。
+
+### 5. 拓展：无损半同步（MySQL 5.7+ 新特性）
+
+MySQL 5.7 推出 **Lossless Semi-Sync（无损半同步）**，进一步优化：
+
+- 约束：主库必须确认 binlog 已经被从库接收，**才会清理本地 binlog**；
+- 彻底解决旧版半同步「主库提前清理 binlog，从库又丢失日志」的极端问题；
+- 现在生产环境基本都开启无损半同步。
+
+------
+
+### 四、完整工作时序图（串联之前学的主从线程）
+
+```
+客户端 → 主库(执行事务 → 写binlog)
+                ↓
+        Binlog Dump线程 → 推送binlog
+                ↓
+        从库IO线程 → 写入relay-log → 发送ACK确认
+                ↓
+        主库收到ACK → 返回「提交成功」给客户端
+                ↓
+        从库SQL线程（异步）→ 回放relay-log 完成数据同步
+```
+
+------
+
+### 五、面试连环提问速答（直接背）
+
+1. **问：半同步等待什么？**
+
+   答：等待从库 IO 线程将 binlog 写入中继日志后返回的 ACK，不等待 SQL 线程执行。
+
+2. **问：需要几个从库确认？**
+
+   答：默认至少 **1 台** 从库返回 ACK 即可。
+
+3. **问：超时后会怎样？**
+
+   答：自动降级为普通异步复制，保证业务不阻塞。
+
+4. **问：半同步是内核功能吗？**
+
+   答：不是，是**插件形式**，主从库都需要手动加载并开启。
+
+5. **问：和延时从库能一起用吗？**
+
+   答：可以，两者功能不冲突：半同步保障数据传输安全，延时从库用于防误删 / 误改。
+
+### 半同步复制开启方法
+
+```sql
+1）安装（主库）
+# mysql -uroot -S /data/3307/mysql.sock -p123
 #查看是否有动态支持
 #mysql> show global variables like 'have_dynamic_loading';
 #安装自带插件
 INSTALL PLUGIN rpl_semi_sync_master SONAME 'semisync_master.so';
 #启动插件
 SET GLOBAL rpl_semi_sync_master_enabled = 1;
-#设置超时
+#设置超时  1000毫秒（ms）=1秒
 SET GLOBAL rpl_semi_sync_master_timeout = 1000;
 #修改配置文件
-# vim /etc/my.cnf
+# vi /data/3307/my.cnf
 #在[mysqld]标签下添加如下内容（不用重启库）
 [mysqld]
 rpl_semi_sync_master_enabled=1
@@ -4501,7 +4988,7 @@ mysql> show global status like 'rpl_semi%';
 
 2）安装（从库）
 #登录数据库
-# mysql -uroot -p123
+# mysql -S /data/3308/mysql.sock -p123
 #安装slave半同步插件
 INSTALL PLUGIN rpl_semi_sync_slave SONAME 'semisync_slave.so';
 #启动插件
@@ -4510,7 +4997,7 @@ SET GLOBAL rpl_semi_sync_slave_enabled = 1;
 stop slave io_thread;
 start slave io_thread;
 #编辑配置文件（不需要重启数据库）
-# vim /etc/my.cnf
+# vim /data/3308/my.cnf
 #在[mysqld]标签下添加如下内容
 [mysqld]
 rpl_semi_sync_slave_enabled =1
@@ -4522,19 +5009,123 @@ show status like 'Rpl_semi_sync_master_status';
 从:
 show status like 'Rpl_semi_sync_slave_status';
 
+
+相关参数说明:(主库上设置)
+参数											作用							默认值
+rpl_semi_sync_master_wait_for_slave_count	主库需等待 ACK的从库最小数量	    1
+rpl_semi_sync_master_timeout				等待 ACK 的超时时间（毫秒）	    10000（10 秒）
+rpl_semi_sync_master_wait_no_slave			从库不足时是否继续等待				ON
+
+官方行为描述（Oracle MySQL 5.7 文档）
+当 rpl_semi_sync_master_wait_no_slave=ON 时，允许在超时期间内从库数量降至小于 rpl_semi_sync_master_wait_for_slave_count。只要在超时前有足够从库确认事务，主库就保持半同步；否则降级为异步。
+当 rpl_semi_sync_master_wait_no_slave=OFF 时，若从库数量在任何时候降至小于等待阈值，主库立即恢复为异步复制。
 ```
-注：相关参数说明
-rpl_semi_sync_master_timeout=milliseconds
-设置此参数值（ms）,为了防止半同步复制在没有收到确认的情况下发生堵塞，如果Master在超时之前没有收到任何确认，将恢复到正常的异步复制，并继续执行没有半同步的复制操作。
-rpl_semi_sync_master_wait_no_slave={ON|OFF}
-如果一个事务被提交,但Master没有任何Slave的连接，这时不可能将事务发送到其它地方保护起来。默认情况下，Master会在时间限制范围内继续等待Slave的连接，并确认该事务已经被正确的写到磁盘上。
-可以使用此参数选项关闭这种行为，在这种情况下，如果没有Slave连接，Master就会恢复到异步复制。
 
-# 过滤复制
 
+测试半同步复制
+
+```sql
+#创建两个数据库，test1和test2  主库操作
+create database test1;
+create database test2;
+
+#查看复制状态
+mysql> show global status like 'rpl_semi%';
++--------------------------------------------+-------+
+| Variable_name                              | Value |
++--------------------------------------------+-------+
+| Rpl_semi_sync_master_clients               | 1     |
+| Rpl_semi_sync_master_net_avg_wait_time     | 768   |
+| Rpl_semi_sync_master_net_wait_time         | 1497  |
+| Rpl_semi_sync_master_net_waits             | 2     |
+| Rpl_semi_sync_master_no_times              | 0     |
+| Rpl_semi_sync_master_no_tx                 | 0     |
+| Rpl_semi_sync_master_status                | ON    |
+| Rpl_semi_sync_master_timefunc_failures     | 0     |
+| Rpl_semi_sync_master_tx_avg_wait_time      | 884   |
+| Rpl_semi_sync_master_tx_wait_time          | 1769  |
+| Rpl_semi_sync_master_tx_waits              | 2     |
+| Rpl_semi_sync_master_wait_pos_backtraverse | 0     |
+| Rpl_semi_sync_master_wait_sessions         | 0     |
+#此行显示2，表示刚才创建的两个库执行了半同步
+| Rpl_semi_sync_master_yes_tx                | 2     | 
++--------------------------------------------+-------+
+14 rows in set (0.06 sec)
+#从库查看
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| performance_schema |
+| test               |
+| test1              |
+| test2              |
++--------------------+
+
+#关闭半同步（1:开启 0:关闭） 主库上执行
+mysql> SET GLOBAL rpl_semi_sync_master_enabled = 0;
+#查看半同步状态
+mysql> show global status like 'rpl_semi%';
++--------------------------------------------+-------+
+| Variable_name                              | Value |
++--------------------------------------------+-------+
+| Rpl_semi_sync_master_clients               | 1     |
+| Rpl_semi_sync_master_net_avg_wait_time     | 768   |
+| Rpl_semi_sync_master_net_wait_time         | 1497  |
+| Rpl_semi_sync_master_net_waits             | 2     |
+| Rpl_semi_sync_master_no_times              | 0     |
+| Rpl_semi_sync_master_no_tx                 | 0     |
+| Rpl_semi_sync_master_status                | OFF   | #状态为关闭
+| Rpl_semi_sync_master_timefunc_failures     | 0     |
+| Rpl_semi_sync_master_tx_avg_wait_time      | 884   |
+| Rpl_semi_sync_master_tx_wait_time          | 1769  |
+| Rpl_semi_sync_master_tx_waits              | 2     |
+| Rpl_semi_sync_master_wait_pos_backtraverse | 0     |
+| Rpl_semi_sync_master_wait_sessions         | 0     |
+| Rpl_semi_sync_master_yes_tx                | 2     | 
++--------------------------------------------+-------+
+14 rows in set (0.00 sec)
+#再一次创建两个库
+create database test3;
+create database test4;
+
+#再一次查看半同步状态
+mysql> show global status like 'rpl_semi%';
++--------------------------------------------+-------+
+| Variable_name                              | Value |
++--------------------------------------------+-------+
+| Rpl_semi_sync_master_clients               | 1     |
+| Rpl_semi_sync_master_net_avg_wait_time     | 768   |
+| Rpl_semi_sync_master_net_wait_time         | 1497  |
+| Rpl_semi_sync_master_net_waits             | 2     |
+| Rpl_semi_sync_master_no_times              | 0     |
+| Rpl_semi_sync_master_no_tx                 | 0     |
+| Rpl_semi_sync_master_status                | OFF   |
+| Rpl_semi_sync_master_timefunc_failures     | 0     |
+| Rpl_semi_sync_master_tx_avg_wait_time      | 884   |
+| Rpl_semi_sync_master_tx_wait_time          | 1769  |
+| Rpl_semi_sync_master_tx_waits              | 2     |
+| Rpl_semi_sync_master_wait_pos_backtraverse | 0     |
+| Rpl_semi_sync_master_wait_sessions         | 0     |
+#此行还是显示2，则证明，刚才的那两条并没有执行半同步否则应该是4
+| Rpl_semi_sync_master_yes_tx                | 2     | 
++--------------------------------------------+-------+
+14 rows in set (0.00 sec)
+注:不难发现，在查询半同步状态是，开启半同步，查询会有延迟时间，关闭之后则没有
+
+```
+
+
+
+## 过滤复制
+
+```bash
 主库：
-    binlog-do-db      #白名单:只记录白名单中列出的库的二进制日志
-    binlog-ignore-db  #黑名单：不记录黑名单列出的库的二进制日志
+binlog-do-db      #白名单:只记录白名单中列出的库的二进制日志
+binlog-ignore-db  #黑名单：不记录黑名单列出的库的二进制日志
+
 从库：
 白名单：只执行白名单中列出的库或者表的中继日志
 replicate-do-db=test
@@ -4546,27 +5137,56 @@ replicate-ignore-table
 replicate-wild-ignore-table
 
 ---------------------------------------------------------------
+
 replicate-wild-do-table和replicate-do-table 参数区别?
 结论：对于binlog_format=statement或mixed，
 	只在从库设置replicate-wild-do-table=world.% 另两个参数不用设置 或
 			  replicate-wild-ignore-table=world.%
 	此时可以避免跨库更新问题。
 binlog_format=row 直接忽略replicate-wild-do-table replicate-wild-ignore-table参数即可
-
-----------------------------------------------------------------
-
-
-复制过滤配置
 ```
+
+
+
+**复制过滤 test**
+
+```sql
+# 从库配置
 # vim /data/3308/my.cnf 
-#在[mysqld]标签下添加  表示只复制主库的 world库的数据.其他的库不复制
+#在[mysqld]标签下添加
 replicate-do-db=world
+#关闭MySQL
+mysqladmin -S /data/3308/mysql.sock  shutdown
+#启动MySQL
+mysqld_safe --defaults-file=/data/3308/my.cnf &
 
-# 重启mysql 
-# systemctl restart msyqld3308
+
+
+测试复制过滤：
+第一次测试：
+1）主库：
+# mysql -uroot -p123 -S /data/3307/mysql.sock 
+mysql> use world
+mysql> create table t1(id int);
+2）从库查看结果：
+# mysql -uroot -p123 -S /data/3308/mysql.sock 
+mysql> use world
+mysql> show tables;
+
+第二次测试：
+1）主库：
+# mysql -uroot -p123 -S /data/3307/mysql.sock 
+mysql> use test
+mysql> create table tb1(id int);
+2）从库查看结果：
+# mysql -uroot -p123 -S /data/3308/mysql.sock 
+mysql> use test
+mysql> show tables;
+
 ```
 
-# 主从复制新特性——GTID复制
+## 主从复制新特性——GTID复制
+
 GTID
 5.6新特性
 GTID(Global Transaction ID)是对于一个已提交事务的编号，并且是一个全局唯一的编号。

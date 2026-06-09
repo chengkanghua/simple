@@ -4057,7 +4057,7 @@ mysqldump -uroot -p \
 --quick \
 --master-data=2 \
 -R -E \
---all-databases > /data/backup/all_db_$(date +%Y%m%d).sql
+--all-databases > /backup/all_db_$(date +%Y%m%d).sql
 
 # MyISAM 引擎专用（全局锁备份）
 mysqldump -uroot -p \
@@ -4136,10 +4136,6 @@ chmod 600 /root/.my.cnf
 # 确保属主是 root（执行定时任务的用户）
 chown root:root /root/.my.cnf
 ```
-
-
-
-
 
 
 
@@ -5187,34 +5183,76 @@ mysql> show tables;
 
 ## 主从复制新特性——GTID复制
 
-GTID
-5.6新特性
-GTID(Global Transaction ID)是对于一个已提交事务的编号，并且是一个全局唯一的编号。
-它的官方定义如下：
-GTID = source_id ：transaction_id
-7E11FA47-31CA-19E1-9E56-C43AA21293967:29
-
-每一台mysql实例中，都会有一个唯一的uuid，标识实例的唯一性
-auto.cnf，存放在数据目录下
-
-重要参数：
-gtid-mode=on
-enforce-gtid-consistency=true
-log-slave-updates=1
-
-
-gtid-mode=on		                --启用gtid类型，否则就是普通的复制架构
-enforce-gtid-consistency=true		--强制GTID的一致性
-log-slave-updates=1					--slave更新是否记入日志
+GTID（**Global Transaction ID，全局事务 ID**）是 MySQL 5.6 推出、5.7 成熟的复制方案，用来**替代传统 `binlog文件名+position` 位点复制**，解决传统位点手动查找易错、故障切换麻烦的问题，是目前生产主流主从架构。
 
 
 
-规划：
-	主库：  10.0.0.4/24
-	从库1:  10.0.0.5/24
-	从库2： 10.0.0.6/24
+### 一、基础概念 & 核心原理
 
-```
+### 1. GTID 格式
+
+GTID 全局唯一，格式固定：UUID:Transaction_ID
+
+示例：`3f4e2d10-8a7b-6c5d-4e3f-1234567890ab:1258`
+
+- **UUID**：MySQL 实例唯一标识，保存在数据目录 `auto.cnf`，一台实例终身不变；
+- **Transaction_ID**：事务序号，从 `1` 开始**连续递增**，实例每执行一个事务，序号 + 1。
+
+> 核心特性：**一个事务对应唯一 GTID，一个 GTID 只对应一个事务，整个复制拓扑内全局唯一**。
+
+### 2. GTID 复制三大核心规则（必背）
+
+1. 事务在主库生成时，会**绑定 GTID 并写入 binlog**；
+2. 从库拉取 binlog 后，先比对本地已执行的 GTID 集合：
+   - 本地**没有**该 GTID → 正常执行事务；
+   - 本地**已有**该 GTID → **自动跳过**，杜绝重复执行；
+3. GTID 模式下，搭建主从**无需手动指定 `MASTER_LOG_FILE` 和 `MASTER_LOG_POS`**，MySQL 自动比对 GTID 完成位点对齐。
+
+### 3. 和传统位点复制的本质区别
+
+- 传统：靠 `binlog文件 + 偏移量pos` 定位，人工找位点，主从切换、故障恢复极易出错；
+- GTID：靠**全局事务 ID**自动定位，运维极简，适配故障转移、多从库、级联复制。
+
+------
+
+### 二、面试精简回答（分 3 档，直接背诵）
+
+### 1. 极简版（10 秒简答）
+
+GTID 即全局事务 ID，是 MySQL 新一代主从复制方案。它为每个事务分配全局唯一 ID，搭建主从无需手动指定 binlog 和位点，MySQL 自动比对 GTID 同步数据，还能自动跳过重复事务，降低运维难度。
+
+### 2. 标准完整版（30~60 秒，首选）
+
+GTID 全称全局事务 ID，MySQL 5.6 及以上支持，用来替代传统文件 + 位点复制。
+
+1. 主库每个事务都会生成唯一 GTID 并写入 binlog；
+
+2. 从库拉取日志时，通过比对本地已执行 GTID 集合，自动定位同步起点，**不用手动写 binlog 和 pos**；
+
+3. 遇到已执行过的事务会自动跳过，避免数据重复；
+
+4. 优势是运维简单、故障切换方便，是现在生产环境主流方案。
+
+   同时必须开启 gtid_mode和 enforce_gtid_consistency 两个核心参数。
+
+### 3. 深挖考点版（应对连环追问）
+
+1. **GTID 组成**：由实例 `UUID` + 递增事务号组成，全局唯一；
+2. 核心参数
+   - `gtid_mode=ON`：开启 GTID 模式；
+   - `enforce_gtid_consistency=ON`：强制 GTID 一致性，禁止破坏 GTID 语义的 SQL；
+3. 关键变量
+   - `gtid_executed`：实例已执行的所有 GTID 集合；
+   - `gtid_purged`：已被清理（`purge`）的 binlog 对应的 GTID；
+4. **限制**：开启一致性校验后，不支持 `CREATE TABLE ... SELECT`、临时表、事务混合非事务引擎等语句；
+5. **适用场景**：一主多从、主从故障切换、MGR 组复制底层也依赖 GTID。
+
+
+
+### 4 GTID 主从完整搭建实操（MySQL 5.7 / 8.0 通用）
+
+```bash
+#一主两从
 # 三台机器初始化
 rm -rf /application/mysql/data/*
 /application/mysql/scripts/mysql_install_db --user=mysql --basedir=/application/mysql/ --datadir=/application/mysql/data/
@@ -5233,13 +5271,13 @@ socket=/tmp/mysql.sock
 log-bin=mysql-bin
 binlog_format=row
 skip-name-resolve
-server-id=51
+server-id=1
 gtid-mode=on
 enforce-gtid-consistency=true
 log-slave-updates=1
 [mysql]
 socket=/tmp/mysql.sock
-prompt=3306 [\\d]>
+prompt=\p [\\d]>
 
 #slave1
 [root@db04 ~]# cat /etc/my.cnf
@@ -5258,7 +5296,7 @@ enforce-gtid-consistency=true
 log-slave-updates=1
 [mysql]
 socket=/tmp/mysql.sock
-prompt=3306 [\\d]>
+prompt=\p [\\d]>
 
 #slave2
 [root@db05 ~]# cat /etc/my.cnf
@@ -5274,10 +5312,11 @@ skip-name-resolve
 server-id=6
 gtid-mode=on
 enforce-gtid-consistency=true
+# 从库同步过来的中继日志操作，再次写入本机binlog
 log-slave-updates=1
 [mysql]
 socket=/tmp/mysql.sock
-prompt=3306 [\\d]>
+prompt=\p [\\d]>
 
 #三节点
 systemctl restart mysqld
@@ -5287,12 +5326,14 @@ mysql -uroot -p123 -e "show variables like 'server_id'"
 
 
 #master:
-grant replication slave  on *.* to repl@'10.0.0.%' identified by '123';
+mysql -uroot -p123 -e "grant replication slave  on *.* to repl@'10.0.0.%' identified by '123';"
 
 #slave1\slave2
-change master to master_host='10.0.0.4',master_user='repl',master_password='123' ,MASTER_AUTO_POSITION=1;
-
+change master to master_host='10.0.0.9',master_user='repl',master_password='123' ,MASTER_AUTO_POSITION=1;
 start slave;
+
+#检查状态
+show slave status\G; 
 
 
 # 问题多次操作 出现 slave_IO_running:ON的问题
@@ -5316,27 +5357,219 @@ Query OK, 0 rows affected (0.01 sec)
 
 ```
 
+### 主库已有历史数据（生产常用）
+
+```bash
+
+主库全量备份数据（如 mysqldump）；
+# --set-gtid-purged=ON 主库导出全量备份，自动记录Executed_Gtid_Set到备份头部
+mysqldump -uroot -p \
+--default-character-set=utf8mb4 \
+--single-transaction \
+--quick \
+--master-data=2 \
+--set-gtid-purged=ON \
+-R -E \
+--all-databases > /backup/all.sql
+
+将备份文件导入从库；
+mysql> source /backup/all.sql
+
+
+主库全备份的时候添加了--set-gtid-purged=ON  下面的操作就不需要了
+-------------------------------------------------------------------------------
+手动指定从库 gtid_purged（告诉从库：这些 GTID 已经执行过，无需再同步）：
+-- 语法：把主库 Executed_Gtid_Set 赋值给 gtid_purged
+SET GLOBAL gtid_purged = '主库SHOW MASTER STATUS查到的Executed_Gtid_Set值';
+
+-- 清空binlog日志 从00001文件开始
+reset master;
+SET GLOBAL gtid_purged = '80360986-636f-11f1-95ec-000c29d3ef36:1-11';
+---------------------------------------------------------------------------------
+
+
+-- 再执行GTID版CHANGE MASTER
+STOP SLAVE;
+CHANGE MASTER TO
+MASTER_HOST='10.0.0.9',
+MASTER_USER='repl',
+MASTER_PASSWORD='123',
+MASTER_AUTO_POSITION=1;
+
+START SLAVE;
+SHOW SLAVE STATUS\G
+```
+
+
+
+### 四、GTID 核心系统变量 & 参数解释
+
+```bash
+1. 启动必配参数（my.cnf）
+参数	           作用
+server_id	    实例 ID，主从必须唯一，复制基础
+log_bin	        开启二进制日志，GTID 强制依赖
+gtid_mode = ON	开启 GTID 模式，OFF 为传统位点模式
+enforce_gtid_consistency = ON	强制 GTID 语义一致性，禁止破坏 GTID 的 SQL，生产必开
+log_slave_updates	从库 binlog 记录同步过来的事务，级联复制（主→从→从）必须开启
+
+2. 运行时状态变量（SQL 查询）
+-- 1. 查看当前实例已执行的所有GTID
+SHOW GLOBAL VARIABLES LIKE 'gtid_executed';
+-- 2. 查看已被purge清理的binlog对应的GTID（空实例导入数据需配置）
+SHOW GLOBAL VARIABLES LIKE 'gtid_purged';
+-- 3. 查看GTID模式是否开启
+SHOW GLOBAL VARIABLES LIKE 'gtid_mode';
+
+
+常用运维命令
+1. 重新搭建 GTID 从库（清空复制关系）
+STOP SLAVE;
+RESET SLAVE ALL;  -- 清空主从配置、relay-log、位点信息
+-- 重新执行 CHANGE MASTER + START SLAVE
+
+2. 应急跳过单个错误 GTID 事务（仅临时故障用）
+-- 1. 关闭sql线程
+STOP SLAVE SQL_THREAD;
+
+-- 2. 生成一个空事务，占用报错的GTID，实现跳过
+SET GTID_NEXT='报错的GTID值';
+BEGIN; COMMIT;
+SET GTID_NEXT='AUTOMATIC'; -- 恢复自动分配GTID
+
+-- 3. 重启sql线程
+START SLAVE SQL_THREAD;
+
+3. 清理过期 binlog（GTID 模式）
+-- 传统 purge 依然可用，会自动维护 gtid_purged
+PURGE MASTER LOGS TO 'mysql-bin.000010';
+
+
+
+```
+
+GTID 复制 vs 传统位点复制 对比
+
+| 对比项   | 传统 binlog+pos 复制              | GTID 复制                             |
+| -------- | --------------------------------- | ------------------------------------- |
+| 同步定位 | 手动指定 binlog 文件 + 偏移量 pos | 自动比对 GTID，无需手动指定位点       |
+| 重复事务 | 可能重复执行，导致数据错乱        | 自动跳过已执行 GTID，防重复           |
+| 故障切换 | 需人工找新主库位点，操作复杂      | 自动对齐，切换简单                    |
+| 级联复制 | 配置繁琐                          | 原生友好，配合 log_slave_updates 即可 |
+| 约束限制 | 无额外 SQL 限制                   | 开启一致性后，禁止部分特殊 SQL        |
+| 版本支持 | 全版本                            | MySQL 5.6+ 支持，5.7 稳定             |
+
+
+
 # MHA高可用及读写分离
 
-软件简介
-MHA能够在较短的时间内实现自动故障检测和故障转移，通常在10-30秒以内;在复制框架中，MHA能够很好地解决复制过程中的数据一致性问题，由于不需要在现有的replication中添加额外的服务器，仅需要一个manager节点，而一个Manager能管理多套复制，所以能大大地节约服务器的数量;另外，安装简单，无性能损耗，以及不需要修改现有的复制部署也是它的优势之处。
-MHA还提供在线主库切换的功能，能够安全地切换当前运行的主库到一个新的主库中(通过将从库提升为主库),大概0.5-2秒内即可完成。
-MHA由两部分组成：MHA Manager（管理节点）和MHA Node（数据节点）。MHA Manager可以独立部署在一台独立的机器上管理多个Master-Slave集群，也可以部署在一台Slave上。当Master出现故障时，它可以自动将最新数据的Slave提升为新的Master,然后将所有其他的Slave重新指向新的Master。整个故障转移过程对应用程序是完全透明的。
+## 一.MHA简介
 
-**工作流程**
-1)把宕机的master二进制日志保存下来。
-2)找到binlog位置点最新的slave。
-3)在binlog位置点最新的slave上用relay log（差异日志）修复其它slave。
-4)将宕机的master上保存下来的二进制日志恢复到含有最新位置点的slave上。
-5)将含有最新位置点binlog所在的slave提升为master。
-6)将其它slave重新指向新提升的master，并开启主从复制。
+MHA（**Master High Availability**）是**开源 MySQL 高可用集群方案**，专门解决**一主多从架构下主库单点故障**问题。
+
+- 底层依赖：MySQL 原生主从复制（传统位点 / GTID 均支持，生产推荐 GTID）
+- 核心能力：**自动监控主库、主库宕机后自动选新主、自动修复从库复制关系**，最大程度保证数据不丢失。
+- 主流版本：`MHA 0.58 / 0.59`，支持 MySQL 5.5 ~ 8.0。
+
+### 1.2 MHA 两大角色（必记）
+
+MHA 分为 **Manager（管理节点）** 和 **Node（数据节点）**，所有 MySQL 实例都必须安装 Node。
+
+表格
+
+| **角色**        | **部署位置**                          | **核心作用**                                                |
+| --------------- | ------------------------------------- | ----------------------------------------------------------- |
+| **MHA Manager** | 独立服务器（建议不和 MySQL 混部）     | 全局监控集群、检测主库宕机、发起故障切换、执行切换脚本      |
+| **MHA Node**    | 所有主库、从库节点（每台 MySQL 都装） | 解析 binlog/relay-log、比对日志位点、补全差异日志、协助切换 |
+
+关键前置条件（部署必满足）：
+
+1. 集群所有节点 **SSH 免密互通**（Manager ↔ Node、Node ↔ Node）；
+2. 主从复制状态正常（`Slave_IO_Running=Yes`、`Slave_SQL_Running=Yes`）；
+3. 集群内 `server_id` 全局唯一；
+4. 建议开启 **GTID + 半同步复制**，降低切换后数据丢失风险。
+
+##  二. MHA 架构拓扑（标准一主多从）
+
+```plain
+┌─────────────┐
+                │ MHA Manager │  （独立监控节点）
+                └──────┬──────┘
+                       │ 监控所有节点状态
+         ┌─────────────┼─────────────┐
+         │             │             │
+    ┌────▼────┐    ┌───▼───┐    ┌───▼───┐
+    │ Master  │    │ Slave1 │    │ Slave2 │
+    │(主库)   │    │(从库)  │    │(从库)  │
+    │Node已装 │    │Node已装│    │Node已装│
+    └────┬────┘    └───────┘    └───────┘
+         │ 主从复制（binlog/GTID）
+         └───────────┬───────────────┘
+
+
+        c/s 结构     
+mha manager 可以管理多套 mysql 集群
+```
+
+## 三. MHA 核心故障切换流程（面试高频，逐阶段拆解）
+
+当**主库完全宕机、网络不通**时，MHA 自动执行 6 步切换（`auto_failover=1` 开启自动切换）：
+
+### 阶段 1：故障检测
+
+MHA Manager 定时 `ping` 主库，连续多次探测失败，判定**主库不可用**。
+
+### 阶段 2：筛选候选新主
+
+MHA 遍历所有从库，**优先选择「数据最新、延迟最小」的从库**（比对 `relay-log` 位点），避免选延迟过大的从库导致数据丢失。
+
+### 阶段 3：日志补全（MHA 核心亮点）
+
+1. 尝试连接宕机主库，拉取**未同步到从库的剩余 binlog**；
+2. 将差异日志应用到候选新主，保证新主数据和原主尽可能一致。
+
+### 阶段 4：提升新主
+
+将选中的从库，**提升为新 Master**。
+
+### 阶段 5：重构复制关系
+
+所有剩余从库，自动修改 `CHANGE MASTER TO`，指向**新主库**（GTID 模式无需手动指定 binlog+pos，切换更稳）。
+
+### 阶段 6：业务切换
+
+搭配 `Keepalived VIP`（虚拟 IP），将 VIP 漂移到新主库；应用无需修改 IP，继续正常读写。
+
+补充：如果只是主库 MySQL 进程挂了、服务器正常，MHA 会**尝试原地重启 MySQL**，而非直接切换。
+
+
+
+**MHA优点总结**
+
+- **兼容性好**：全系列 MySQL 版本都支持，传统位点、GTID 两种复制模式均可适配，老旧集群也能平滑接入；
+- **数据安全性高**：主库宕机后会尝试拉取原主残留 binlog 补全差异，配合半同步复制，大幅降低数据丢失概率；
+- **轻量化易运维**：架构简单，仅 Manager 和 Node 两个组件，资源占用低、配置简单，学习和排障门槛低；
+- **灵活可控**：支持**自动故障切换**应对突发宕机，也支持**手动在线切换**用于版本升级、硬件维护等计划性操作；
+- **无架构侵入**：基于原生主从复制实现，不用修改 MySQL 内核和业务代码，原有集群逻辑完全保留。
 
 **工具介绍**
 MHA软件由两部分组成，Manager工具包和Node工具包，具体的说明如下：
 Manager工具包主要包括以下几个工具：
 
-manager 工具
+```bash
+
+下载地址
+https://github.com/yoshinorim/mha4mysql-manager/releases/tag/v0.58
+https://github.com/yoshinorim/mha4mysql-node/releases
+
+wget https://github.com/yoshinorim/mha4mysql-manager/releases/download/v0.58/mha4mysql-manager-0.58-0.el7.centos.noarch.rpm
+wget https://github.com/yoshinorim/mha4mysql-node/releases/download/v0.58/mha4mysql-node-0.58-0.el7.centos.noarch.rpm
 ```
+
+
+
+manager 工具
+```bash
 masterha_check_ssh              #检查MHA的ssh-key
 masterha_check_repl             #检查主从复制情况
 masterha_manger                 #启动MHA
@@ -5346,31 +5579,21 @@ masterha_master_switch          #手动故障转移
 masterha_conf_host              #手动添加server信息
 masterha_secondary_check        #建立TCP连接从远程服务器
 masterha_stop                   #停止MHA
+
 ```
 Node工具包主要包括以下几个工具：
-```
+```bash
 save_binary_logs                #保存宕机的master的binlog
 apply_diff_relay_logs           #识别relay log的差异
 filter_mysqlbinlog              #防止回滚事件
-purge_relay_logs                #清除中继日志
+purge_relay_logs                #清除中继日志bash
+
 ```
 
-MHA优点总结
-1）Masterfailover and slave promotion can be done very quickly
-自动故障转移快
-2）Mastercrash does not result in data inconsistency
-主库崩溃不存在数据一致性问题
-3）Noneed to modify current MySQL settings (MHA works with regular MySQL)
-不需要对当前mysql环境做重大修改
-4）Noneed to increase lots of servers
-不需要添加额外的服务器(仅一台manager就可管理上百个replication)
-5）Noperformance penalty
-性能优秀，可工作在半同步复制和异步复制，当监控mysql状态时，仅需要每隔N秒向master发送ping包(默认3秒)，所以对性能无影响。你可以理解为MHA的性能和简单的主从复制框架性能一样。
-6）Works with any storage engine
-只要replication支持的存储引擎，MHA都支持，不会局限于innodb
+
 
 **环境准备**
-```
+```bash
 #master
 [root@db03 ~]# cat /etc/redhat-release;uname -r ;hostname -I
 CentOS Linux release 7.9.2009 (Core)
@@ -5387,11 +5610,13 @@ CentOS Linux release 7.9.2009 (Core)
 3.10.0-1160.el7.x86_64
 10.0.0.6
 
-```
-安装mysql5.6.40版本,初始化 root密码123 #省略
 
-基于GTID主从复制  #略过 配置参考
-``` 
+安装mysql5.6.40版本,初始化 root密码123 #省略
+基于GTID主从复制 一主两从  #略过 配置参考
+```
+
+
+``` bash
 #主库配置
 # vim /etc/my.cnf
 [mysqld]
@@ -5413,7 +5638,7 @@ log_bin=mysql-bin
 gtid_mode=ON
 log_slave_updates
 enforce_gtid_consistency
-#禁用自动删除relay log 永久生效
+#禁用自动删除relay log 永久生效  #mha故障选主阶段：依赖 relay-log 判断「数据最新的从库」
 relay_log_purge = 0
 #设置只读 通过命令设置只读 mysql> set global read_only=1
 #read_only=1
@@ -5435,15 +5660,15 @@ relay_log_purge = 0
 ```
 ## 部署MHA
 
-```
+```bash
 # 所有节点操作
 yum install perl-DBD-MySQL -y #安装依赖包
 rpm -ivh mha4mysql-node-0.56-0.el6.noarch.rpm
 
 
-[root@db03 MHA]# mysql -uroot -p123  #这里创建mha账号,主库配置,从库会自动同步.
-3306 [(none)]>grant all privileges on *.* to mha@'10.0.0.%' identified by 'mha';
-
+# mysql -uroot -p123  #这里创建mha账号,主库配置,从库会自动同步.
+mysql > grant all privileges on *.* to mha@'10.0.0.%' identified by 'mha';
+-- mysql > flush privileges;  -- 只有再修改mysql.user 系统表的时候刷新授权表到内容中生效.
 
 # 命令软链接
 #如果不创建命令软连接，检测mha复制情况的时候会报错
@@ -5451,7 +5676,7 @@ ln -s /application/mysql/bin/mysqlbinlog /usr/bin/mysqlbinlog
 ln -s /application/mysql/bin/mysql /usr/bin/mysql
 
 #所有节点ssh互信
-ssh-keygen -t dsa -P '' -f ~/.ssh/id_dsa > /dev/null 2>&1
+ssh-keygen -t ed25519 -P '' -f ~/.ssh/id_dsa > /dev/null 2>&1
 ssh-copy-id -i /root/.ssh/id_dsa.pub root@10.0.0.4
 ssh-copy-id -i /root/.ssh/id_dsa.pub root@10.0.0.5
 ssh-copy-id -i /root/.ssh/id_dsa.pub root@10.0.0.6
@@ -5459,15 +5684,20 @@ ssh-copy-id -i /root/.ssh/id_dsa.pub root@10.0.0.6
 ```
 
 **部署管理节点（mha-manager:mysql-db03）**
-```
+```bash
 yum -y install epel-release
 yum install -y perl-Config-Tiny epel-release perl-Log-Dispatch perl-Parallel-ForkManager perl-Time-HiRes
 rpm -ivh /tmp/mha4mysql-manager-0.56-0.el6.noarch.rpm
 
+rpm -ivh mha4mysql-node-0.58-0.el7.centos.noarch.rpm   
+rpm -ivh mha4mysql-manager-0.58-0.el7.centos.noarch.rpm  
+
+
 #编辑配置文件
-[root@db05 ~]# mkdir -p /etc/mha
-[root@db05 ~]# mkdir -p /var/log/mha/app1
-[root@db05 ~]# cat /etc/mha/app1.cnf
+mkdir -p /etc/mha
+mkdir -p /var/log/mha/app1
+
+cat > /etc/mha/app1.cnf <<EOF
 [server default]
 manager_log=/var/log/mha/app1/manager
 manager_workdir=/var/log/mha/app1
@@ -5479,109 +5709,111 @@ repl_password=123
 repl_user=repl
 ssh_user=root
 [server1]
+candidate_master=1
+check_repl_delay=0
 hostname=10.0.0.4
 port=3306
 [server2]
-candidate_master=1
-check_repl_delay=0
 hostname=10.0.0.5
 port=3306
 [server3]
 hostname=10.0.0.6
 port=3306
+EOF
 
-```
-启动测试
-```
+参数说明
+# 标记当前从库为【候选主库】，主库宕机后优先选为新主
+candidate_master=1
+# 关闭MHA自动根据复制延迟过滤候选从库的逻辑
+check_repl_delay=0
+
+
+#这里是把mha管理节点装在了其中一台slave节点上, 也可以单独配置一台安装.
+# 其他需要管理的mysql主从库上都安装
+yum install -y perl-Config-Tiny epel-release perl-Log-Dispatch perl-Parallel-ForkManager perl-Time-HiRes
+rpm -ivh mha4mysql-node-0.58-0.el7.centos.noarch.rpm 
+
+# 启动测试
 #测试ssh
-[root@mysql-db05 ~]# masterha_check_ssh --conf=/etc/mha/app1.cnf
+mha管理节点 # masterha_check_ssh --conf=/etc/mha/app1.cnf
 #看到如下字样，则测试成功
 Tue Mar  7 01:03:33 2017 - [info] All SSH connection tests passed successfully.
 #测试复制
-[root@mysql-db05 ~]# masterha_check_repl --conf=/etc/mha/app1.cnf
+# masterha_check_repl --conf=/etc/mha/app1.cnf
 #看到如下字样，则测试成功
 MySQL Replication Health is OK.
-```
-启动MHA
-```
-[root@db05 ~]# nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --ignore_last_failover < /dev/null > /var/log/mha/app1/manager.log 2>&1 &
 
+# 启动MHA
+nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --ignore_last_failover < /dev/null > /var/log/mha/app1/manager.log 2>&1 &
+
+
+# nohup：后台持久运行命令，脱离终端，关闭shell不终止进程
+nohup \
+# MHA管理程序主命令
+masterha_manager \
+# 指定MHA集群配置文件路径
+--conf=/etc/mha/app1.cnf \
+# 故障切换完成后，自动从配置中移除宕机失效的旧主库记录
+--remove_dead_master_conf \
+# 忽略上一次故障切换记录，允许重新启动监控（上次切换未清理锁文件时必加）
+--ignore_last_failover \
+# 标准输入重定向为空，避免进程占用终端输入
+< /dev/null \
+# 标准输出、标准错误统一写入MHA日志文件
+> /var/log/mha/app1/manager.log 2>&1 \
+# 放置后台运行，返回PID
+&
 ```
+
+
 切换master测试
-```
-#登录数据库（db02）
-[root@mysql-db02 ~]# mysql -uroot -poldboy123
-#检查复制情况
-mysql> show slave status\G
-*************************** 1. row ***************************
-               Slave_IO_State: Waiting for master to send event
-                  Master_Host: 10.0.0.51
-                  Master_User: rep
-                  Master_Port: 3306
-                Connect_Retry: 60
-              Master_Log_File: mysql-bin.000006
-          Read_Master_Log_Pos: 191
-               Relay_Log_File: mysql-db02-relay-bin.000002
-                Relay_Log_Pos: 361
-        Relay_Master_Log_File: mysql-bin.000006
-             Slave_IO_Running: Yes
-            Slave_SQL_Running: Yes
-#登录数据库（db03）
-[root@mysql-db03 ~]# mysql -uroot -poldboy123
-#检查复制情况
-mysql> show slave status\G
-*************************** 1. row ***************************
-               Slave_IO_State: Waiting for master to send event
-                  Master_Host: 10.0.0.51
-                  Master_User: rep
-                  Master_Port: 3306
-                Connect_Retry: 60
-              Master_Log_File: mysql-bin.000006
-          Read_Master_Log_Pos: 191
-               Relay_Log_File: mysql-db03-relay-bin.000002
-                Relay_Log_Pos: 361
-        Relay_Master_Log_File: mysql-bin.000006
-             Slave_IO_Running: Yes
-            Slave_SQL_Running: Yes
+```bash
+#登录数据库（db02）检查复制情况
+mysql -uroot -p123 -e "show slave status\G" |grep Yes
+#登录数据库（db03）检查复制情况
+mysql -uroot -p123 -e "show slave status\G" |grep Yes
+
 #停掉主库
 [root@mysql-db01 ~]# /etc/init.d/mysqld stop
-Shutting down MySQL..... SUCCESS!
-#登录数据库（db02）
-[root@mysql-db02 ~]# mysql -uroot -poldboy123
-#查看slave状态
-mysql> show slave status\G
+
+#登录数据库（db02）查看slave状态
+[root@mysql-db02 ~]# mysql -uroot -p123 -e "show slave status\G" 
 #db02的slave已经为空
 Empty set (0.00 sec)
-#登录数据库（db03）
-[root@mysql-db03 ~]# mysql -uroot -poldboy123
-#查看slave状态
-mysql> show slave status\G
-*************************** 1. row ***************************
-               Slave_IO_State: Waiting for master to send event
-                  Master_Host: 10.0.0.52
-                  Master_User: rep
-                  Master_Port: 3306
-                Connect_Retry: 60
-              Master_Log_File: mysql-bin.000006
-          Read_Master_Log_Pos: 191
-               Relay_Log_File: mysql-db03-relay-bin.000002
-                Relay_Log_Pos: 361
-        Relay_Master_Log_File: mysql-bin.000006
-             Slave_IO_Running: Yes
-            Slave_SQL_Running: Yes
+
+#登录数据库（db03）#查看slave状态
+[root@mysql-db03 ~]# mysql -uroot -p123 -e "show slave status\G" 
+
+mha管理主机查看日志
+# tail -10 /var/log/mha/app1/manager
+Master 10.0.0.9(10.0.0.9:3306) is down!
+
+Check MHA Manager logs at db03:/var/log/mha/app1/manager for details.
+
+Started automated(non-interactive) failover.
+Selected 10.0.0.10(10.0.0.10:3306) as a new master.
+10.0.0.10(10.0.0.10:3306): OK: Applying all logs succeeded.
+10.0.0.11(10.0.0.11:3306): OK: Slave started, replicating from 10.0.0.10(10.0.0.10:3306)
+10.0.0.10(10.0.0.10:3306): Resetting slave info succeeded.
+Master failover to 10.0.0.10(10.0.0.10:3306) completed successfully.
+
 ```
 
 测试成功后 修复主从
-```
-[root@db05 ~]# vi /var/log/mha/app1/manager  # 查看切换过程日志
-All other slaves should start replication from here. Statement should be: CHANGE MASTER TO MASTER_HOST='10.0.0.5', MASTER_PORT=3306, MASTER_AUTO_POSITION=1, MASTER_USER='repl', MASTER_PASSWORD='xxx';
-#这里有提示 命令   xxx修改成 repl的密码123
+```bash
+#修复故障主机
+/etc/init.d/mysqld start
+mysql -uroot -p123
+STOP SLAVE;
 
-# 之前的坏的主库修复后,指向新的主库
-[root@db03 data]# mysql -uroot -p123
-3306 [(none)]>change master to master_host='10.0.0.5',master_user='repl',master_password='123' ,MASTER_AUTO_POSITION=1;
-3306 [(none)]>start slave;
-3306 [(none)]>show slave status\G
+CHANGE MASTER TO
+MASTER_HOST='10.0.0.10',
+MASTER_USER='repl',
+MASTER_PASSWORD='123',
+MASTER_AUTO_POSITION=1;
+
+START SLAVE;
+SHOW SLAVE STATUS\G
 
 #修改mha配置  #修复的主机地址添加回来
 [root@db05 ~]# vi /etc/mha/app1.cnf
@@ -5590,7 +5822,10 @@ hostname=10.0.0.4
 port=3306
 
 #启动MHA
-[root@db05 ~]# nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --ignore_last_failover < /dev/null > /var/log/mha/app1/manager.log 2>&1 &
+mha master # nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --ignore_last_failover < /dev/null > /var/log/mha/app1/manager.log 2>&1 &
+
+
+
 
 ```
 
@@ -5599,11 +5834,15 @@ VIP漂移的两种方式
     1）通过keepalived的方式，管理虚拟IP的漂移
     2）通过MHA自带脚本方式，管理虚拟IP的漂移
 
-master_ip_failover 脚本文件
-```
-[root@db05 ~]# ll /tmp/master_ip_failover
--rwxr-x---. 1 root root 2248 Dec 29 19:20 /tmp/master_ip_failover
-[root@db05 ~]# cat /tmp/master_ip_failover
+**MHA脚本方式**  master_ip_failover 脚本文件
+
+```bash
+wget https://github.com/yoshinorim/mha4mysql-manager/releases/download/v0.58/mha4mysql-manager-0.58.tar.gz
+tar zxvf mha4mysql-manager-0.58.tar.gz
+ll mha4mysql-manager-0.58/samples/scripts/master_ip_failover #脚本位置
+
+
+# vim /usr/local/bin/master_ip_failover
 #!/usr/bin/env perl
 
 use strict;
@@ -5618,95 +5857,8 @@ my (
 
 my $vip = '10.0.0.55/24';
 my $key = '1';
-my $ssh_start_vip = "/sbin/ifconfig eth1:$key $vip";
-my $ssh_stop_vip = "/sbin/ifconfig eth1:$key down";
-
-GetOptions(
-    'command=s'          => \$command,
-    'ssh_user=s'         => \$ssh_user,
-    'orig_master_host=s' => \$orig_master_host,
-    'orig_master_ip=s'   => \$orig_master_ip,
-    'orig_master_port=i' => \$orig_master_port,
-    'new_master_host=s'  => \$new_master_host,
-    'new_master_ip=s'    => \$new_master_ip,
-    'new_master_port=i'  => \$new_master_port,
-);
-
-exit &main();
-
-sub main {
-
-    print "\n\nIN SCRIPT TEST====$ssh_stop_vip==$ssh_start_vip===\n\n";
-
-    if ( $command eq "stop" || $command eq "stopssh" ) {
-
-        my $exit_code = 1;
-        eval {
-            print "Disabling the VIP on old master: $orig_master_host \n";
-            &stop_vip();
-            $exit_code = 0;
-        };
-        if ($@) {
-            warn "Got Error: $@\n";
-            exit $exit_code;
-        }
-        exit $exit_code;
-    }
-    elsif ( $command eq "start" ) {
-
-        my $exit_code = 10;
-        eval {
-            print "Enabling the VIP - $vip on the new master - $new_master_host \n";
-            &start_vip();
-            $exit_code = 0;
-        };
-        if ($@) {
-            warn $@;
-            exit $exit_code;
-        }
-        exit $exit_code;
-    }
-    elsif ( $command eq "status" ) {
-        print "Checking the Status of the script.. OK \n";
-        exit 0;
-    }
-    else {
-        &usage();
-        exit 1;
-    }
-}
-
-sub start_vip() {
-    `ssh $ssh_user\@$new_master_host \" $ssh_start_vip \"`;
-}
-sub stop_vip() {
-     return 0  unless  ($ssh_user);
-    `ssh $ssh_user\@$orig_master_host \" $ssh_stop_vip \"`;
-}
-
-sub usage {
-    print
-    "Usage: master_ip_failover --command=start|stop|stopssh|status --orig_master_host=host --orig_master_ip=ip --orig_master_port=port --new_master_host=host --new_master_ip=ip --new_master_port=port\n";
-}[root@db05 ~]# vi /tmp/master_ip_failover
-[root@db05 ~]# ll /tmp/master_ip_failover
--rwxr-x---. 1 root root 2248 Dec 29 19:20 /tmp/master_ip_failover
-[root@db05 ~]# cat /tmp/master_ip_failover
-#!/usr/bin/env perl
-
-use strict;
-use warnings FATAL => 'all';
-
-use Getopt::Long;
-
-my (
-    $command,          $ssh_user,        $orig_master_host, $orig_master_ip,
-    $orig_master_port, $new_master_host, $new_master_ip,    $new_master_port
-);
-
-my $vip = '10.0.0.55/24';
-my $key = '1';
-my $ssh_start_vip = "/sbin/ifconfig eth1:$key $vip";
-my $ssh_stop_vip = "/sbin/ifconfig eth1:$key down";
+my $ssh_start_vip = "/sbin/ifconfig eth0:$key $vip";
+my $ssh_stop_vip = "/sbin/ifconfig eth0:$key down";
 
 GetOptions(
     'command=s'          => \$command,
@@ -5777,10 +5929,11 @@ sub usage {
 }
 ```
 
-```
+```bash
 配置步骤
 上传准备好的/usr/local/bin/master_ip_failover
 dos2unix /usr/local/bin/master_ip_failover  #widows复制过来的文件需要转换一下
+
 #编辑配置文件
 [root@mysql-db03 ~]# vim /etc/mha/app1.cnf
 #在[server default]标签下添加
@@ -5805,71 +5958,44 @@ my $ssh_stop_vip = "/sbin/ifconfig ens33:$key down";
 ------------------------
 
 #添加执行权限，否则mha无法启动
-[root@mysql-db03 ~]# chmod +x /usr/local/bin/master_ip_failover
+chmod +x /usr/local/bin/master_ip_failover
+
+#编辑配置文件
+[root@mysql-db03 ~]# vim /etc/mha/app1.cnf
+#在[server default]标签下添加
+[server default]
+#使用MHA自带脚本
+master_ip_failover_script=/usr/local/bin/master_ip_failover
+
+重启mha
+masterha_stop --conf=/etc/mha/app1.cnf
+nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --ignore_last_failover < /dev/null > /var/log/mha/app1/manager.log 2>&1 &
+
 
 # 主库上手动绑定vip
-ifconfig ens33:0 10.0.0.55/24
-[root@db03 MHA]# ip a|grep ens33
-2: ens33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
-    inet 10.0.0.5/24 brd 10.0.0.255 scope global dynamic ens33
-    inet 10.0.0.55/24 brd 10.0.0.255 scope global secondary ens33:1
+ifconfig eth0:0 10.0.0.55/24
+ip a|grep eth0  #检查
 
 ```
 
 测试ip漂移
 
-```
-#登录slave1
-# mysql -uroot -poldboy123
-#查看slave信息
-3306 [(none)]>show slave status\G
-*************************** 1. row ***************************
-               Slave_IO_State: Waiting for master to send event
-                  Master_Host: 10.0.0.4
-                  Master_User: repl
-                  Master_Port: 3306
-                Connect_Retry: 60
-              Master_Log_File: mysql-bin.000002
-          Read_Master_Log_Pos: 191
-               Relay_Log_File: db04-relay-bin.000002
-                Relay_Log_Pos: 361
-        Relay_Master_Log_File: mysql-bin.000002
-             Slave_IO_Running: Yes
-            Slave_SQL_Running: Yes
+```bash
+#登录slave  #查看slave信息
+# mysql -uroot -p123 -e "show slave status\G"
+#在slave3上查看从库slave信息
+# mysql -uroot -p123 -e "show slave status\G"
 
 #停掉主库
 [root@db03 MHA]# systemctl stop mysqld
 
-#在slave3上查看从库slave信息
-3306 [(none)]>show slave status\G
-*************************** 1. row ***************************
-               Slave_IO_State: Waiting for master to send event
-                  Master_Host: 10.0.0.5
-                  Master_User: repl
-                  Master_Port: 3306
-                Connect_Retry: 60
-              Master_Log_File: mysql-bin.000003
-          Read_Master_Log_Pos: 231
-               Relay_Log_File: db05-relay-bin.000002
-                Relay_Log_Pos: 361
-        Relay_Master_Log_File: mysql-bin.000003
-             Slave_IO_Running: Yes
-            Slave_SQL_Running: Yes
+# 检查vip地址是不是漂移到新的master上了 
+ifconfg
 
-#在主库 上查看vip信息
-[root@db03 MHA]# ip a|grep ens33
-2: ens33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
-    inet 10.0.0.4/24 brd 10.0.0.255 scope global dynamic ens33
-
-#在slave1 上查看vip信息
-[root@db04 data]# ip a|grep ens33
-2: ens33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
-    inet 10.0.0.5/24 brd 10.0.0.255 scope global dynamic ens33
-    inet 10.0.0.55/24 brd 10.0.0.255 scope global secondary ens33:1
 
 ```
 ## 邮件提醒
-```
+```bash
 # 这里写一个发送邮件的脚本放到/usr/local/bin/send
 1. 参数：
 report_script=/usr/local/bin/send
@@ -5894,15 +6020,18 @@ nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --igno
 /etc/init.d/mysqld start 
 （2）主机损坏，有可能数据也损坏了
 备份并恢复故障节点。
+
 2.恢复主从环境
 看日志文件：
 CHANGE MASTER TO MASTER_HOST='10.0.0.52', MASTER_PORT=3306, MASTER_AUTO_POSITION=1, MASTER_USER='repl', MASTER_PASSWORD='123';
 start slave ;
+
 3.恢复manager
 3.1 修好的故障节点配置信息，加入到配置文件
 [server1]
 hostname=10.0.0.51
 port=3306
+
 3.2 启动manager   
 nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --ignore_last_failover < /dev/null > /var/log/mha/app1/manager.log 2>&1 &
 
@@ -5910,7 +6039,7 @@ nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --igno
 ## 配置binlog-server
 防止主库连接不上,用来存储binlog日志
 
-```
+```bash
 binlogserver配置：
 找一台额外的机器，必须要有5.6以上的版本，支持gtid并开启，我们直接用的第二个slave（db03）
 [root@mysql-db03 ~]# vim /etc/mha/app1.cnf
@@ -5981,7 +6110,7 @@ Atlas主要功能
     5.DBA可平滑上下线DB
     6.自动摘除宕机的DB
 
-```
+```bash
 #安装
 [root@db03 MHA]# rpm -ivh Atlas-2.2.1.el6.x86_64.rpm
 
@@ -6020,7 +6149,7 @@ charset=utf8
 ```
 
 Atlas 管理操作
-```
+```bash
 #用atlas管理用户登录
 [root@mysql-db01 ~]# mysql -uuser -ppwd -h127.0.0.1 -P2345
 #查看可用命令帮助
@@ -6050,7 +6179,7 @@ mysql> SAVE CONFIG;
 Empty set (0.06 sec)
 ```
 atlas读写功能测试
-```
+```bash
 [root@db03 bin]# mysql -umha -pmha -h 10.0.0.4 -P3307
 3306 [(none)]>select @@server_id;
 3306 [(none)]>begin;select @@server_id;commit;
@@ -6059,7 +6188,7 @@ atlas读写功能测试
 
 生产用户要求
 
-```
+```bash
 开发人员申请一个应用用户 app(  select  update  insert)  密码123456,要通过10网段登录
 1. 在主库中,创建用户
 grant select ,update,insert on *.* to app@'10.0.0.%' identified by '123456';
@@ -6069,6 +6198,8 @@ vim test.cnf
 pwds = repl:3yb5jEku5h4=,mha:O2jBXONX098=,app:/iZxz+0GRoA=
 /usr/local/mysql-proxy/bin/mysql-proxyd test restart
 [root@db03 conf]# mysql -uapp -p123456  -h 10.0.0.4 -P 33060
+
+
 ```
 
 
@@ -6080,12 +6211,13 @@ pwds = repl:3yb5jEku5h4=,mha:O2jBXONX098=,app:/iZxz+0GRoA=
 一、优化工具：
 
 ## 1、系统优化工具
+```bash
 1.1 top 
 (1)简介：
 	实时监控当前操作系统的负载情况的，每秒刷新一次状态,通常会关注三大指标（CPU、MEM、IO）
 	
 （2）评判标准	
-（2.1）	整体的负载情况，判断标准，如果值非常高，只能告诉我们操作系统很繁忙
+（2.1）整体的负载情况，判断标准，如果值非常高，只能告诉我们操作系统很繁忙
 		load average: 0.00, 0.00, 0.00    
 （2.2）CPU使用情况
 	Cpu(s):  0.2%us,  0.2%sy, 99.7%id,  0.0%wa
@@ -6113,7 +6245,6 @@ Mem：
 对于操作系统可用内存量=free+buffer+cached
 used：used=RSS+anon+buffer+cached
 
-
 补充：
 1.Linux操作系统内存划分的三大区域：
 	RSS：常驻内存集，主要负责程序运行需要的内存区域
@@ -6121,7 +6252,6 @@ used：used=RSS+anon+buffer+cached
 	anon page: 匿名页，主要负责程序之间交互时使用到内存区域
 
 2.连续的地址位，定义为了page（页），并且进行了量化。
-
 （1）基于固定大小page分配模式，他的一些不足的地方？
      在申请内存时，需要整个内存进行遍历
 	 会有大量的内存碎片，导致程序OOM（out of memory）
@@ -6197,8 +6327,15 @@ sysbench
 tpcc
 Performance Schema(5.7默认开启)
 
+
+
+```
+
+
+
 -----------------------------------------
 ## 二、硬件优化：
+```bash
 主机：
 根据数据库类型
 （1）主机CPU选择
@@ -6240,6 +6377,11 @@ IOPS峰值：对于每一块硬件磁盘来讲，都有一个固定参数IOPS，
 
 
 
+
+```
+
+
+
 ## 三、系统层面优化：
 
 1、Swap调整
@@ -6252,54 +6394,114 @@ echo 0>/proc/sys/vm/swappiness
 vm.swappiness=0
 
 # sysctl -p #命令生效
-```
+
 这个参数决定了Linux是倾向于使用swap，还是倾向于释放文件系统cache。在内存紧张的情况下，数值越低越倾向于释放文件系统cache。
 当然，这个参数只能减少使用swap的概率，并不能避免Linux使用swap。
+```
 
 
 2、IO调度策略
-```
+
+| 存储硬件                | 推荐调度器           | 适用业务                    | 禁止使用     |
+| ----------------------- | -------------------- | --------------------------- | ------------ |
+| 机械硬盘 HDD/SATA       | deadline/mq-deadline | MySQL、PostgreSQL、日志服务 | CFQ、none    |
+| SATA SSD / 普通云 SSD   | mq-deadline          | OLTP 数据库、中间件         | CFQ          |
+| NVMe SSD / 本地高速固态 | none                 | Redis、ES、高性能数据库     | deadline     |
+| 公有云云硬盘（虚拟机）  | kyber/mq-deadline    | Web、中小型混合业务         | CFQ          |
+| Ceph RBD / 分布式块存储 | none                 | 分布式数据库、对象存储      | CFQ/deadline |
+
+```bash
+Linux IO 调度策略 精简速记版
+传统单队列（老内核 2.6~4.11）
+NOOP
+极简 FIFO 队列，无 IO 排序合并，全交给硬件处理。
+适配：SSD/NVMe、分布式块存储；数据库 Redis/ES。
+Deadline
+读写双队列，读请求优先，设置 IO 超时防写阻塞读，合并扇区 IO 减少寻道。
+适配：机械 HDD、OLTP 数据库 MySQL。
+CFQ
+按进程分配 IO 时间片，多进程公平均分磁盘带宽，支持进程 IO 优先级。
+适配：多业务混部物理机、离线批量任务；数据库禁用。
+blk-mq 多队列（4.12+，云 / 固态主流）
+mq-deadline
+Deadline 多队列升级版，读优先、超时控制，延迟稳定。
+适配：SATA SSD、数据库业务，线上最通用。
+kyber
+轻量化均衡调度，自动调节队列深度，平衡延迟与吞吐量。
+适配：公有云虚拟机、普通 Web 混合业务（云厂商默认）。
+none
+NOOP 多队列升级版，零内核调度开销。
+适配：NVMe 高速固态、高性能缓存 / 数据库。
+
+
 临时修改：
-[root@db02 ~]# cat /sys/block/sda/queue/scheduler 
-noop anticipatory deadline [cfq] 
-[root@db02 ~]# cat /sys/block/sdb/queue/scheduler 
-noop anticipatory deadline [cfq] 
-[root@db02 ~]# echo deadline >/sys/block/sda/queue/scheduler
-[root@db02 ~]# echo deadline >/sys/block/sdb/queue/scheduler
-[root@db02 ~]# cat /sys/block/sdb/queue/scheduler 
-noop anticipatory [deadline] cfq 
-[root@db02 ~]# 
-永久修改：
-更改到如下内容: 修改grub.conf 增加elevator=deadline
-kernel /vmlinuz-2.6.32-696.el6.x86_64 ro root=UUID=40c9133f-6007-485c-be19-4082c8361df3 rd_NO_LUKS rd_NO_LVM LANG=en_US.UTF-8
-rd_NO_MD SYSFONT=latarcyrheb-sun16 crashkernel=auto  KEYBOARDTYPE=pc KEYTABLE=us rd_NO_DM elevator=deadline rhgb quiet
+# 查看sda盘当前调度器
+cat /sys/block/sda/queue/scheduler
+
+# 临时修改（单块磁盘，立刻生效）
+echo deadline > /sys/block/hda/queue/scheduler
+
+
+
+# 永久修改：
+# centos7/8
+vi /etc/default/grub
+# 找到 GRUB_CMDLINE_LINUX 字段，追加调度参数
+# 机械盘/数据库：elevator=mq-deadline
+# SSD/NVMe高性能盘：elevator=none
+GRUB_CMDLINE_LINUX="...原有参数 elevator=mq-deadline"
+
+# 更新 grub 引导
+## BIOS服务器
+grub2-mkconfig -o /boot/grub2/grub.cfg
+## UEFI服务器
+grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
+# 重启生效
+reboot
+
+
+
 ```
 3、FS：
-	NO  LVM  #不要用lvm性能不好
-	ext4或xfs
-	ssd（binlog  relay）#binlog 和relay log 单独存到ssd盘上
+
+```bash
+NO  LVM  #不要用lvm性能不好
+ext4或xfs
+ssd（binlog  relay）#binlog 和relay log 单独存到ssd盘上
+
+
+
+```
+
 
 
 4、关闭无用服务
-	chkconfig --level 23456 acpid off
-	chkconfig --level 23456 anacron off
-	chkconfig --level 23456 autofs off
-	chkconfig --level 23456 avahi-daemon off
-	chkconfig --level 23456 bluetooth off
-	chkconfig --level 23456 cups off
-	chkconfig --level 23456 firstboot off
-	chkconfig --level 23456 haldaemon off
-	chkconfig --level 23456 hplip off
-	chkconfig --level 23456 ip6tables off
-	chkconfig --level 23456 iptables  off
-	chkconfig --level 23456 isdn off
-	chkconfig --level 23456 pcscd off
-	chkconfig --level 23456 sendmail  off
-	chkconfig --level 23456 yum-updatesd  off
-	
+
+```bash
+chkconfig --level 23456 acpid off
+chkconfig --level 23456 anacron off
+chkconfig --level 23456 autofs off
+chkconfig --level 23456 avahi-daemon off
+chkconfig --level 23456 bluetooth off
+chkconfig --level 23456 cups off
+chkconfig --level 23456 firstboot off
+chkconfig --level 23456 haldaemon off
+chkconfig --level 23456 hplip off
+chkconfig --level 23456 ip6tables off
+chkconfig --level 23456 iptables  off
+chkconfig --level 23456 isdn off
+chkconfig --level 23456 pcscd off
+chkconfig --level 23456 sendmail  off
+chkconfig --level 23456 yum-updatesd  off	
+
+
 以上：硬件优化建议，操作系统优化建议，应该在业务架构搭建初始应该做好。	
 	
 	
+```
+
+
+
 ## 四、数据库层面优化：
 4.1	参数优化（见参数优化建议）
 
@@ -6307,8 +6509,9 @@ rd_NO_MD SYSFONT=latarcyrheb-sun16 crashkernel=auto  KEYBOARDTYPE=pc KEYTABLE=us
 4.3	锁优化
 4.4	数据库架构优化（扩展）
 
-
 4.3	锁优化
+
+```sql
 MyIASM： 表级锁
 优点：申请和释放时，需要更少系统资源，减少死锁产生。
 缺点：不利于并发处理，在某个事务在对表进行修改操作时，会锁定整个表，其他事务只能等待完成之后，才能操作。
@@ -6317,11 +6520,45 @@ MyIASM： 表级锁
 InnoDB：
 	支持行级锁，行级锁在索引锁。如果表中没有任何索引，那么我们做表数据处理的时候，依然会表级锁。
 	GAP锁：主要针对范围数据操作时
-	
+
 
 死锁的处理过程：
-
 1、show processlist
+-- 查看基础连接列表
+SHOW PROCESSLIST;
+-- 查看完整SQL（不加Full会截断超长语句）
+SHOW FULL PROCESSLIST;
+字段	   含义
+Id	    会话唯一 ID，kill 会话用：kill 会话ID;
+User	执行 SQL 的数据库账号
+Host	客户端 IP + 端口
+db	    当前操作的库，null 代表未选库
+Command	操作类型：Query (查询)、Sleep (空闲等待)、Connect、Binlog Dump (复制线程)
+Time	已执行 / 空闲时长（单位：秒）
+State	当前运行状态（核心排查依据）
+Info	正在执行的完整 SQL
+
+
+# \G 按竖行格式化输出，可读性远优于;
+SHOW ENGINE INNODB STATUS\G
+输出 InnoDB 引擎完整实时状态报告，专门排查 InnoDB 锁、事务、死锁、IO、缓冲池、回滚段、主从复制阻塞，数据库故障排查核心命令。
+
+报告 7 大核心模块（精简作用）
+BACKGROUND THREAD
+后台主线程、IO 刷新线程、purge 回收线程运行状态，判断刷脏页压力。
+SEMAPHORES
+信号量等待，出现大量等待代表 CPU / 内核资源瓶颈。
+LATEST DETECTED DEADLOCK
+最近一次死锁完整日志：冲突 SQL、锁类型、事务持有资源，解决死锁唯一依据。
+TRANSACTIONS
+当前活跃事务列表、事务隔离级别、行锁等待、锁占用记录，定位锁阻塞源头。
+FILE I/O
+InnoDB 磁盘读写 IO 线程、读写请求堆积，判断磁盘瓶颈。
+BUFFER POOL AND MEMORY
+缓冲池命中率、脏页数量、内存使用，判断内存配置是否充足。
+ROW OPERATIONS
+每秒增删改查吞吐量、事务提交回滚速率，评估数据库负载。
+
 2、show  engine innodb status\G;
 LOCK WAIT 2 lock struct(s), heap size 1184, 1 row lock(s)
 MySQL thread id 4, OS thread handle 0x7f37d66f0700, query id 44 localhost root Sending data
@@ -6351,15 +6588,19 @@ unlock table t1;
 分布式架构（分库分表）
 
 
+```
+
+
 
 # mysql参数优化建议
 
-```
+```bash
 MySQL参数优化测试建议
 
 一、参数优化前压力测试
 0、优化测试前提
-MacBook：虚拟机vm12.5，OS centos 6.9（系统已优化），cpu*2（I5 4288u 2.6GHZ）,MEM*4GB ,HardDisk:Apple SSD(SM-0512F)
+MacBook：虚拟机vm12.5，OS centos 6.9（系统已优化），
+cpu*2（I5 4288u 2.6GHZ）,MEM*4GB ,HardDisk:Apple SSD(SM-0512F)
 
 1、模拟数据库数据
 为了测试我们创建一个test1的库创建一个tb1的表，然后导入20万行数据，脚本如下：
@@ -6371,6 +6612,7 @@ USERNAME="root"
 PASSWORD="123" 
 DBNAME="oldboy" 
 TABLENAME="lufei" 
+
 #create database 
 mysql -h ${HOSTNAME} -P${PORT} -u${USERNAME} -p${PASSWORD} -e "drop database if exists ${DBNAME}" 
 create_db_sql="create database if not exists ${DBNAME}" 
@@ -6415,121 +6657,103 @@ Benchmark
 	
 --------------------------------mysqlslap使用说明----------------------------
 mysqlslap工具介绍
-​ mysqlslap来自于mariadb包，测试的过程默认生成一个mysqlslap的schema,生成测试表t1，查询和插入测试数据，mysqlslap库自动生成，如果已经存在则先删除。用--only-print来打印实际的测试过程，整个测试完成后不会在数据库中留下痕迹。
+mysqlslap 是 MySQL 自带轻量级压测工具，无需额外安装，模拟多并发客户端读写压力，自动生成测试库 / 表 / 数据，适合快速验证数据库性能、IO 调度、参数调优效果。
 
 常用选项：
+# 基础连接参数
+--user=root          # 数据库用户名
+--password=xxx       # 数据库密码
+--host=127.0.0.1     # 数据库IP
+--port=3306          # 端口
+--socket=/tmp/mysql.sock # sock连接本地库
 
---auto-generate-sql, -a 自动生成测试表和数据，表示用mysqlslap工具自己生成的SQL脚本来测试并发压力
---auto-generate-sql-load-type=type 测试语句的类型。代表要测试的环境是读操作还是写操作还是两者混合的。取值包括：read，key，write，update和mixed(默认)
---auto-generate-sql-add-auto-increment 代表对生成的表自动添加auto_increment列，从5.1.18版本开始支持
---number-char-cols=N, -x N 自动生成的测试表中包含多少个字符类型的列，默认1
---number-int-cols=N, -y N 自动生成的测试表中包含多少个数字类型的列，默认1
---number-of-queries=N 总的测试查询次数(并发客户数×每客户查询次数)
---query=name,-q 使用自定义脚本执行测试，例如可以调用自定义的存储过程或者sql语句来执行测试
---create-schema 代表自定义的测试库名称，测试的schema，MySQL中schema也就是database
---commint=N 多少条DML后提交一次
---compress, -C 如服务器和客户端都支持压缩，则压缩信息
---concurrency=N, -c N 表示并发量，即模拟多少个客户端同时执行select；可指定多个值，以逗号或者--delimiter参数指定值做为分隔符
---engine=engine_name, -e engine_name 代表要测试的引擎，可以有多个，用分隔符隔开
---iterations=N, -i N 测试执行的迭代次数，代表要在不同并发环境下，各自运行测试多少次
---only-print 只打印测试语句而不实际执行
---detach=N 执行N条语句后断开重连
---debug-info, -T 打印内存和CPU的相关信息
+# 压测并发&迭代控制（核心）
+--concurrency=100    # 并发客户端数量，可逗号分隔多组：--concurrency=50,100,200
+--iterations=3       # 整体压测循环迭代次数，多次运行取平均值
+--number-of-queries=10000 # 每个并发线程总执行SQL次数
+
+# 测试数据控制
+--auto-generate-sql  # 自动生成测试库、表、数据（不用自己建表）
+--auto-generate-sql-load-type=mix # 负载类型：read(纯读)/write(纯写)/update(更新)/mix(读写混合)
+--auto-generate-sql-write-number=1000 # 初始化插入多少条测试数据
+--number-int-cols=4  # 自动生成表的int字段数量
+--number-char-cols=2 # 自动生成表的varchar字段数量
+
+# 输出与调试
+--engine=innodb      # 指定存储引擎 innodb/myisam
+--print-details      # 打印详细每轮耗时、吞吐量
+--create-schema=test # 指定已存在的测试库（不用自动建库）
+--query="select * from t1 where id=1" # 自定义SQL语句压测
+--delimiter=;        # 自定义SQL分隔符
 测试示例：
 
 1）单线程测试
-
 [root@centos7 ~]# mysqlslap -a -uroot -p
-Enter password: 
 Benchmark
-        Average number of seconds to run all queries: 0.004 seconds
-        Minimum number of seconds to run all queries: 0.004 seconds
-        Maximum number of seconds to run all queries: 0.004 seconds
-        Number of clients running queries: 1
-        Average number of queries per client: 0
+        Average number of seconds to run all queries: 0.823 seconds # 本轮总平均耗时
+        Minimum number of seconds to run all queries: 0.791 seconds # 最小耗时
+        Maximum number of seconds to run all queries: 0.867 seconds # 最大耗时
+        Number of clients running queries: 100                     # 并发数
+        Average number of queries per client: 1000                  # 每个线程执行SQL总量
+        
 2）多线程测试，使用--concurrency来模拟并发连接
+mysqlslap -uroot -p123 -a -c 500
 
-[root@centos7 ~]# mysqlslap -uroot -p -a -c 500
-Enter password: 
-Benchmark
-        Average number of seconds to run all queries: 3.384 seconds
-        Minimum number of seconds to run all queries: 3.384 seconds
-        Maximum number of seconds to run all queries: 3.384 seconds
-        Number of clients running queries: 500
-        Average number of queries per client: 0
 3）同时测试不同的存储引擎的性能进行对比
+mysqlslap -uroot -p123 -a --concurrency=500 --number-of-queries 1000 --iterations=5 --engine=myisam,innodb --debug-info
 
-[root@centos7 ~]# mysqlslap -uroot -p -a --concurrency=500 --number-of-queries 1000 --iterations=5 --engine=myisam,innodb --debug-info
-Enter password: 
-Benchmark
-        Running for engine myisam
-        Average number of seconds to run all queries: 0.192 seconds
-        Minimum number of seconds to run all queries: 0.187 seconds
-        Maximum number of seconds to run all queries: 0.202 seconds
-        Number of clients running queries: 500
-        Average number of queries per client: 2
-
-Benchmark
-        Running for engine innodb
-        Average number of seconds to run all queries: 0.355 seconds
-        Minimum number of seconds to run all queries: 0.350 seconds
-        Maximum number of seconds to run all queries: 0.364 seconds
-        Number of clients running queries: 500
-        Average number of queries per client: 2
-
-
-User time 0.33, System time 0.58
-Maximum resident set size 22892, Integral resident set size 0
-Non-physical pagefaults 46012, Physical pagefaults 0, Swaps 0
-Blocks in 0 out 0, Messages in 0 out 0, Signals 0
-Voluntary context switches 31896, Involuntary context switches 0
 4）执行一次测试，分别500和1000个并发，执行5000次总查询
+mysqlslap -uroot -p123 -a --concurrency=500,1000 --number-of-queries 5000 --debug-info
 
-[root@centos7 ~]# mysqlslap -uroot -p -a --concurrency=500,1000 --number-of-queries 5000 --debug-info
-Enter password: 
-Benchmark
-        Average number of seconds to run all queries: 3.378 seconds
-        Minimum number of seconds to run all queries: 3.378 seconds
-        Maximum number of seconds to run all queries: 3.378 seconds
-        Number of clients running queries: 500
-        Average number of queries per client: 10
-
-Benchmark
-        Average number of seconds to run all queries: 3.101 seconds
-        Minimum number of seconds to run all queries: 3.101 seconds
-        Maximum number of seconds to run all queries: 3.101 seconds
-        Number of clients running queries: 1000
-        Average number of queries per client: 5
-
-
-User time 0.84, System time 0.64
-Maximum resident set size 83068, Integral resident set size 0
-Non-physical pagefaults 139977, Physical pagefaults 0, Swaps 0
-Blocks in 0 out 0, Messages in 0 out 0, Signals 0
-Voluntary context switches 31524, Involuntary context switches 3
 5）迭代测试
+mysqlslap -uroot -p123 -a --concurrency=500 --number-of-queries 5000 --iterations=5 --debug-info
 
-[root@centos7 ~]# mysqlslap -uroot -p -a --concurrency=500 --number-of-queries 5000 --iterations=5 --debug-info
-Enter password: 
-Benchmark
-        Average number of seconds to run all queries: 3.307 seconds
-        Minimum number of seconds to run all queries: 3.184 seconds
-        Maximum number of seconds to run all queries: 3.421 seconds
-        Number of clients running queries: 500
-        Average number of queries per client: 10
+CREATE USER 'root'@'10.0.0.%' IDENTIFIED BY '123';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'10.0.0.%';
+FLUSH PRIVILEGES;
 
+4 套生产常用实操命令
+1. 最简混合读写压测（自动建表，100 并发，循环 3 轮）
+mysqlslap \
+--user=root \
+--password=123 \
+--host=10.0.0.55 \
+--port=3306 \
+--concurrency=100 \
+--iterations=3 \
+--auto-generate-sql \
+--auto-generate-sql-load-type=mix \
+--engine=innodb
+2. 多阶梯并发压测（50/100/200 并发，对比不同并发性能）
+mysqlslap \
+-uroot -p123 \
+--concurrency=50,100,200 \
+--iterations=2 \
+--auto-generate-sql \
+--auto-generate-sql-load-type=mix \
+--engine=innodb \
+--verbose
 
-User time 2.18, System time 1.58
-Maximum resident set size 74872, Integral resident set size 0
-Non-physical pagefaults 327732, Physical pagefaults 0, Swaps 0
-Blocks in 0 out 0, Messages in 0 out 0, Signals 0
-Voluntary context switches 73904, Involuntary context switches 3	
+3. 纯读压力测试（验证读性能、从库 / ProxySQL）
+mysqlslap \
+-uroot -p123 -h10.0.0.55 \
+--concurrency=150 \
+--iterations=3 \
+--auto-generate-sql \
+--auto-generate-sql-load-type=read
+4. 自定义 SQL 压测（业务真实语句，指定已有业务表）
+mysqlslap \
+-uroot -p123 \
+--host=10.0.0.55 \
+--concurrency=80 \
+--iterations=2 \
+--create-schema=biz_test \
+--query="SELECT id,name FROM world.city WHERE id > 100 LIMIT 10;"
 ----------------------------------------------------------------------------	
 	
 	
 
 二、优化细节：
-
 1、参数优化
 1.1 Max_connections
 （1）简介
@@ -7023,120 +7247,7 @@ Benchmark
 
 
 
-## mysqlslap 工具介绍
 
-```
-mysqlslap工具介绍
-​ mysqlslap来自于mariadb包，测试的过程默认生成一个mysqlslap的schema,生成测试表t1，查询和插入测试数据，mysqlslap库自动生成，如果已经存在则先删除。用--only-print来打印实际的测试过程，整个测试完成后不会在数据库中留下痕迹。
-
-常用选项：
-
---auto-generate-sql, -a 自动生成测试表和数据，表示用mysqlslap工具自己生成的SQL脚本来测试并发压力
---auto-generate-sql-load-type=type 测试语句的类型。代表要测试的环境是读操作还是写操作还是两者混合的。取值包括：read，key，write，update和mixed(默认)
---auto-generate-sql-add-auto-increment 代表对生成的表自动添加auto_increment列，从5.1.18版本开始支持
---number-char-cols=N, -x N 自动生成的测试表中包含多少个字符类型的列，默认1
---number-int-cols=N, -y N 自动生成的测试表中包含多少个数字类型的列，默认1
---number-of-queries=N 总的测试查询次数(并发客户数×每客户查询次数)
---query=name,-q 使用自定义脚本执行测试，例如可以调用自定义的存储过程或者sql语句来执行测试
---create-schema 代表自定义的测试库名称，测试的schema，MySQL中schema也就是database
---commint=N 多少条DML后提交一次
---compress, -C 如服务器和客户端都支持压缩，则压缩信息
---concurrency=N, -c N 表示并发量，即模拟多少个客户端同时执行select；可指定多个值，以逗号或者--delimiter参数指定值做为分隔符
---engine=engine_name, -e engine_name 代表要测试的引擎，可以有多个，用分隔符隔开
---iterations=N, -i N 测试执行的迭代次数，代表要在不同并发环境下，各自运行测试多少次
---only-print 只打印测试语句而不实际执行
---detach=N 执行N条语句后断开重连
---debug-info, -T 打印内存和CPU的相关信息
-测试示例：
-
-1）单线程测试
-
-[root@centos7 ~]# mysqlslap -a -uroot -p
-Enter password: 
-Benchmark
-        Average number of seconds to run all queries: 0.004 seconds
-        Minimum number of seconds to run all queries: 0.004 seconds
-        Maximum number of seconds to run all queries: 0.004 seconds
-        Number of clients running queries: 1
-        Average number of queries per client: 0
-2）多线程测试，使用--concurrency来模拟并发连接
-
-[root@centos7 ~]# mysqlslap -uroot -p -a -c 500
-Enter password: 
-Benchmark
-        Average number of seconds to run all queries: 3.384 seconds
-        Minimum number of seconds to run all queries: 3.384 seconds
-        Maximum number of seconds to run all queries: 3.384 seconds
-        Number of clients running queries: 500
-        Average number of queries per client: 0
-3）同时测试不同的存储引擎的性能进行对比
-
-[root@centos7 ~]# mysqlslap -uroot -p -a --concurrency=500 --number-of-queries 1000 --iterations=5 --engine=myisam,innodb --debug-info
-Enter password: 
-Benchmark
-        Running for engine myisam
-        Average number of seconds to run all queries: 0.192 seconds
-        Minimum number of seconds to run all queries: 0.187 seconds
-        Maximum number of seconds to run all queries: 0.202 seconds
-        Number of clients running queries: 500
-        Average number of queries per client: 2
-
-Benchmark
-        Running for engine innodb
-        Average number of seconds to run all queries: 0.355 seconds
-        Minimum number of seconds to run all queries: 0.350 seconds
-        Maximum number of seconds to run all queries: 0.364 seconds
-        Number of clients running queries: 500
-        Average number of queries per client: 2
-
-
-User time 0.33, System time 0.58
-Maximum resident set size 22892, Integral resident set size 0
-Non-physical pagefaults 46012, Physical pagefaults 0, Swaps 0
-Blocks in 0 out 0, Messages in 0 out 0, Signals 0
-Voluntary context switches 31896, Involuntary context switches 0
-4）执行一次测试，分别500和1000个并发，执行5000次总查询
-
-[root@centos7 ~]# mysqlslap -uroot -p -a --concurrency=500,1000 --number-of-queries 5000 --debug-info
-Enter password: 
-Benchmark
-        Average number of seconds to run all queries: 3.378 seconds
-        Minimum number of seconds to run all queries: 3.378 seconds
-        Maximum number of seconds to run all queries: 3.378 seconds
-        Number of clients running queries: 500
-        Average number of queries per client: 10
-
-Benchmark
-        Average number of seconds to run all queries: 3.101 seconds
-        Minimum number of seconds to run all queries: 3.101 seconds
-        Maximum number of seconds to run all queries: 3.101 seconds
-        Number of clients running queries: 1000
-        Average number of queries per client: 5
-
-
-User time 0.84, System time 0.64
-Maximum resident set size 83068, Integral resident set size 0
-Non-physical pagefaults 139977, Physical pagefaults 0, Swaps 0
-Blocks in 0 out 0, Messages in 0 out 0, Signals 0
-Voluntary context switches 31524, Involuntary context switches 3
-5）迭代测试
-
-[root@centos7 ~]# mysqlslap -uroot -p -a --concurrency=500 --number-of-queries 5000 --iterations=5 --debug-info
-Enter password: 
-Benchmark
-        Average number of seconds to run all queries: 3.307 seconds
-        Minimum number of seconds to run all queries: 3.184 seconds
-        Maximum number of seconds to run all queries: 3.421 seconds
-        Number of clients running queries: 500
-        Average number of queries per client: 10
-
-
-User time 2.18, System time 1.58
-Maximum resident set size 74872, Integral resident set size 0
-Non-physical pagefaults 327732, Physical pagefaults 0, Swaps 0
-Blocks in 0 out 0, Messages in 0 out 0, Signals 0
-Voluntary context switches 73904, Involuntary context switches 3	
-```
 
 
 

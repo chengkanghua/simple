@@ -6208,9 +6208,10 @@ pwds = repl:3yb5jEku5h4=,mha:O2jBXONX098=,app:/iZxz+0GRoA=
 
 # MySQL性能优化
 
-一、优化工具：
 
-## 1、系统优化工具
+
+## 一、系统优化工具
+
 ```bash
 1.1 top 
 (1)简介：
@@ -6307,8 +6308,7 @@ mysql -uroot -p123 -e "show status like '%lock%'"
 
 （2）SHOW ENGINE INNODB STATUS
 mysql> show engine innodb status\G
-一般关注比较多的：
-内存、锁相关
+一般关注比较多的：内存、锁相关
 （3）show index
 （4）Information Schema
 （5）mysql库下的  innodb_table_stats  innodb_index_stats
@@ -6321,12 +6321,12 @@ mysql> show engine innodb status\G
  (8) explain   #执行计划
  (9) mysqldumpslow （pt-query-diagest）#分析慢日志
 
+
 深度优化命令工具（扩展）
 mysqlslap
 sysbench
 tpcc
 Performance Schema(5.7默认开启)
-
 
 
 ```
@@ -6503,6 +6503,7 @@ chkconfig --level 23456 yum-updatesd  off
 
 
 ## 四、数据库层面优化：
+
 4.1	参数优化（见参数优化建议）
 
 4.2	数据库索引优化(见索引管理章节)
@@ -6581,7 +6582,6 @@ commit
 unlock table t1;
 
 （2）将所有事务处理表数据的顺序尽量保证一致。
-
 4.4架构优化扩展
 高可用
 读写分离
@@ -6592,10 +6592,12 @@ unlock table t1;
 
 
 
-# mysql参数优化建议
+## mysql参数优化建议
+
+### 1. MySQL参数优化前压力测试
 
 ```bash
-MySQL参数优化测试建议
+
 
 一、参数优化前压力测试
 0、优化测试前提
@@ -6753,9 +6755,21 @@ mysqlslap \
 	
 	
 
-二、优化细节：
+
+```
+
+
+
+### 2、优化细节：
+
+```bash
+
 1、参数优化
-1.1 Max_connections
+1 Max_connections
+# MySQL最大并发连接数，默认151偏小
+# 普通业务推荐1024，高并发可上调至2048
+max_connections=1024
+
 （1）简介
 Mysql的最大连接数，如果服务器的并发请求量比较大，可以调高这个值，当然这是要建立在机器能够支撑的情况下，因为如果连接数越来越多，mysql会为每个连接提供缓冲区，就会开销的越多的内存，所以需要适当的调整该值，不能随便去提高设值。
 （2）判断依据
@@ -6776,7 +6790,15 @@ show status like 'Max_used_connections';
 vim /etc/my.cnf 
 Max_connections=1024
 
-1.2 back_log
+
+
+
+
+2 back_log
+# back_log：TCP半连接队列长度，应对瞬间大量新建连接
+# 线上常规推荐128~512
+back_log=128
+
 （1）简介
 mysql能暂存的连接数量，当主要mysql线程在一个很短时间内得到非常多的连接请求时候它就会起作用，如果mysql的连接数据达到max_connections时候，新来的请求将会被存在堆栈中，等待某一连接释放资源，该推栈的数量及back_log,如果等待连接的数量超过back_log，将不被授予连接资源。
 back_log值指出在mysql暂时停止回答新请求之前的短时间内有多少个请求可以被存在推栈中，只有如果期望在一个短时间内有很多连接的时候需要增加它
@@ -6789,21 +6811,15 @@ show full processlist
 vim /etc/my.cnf 
 back_log=1024
 
-1.3 wait_timeout和interactive_timeout
 
-（1）简介
-wait_timeout：指的是mysql在关闭一个非交互的连接之前所要等待的秒数
-interactive_timeout：指的是mysql在关闭一个交互的连接之前所需要等待的秒数，比如我们在终端上进行mysql管理，使用的即使交互的连接，这时候，如果没有操作的时间超过了interactive_time设置的时间就会自动的断开，默认的是28800，可调优为7200。
-wait_timeout:如果设置太小，那么连接关闭的就很快，从而使一些持久的连接不起作用
+3 wait_timeout和interactive_timeout
+# wait_timeout：非交互式连接(程序连接)空闲超时，单位秒，推荐60
+wait_timeout=60
+# interactive_timeout：交互式连接(客户端工具)空闲超时，单位秒，推荐7200
+interactive_timeout=7200
 
-（2）设置建议
-如果设置太大，容易造成连接打开时间过长，在show processlist时候，能看到很多的连接 ，一般希望wait_timeout尽可能低
 
-（3）修改方式举例
-wait_timeout=1200
-interactive_timeout=1200
-
-1.4 key_buffer_size
+4 key_buffer_size
 （1）简介
 key_buffer_size指定索引缓冲区的大小，它决定索引处理的速度，尤其是索引读的速度
 
@@ -6816,9 +6832,6 @@ mysql> show variables like "key_buffer_size%";
 +-----------------+---------+
 | key_buffer_size | 8388608 |
 +-----------------+---------+
-1 row in set (0.00 sec)
-
-mysql> 
 
 mysql> show status like "key_read%";
 +-------------------+-------+
@@ -6827,9 +6840,6 @@ mysql> show status like "key_read%";
 | Key_read_requests | 10    |
 | Key_reads         | 2     |
 +-------------------+-------+
-2 rows in set (0.00 sec)
-
-mysql> 
 
 一共有10个索引读取请求，有2个请求在内存中没有找到直接从硬盘中读取索引
 
@@ -6844,10 +6854,9 @@ mysql> show status like "created_tmp%";
 | Created_tmp_files       | 6     |
 | Created_tmp_tables      | 1     |
 +-------------------------+-------+
-3 rows in set (0.00 sec)
-mysql> 
 
-通常地，我们习惯以 Created_tmp_tables/(Created_tmp_disk_tables + Created_tmp_tables) 或者已各自的一个时段内的差额计算，来判断基于内存的临时表利用率。所以，我们会比较关注 Created_tmp_disk_tables 是否过多，从而认定当前服务器运行状况的优劣。
+通常地，我们习惯以 Created_tmp_tables/(Created_tmp_disk_tables + Created_tmp_tables) 
+或者已各自的一个时段内的差额计算，来判断基于内存的临时表利用率。所以，我们会比较关注 Created_tmp_disk_tables 是否过多，从而认定当前服务器运行状况的优劣。
 看以下例子：
 在调用mysqldump备份数据时，大概执行步骤如下：
 180322 17:39:33       7 Connect     root@localhost on
@@ -6863,20 +6872,23 @@ mysql>
 7 Query       UNLOCK TABLES
 7 Quit
 
-
 其中，有一步是：show fields from `guo`。从slow query记录的执行计划中，可以知道它也产生了 Tmp_table_on_disk。
 
 所以说，以上公式并不能真正反映到mysql里临时表的利用率，有些情况下产生的 Tmp_table_on_disk 我们完全不用担心，因此没必要过分关注 Created_tmp_disk_tables，但如果它的值大的离谱的话，那就好好查一下，你的服务器到底都在执行什么查询了。 
 --------------------------------------------
 （3）配置方法
 key_buffer_size=64M
+# key_buffer_size：MyISAM引擎索引缓存，InnoDB不生效
+# 仅使用InnoDB时设16M~32M即可
+key_buffer_size=16M
 
 
 1.5 query_cache_size
-（1）简介：
-查询缓存简称QC，使用查询缓冲，mysql将查询结果存放在缓冲区中，今后对于同样的select语句（区分大小写）,将直接从缓冲区中读取结果。
-一个sql查询如果以select开头，那么mysql服务器将尝试对其使用查询缓存。
-注：两个sql语句，只要想差哪怕是一个字符（列如大小写不一样；多一个空格等）,那么这两个sql将使用不同的一个cache。
+# 查询缓存，缓存静态查询结果，MySQL8.0已废弃
+# 读多写少可启用(64M)，频繁写业务建议设为0关闭
+query_cache_size=64M
+query_cache_type=1
+
 （2）判断依据
 mysql> show status like "%Qcache%";
 +-------------------------+---------+
@@ -6891,51 +6903,39 @@ mysql> show status like "%Qcache%";
 | Qcache_queries_in_cache | 0       |
 | Qcache_total_blocks     | 1       |
 +-------------------------+---------+
-8 rows in set (0.00 sec)
-
 ---------------------状态说明--------------------
-Qcache_free_blocks：缓存中相邻内存块的个数。如果该值显示较大，则说明Query Cache 中的内存碎片较多了，
-FLUSH QUERY CACHE会对缓存中的碎片进行整理，从而得到一个空闲块。
-注：当一个表被更新之后，和它相关的cache blocks将被free。但是这个block依然可能存在队列中，除非是在队列的尾部。可以用FLUSH QUERY CACHE语句来清空free blocks
-Qcache_free_memory：Query Cache 中目前剩余的内存大小。通过这个参数我们可以较为准确的观察出当前系统中的Query Cache 内存大小是否足够，是需要增加还是过多了。
-Qcache_hits：表示有多少次命中缓存。我们主要可以通过该值来验证我们的查询缓存的效果。数字越大，缓存效果越理想。
-Qcache_inserts：表示多少次未命中然后插入，意思是新来的SQL请求在缓存中未找到，不得不执行查询处理，执行查询处理后把结果insert到查询缓存中。这样的情况的次数越多，表示查询缓存应用到的比较少，效果也就不理想。当然系统刚启动后，查询缓存是空的，这很正常。
-Qcache_hits/Qcache_hits+Qcache_inserts=命中率
+# Qcache_free_blocks：查询缓存空闲内存块数量，数值小代表碎片少
+# Qcache_free_memory：查询缓存剩余空闲内存(单位字节)，当前内存充足
+# Qcache_hits：查询缓存命中次数，0表示从未命中，缓存未发挥作用
+# Qcache_inserts：成功存入缓存的查询语句数，0表示没有SQL被加入缓存
+# Qcache_lowmem_prunes：因缓存内存不足被清理的缓存条数，0表示内存够用无淘汰
+# Qcache_not_cached：不满足缓存规则、未被缓存的查询总数，当前有2002条
+# Qcache_queries_in_cache：当前存放在缓存中的查询语句数量，0表示无缓存语句
+# Qcache_total_blocks：查询缓存总共占用的内存块数
 
-
-Qcache_lowmem_prunes：多少条Query 因为内存不足而被清除出Query Cache。通过“Qcache_lowmem_prunes”和“Qcache_free_memory”相互结合，能够更清楚的了解到我们系统中Query Cache 的内存大小是否真的足够，是否非常频繁的出现因为内存不足而有Query 被换出。这个数字最好长时间来看；如果这个数字在不断增长，就表示可能碎片非常严重，或者内存很少。（上面的free_blocks和free_memory可以告诉您属于哪种情况）
-Qcache_not_cached：不适合进行缓存的查询的数量，通常是由于这些查询不是 SELECT 语句或者用了now()之类的函数。
-Qcache_queries_in_cache：当前Query Cache 中cache 的Query 数量；
-Qcache_total_blocks：当前Query Cache 中的block 数量；。
--------------------------------------
+--------------------------------------------
 
 （3）配置示例
-
 mysql> show variables like '%query_cache%' ;
 +------------------------------+---------+
 | Variable_name                | Value   |
++------------------------------+---------+ 
+| have_query_cache             | YES     |数据库是否支持查询缓存，YES表示功能可用
+| query_cache_limit            | 1048576 |单条查询结果最大缓存阈值(单位字节)，超此大小不缓存，当前1M
+| query_cache_min_res_unit     | 4096    |缓存内存最小分配单元(字节)，控制内存碎片，当前4K
+| query_cache_size             | 1048576 |查询缓存总内存大小(字节)，当前整体缓存池为1M
+| query_cache_type             | OFF     |查询缓存工作模式，OFF=彻底关闭缓存，所以无命中、无缓存写入
+| query_cache_wlock_invalidate | OFF     |表加写锁时是否清空对应查询缓存，OFF=不主动清空，默认配置
 +------------------------------+---------+
-| have_query_cache             | YES     |
-| query_cache_limit            | 1048576 |
-| query_cache_min_res_unit     | 4096    |
-| query_cache_size             | 1048576 |
-| query_cache_type             | OFF     |
-| query_cache_wlock_invalidate | OFF     |
-+------------------------------+---------+
-6 rows in set (0.00 sec)
-
-mysql> 
 
 -------------------配置说明-------------------------------
-以上信息可以看出query_cache_type为off表示不缓存任何查询
-各字段的解释：
-query_cache_limit：超过此大小的查询将不缓存
-query_cache_min_res_unit：缓存块的最小大小，query_cache_min_res_unit的配置是一柄”双刃剑”，默认是4KB，设置值大对大数据查询有好处，但如果你的查询都是小数据查询，就容易造成内存碎片和浪费。
-query_cache_size：查询缓存大小 (注：QC存储的最小单位是1024byte，所以如果你设定了一个不是1024的倍数的值，这个值会被四舍五入到最接近当前值的等于1024的倍数的值。)
-query_cache_type：缓存类型，决定缓存什么样的查询，注意这个值不能随便设置，必须设置为数字，可选项目以及说明如下：
-如果设置为0，那么可以说，你的缓存根本就没有用，相当于禁用了。
-如果设置为1，将会缓存所有的结果，除非你的select语句使用SQL_NO_CACHE禁用了查询缓存。
-如果设置为2，则只缓存在select语句中通过SQL_CACHE指定需要缓存的查询。
+# query_cache_type 三种可选值
+# 0 / OFF：关闭查询缓存，所有SQL都不缓存
+query_cache_type=OFF
+# 1 / ON：开启缓存，默认缓存所有SELECT；SQL加SQL_NO_CACHE则不缓存
+query_cache_type=ON
+# 2 / DEMAND：按需缓存，仅带SQL_CACHE关键字的SELECT才会缓存
+query_cache_type=DEMAND
 
 修改/etc/my.cnf,配置完后的部分文件如下：
 query_cache_size=256M
@@ -6944,13 +6944,15 @@ query_cache_type=1
 现在行业中,通过NOSQL产品改善大并发查询,比如:redis
 
 -----------------------------------------------------
-1.6 max_connect_errors
-max_connect_errors是一个mysql中与安全有关的计数器值，它负责阻止过多尝试失败的客户端以防止暴力破解密码等情况，当超过指定次数，mysql服务器将禁止host的连接请求，直到mysql服务器重启或通过flush hosts命令清空此host的相关信息 max_connect_errors的值与性能并无太大关系。
 
-修改/etc/my.cnf文件，在[mysqld]下面添加如下内容
-max_connect_errors=2000
 
-1.7 sort_buffer_size
+6 max_connect_errors
+max_connect_errors=20
+# 单IP连续连接失败阈值，超限临时拦截IP，防暴力破解
+# 安全场景推荐20~100
+解除拦截：执行 flush hosts; 
+
+7 sort_buffer_size
 （1）简介：
 每个需要进行排序的线程分配该大小的一个缓冲区。增加这值加速ORDER BY 或GROUP BY操作，
 （2）配置依据
@@ -6958,22 +6960,32 @@ Sort_Buffer_Size并不是越大越好，由于是connection级的参数，过大
 列如：500个连接将会消耗500*sort_buffer_size（2M）=1G内存
 （3）配置方法
  修改/etc/my.cnf文件，在[mysqld]下面添加如下：
+ 
 sort_buffer_size=1M
+# 排序缓冲区，order by/group by使用，单会话独占
+# 推荐1M~2M，过大会造成内存浪费
 
-1.8 max_allowed_packet
+
+8 max_allowed_packet
 （1）简介：
 mysql根据配置文件会限制，server接受的数据包大小。
 （2）配置依据：
-有时候大的插入和更新会受max_allowed_packet参数限制，导致写入或者更新失败，更大值是1GB，必须设置1024的倍数
+有时候大的插入和更新会受max_allowed_packet参数限制，
+导致写入或者更新失败，更大值是1GB，必须设置1024的倍数
 （3）配置方法：
 max_allowed_packet=32M
+# 单次传输最大数据包大小，适配大字段、批量导入、主从同步
+# 常规生产推荐32M~64M
+max_allowed_packet=32M
 
-1.9 join_buffer_size
-用于表间关联缓存的大小，和sort_buffer_size一样，该参数对应的分配内存也是每个连接独享。
+9 join_buffer_size
+# 表关联查询缓冲区，单会话独占，无索引JOIN生效
+# 不宜过大，线上标准推荐1M~2M
+join_buffer_size=2M
 
-1.10 thread_cache_size 
+10 thread_cache_size 
 (1)简介
-服务器线程缓存，这个值表示可以重新利用保存在缓存中线程的数量,当断开连接时,那么客户端的线程将被放到缓存中以响应下一个客户而不是销毁(前提是缓存数未达上限),如果线程重新被请求，那么请求将从缓存中读取,如果缓存中是空的或者是新的请求，那么这个线程将被重新创建,如果有很多新的线程，增加这个值可以改善系统性能.
+空闲连接线程缓存数，复用线程减少开销
 （2）配置依据
 通过比较 Connections 和 Threads_created 状态的变量，可以看到这个变量的作用。
 设置规则如下：1GB 内存配置为8，2GB配置为16，3GB配置为32，4GB或更高内存，可配置更大。
@@ -6996,66 +7008,42 @@ Threads_created:代表从最近一次服务启动，已创建线程的数量，�
 Threads_running :代表当前激活的（非睡眠状态）线程数。并不是代表正在使用的线程数，有时候连接已建立，但是连接处于sleep状态。
 (3)配置方法：
 thread_cache_size=32
+# 空闲连接线程缓存数，复用线程减少开销
+# 常规业务推荐200，高并发可适度上调
+thread_cache_size=200
 
-1.11 innodb_buffer_pool_size
-（1）简介
-对于InnoDB表来说，innodb_buffer_pool_size的作用就相当于key_buffer_size对于MyISAM表的作用一样。
-（2）配置依据：
-InnoDB使用该参数指定大小的内存来缓冲数据和索引。
-对于单独的MySQL数据库服务器，最大可以把该值设置成物理内存的80%,一般我们建议不要超过物理内存的70%。
-mysql> SHOW GLOBAL STATUS LIKE 'Innodb_buffer_pool%'
-+---------------------------------------+-------------+
-| Variable_name                         | Value       |
-+---------------------------------------+-------------+
-| Innodb_buffer_pool_dump_status        | not started |
-| Innodb_buffer_pool_load_status        | not started |
-| Innodb_buffer_pool_pages_data         | 1557        |
-| Innodb_buffer_pool_bytes_data         | 25509888    |
-| Innodb_buffer_pool_pages_dirty        | 0           |
-| Innodb_buffer_pool_bytes_dirty        | 0           |
-| Innodb_buffer_pool_pages_flushed      | 2305        |
-| Innodb_buffer_pool_pages_free         | 63977       |
-| Innodb_buffer_pool_pages_misc         | 2           |
-| Innodb_buffer_pool_pages_total        | 65536       |
-| Innodb_buffer_pool_read_ahead_rnd     | 0           |
-| Innodb_buffer_pool_read_ahead         | 64          |
-| Innodb_buffer_pool_read_ahead_evicted | 0           |
-| Innodb_buffer_pool_read_requests      | 32036288    |
-| Innodb_buffer_pool_reads              | 600         |
-| Innodb_buffer_pool_wait_free          | 0           |
-| Innodb_buffer_pool_write_requests     | 280891      |
-+---------------------------------------+-------------+
-17 rows in set (0.00 sec)
 
-mysql>
-Innodb_buffer_pool_pages_data
-The number of pages in the InnoDB buffer pool containing data. The number includes both dirty and
-clean pages.
+11 innodb_buffer_pool_size
+#查询
+mysql>SHOW GLOBAL variables LIKE 'innodb_buffer_pool_size';
 
-Innodb_buffer_pool_pages_total
-The total size of the InnoDB buffer pool, in pages.
-
-Innodb_page_size
-InnoDB page size (default 16KB). Many values are counted in pages; the page size enables them to be
-easily converted to bytes
-
-（3）配置方法
 innodb_buffer_pool_size=1024M
+# innodb_buffer_pool_size：InnoDB数据/索引缓冲池，MySQL核心参数
+# 专用数据库服务器建议设为物理内存50%~70%，示例配置1024M
 
-1.12 innodb_flush_log_at_trx_commit
+
+
+12 innodb_flush_log_at_trx_commit
 （1）简介
 主要控制了innodb将log buffer中的数据写入日志文件并flush磁盘的时间点，取值分别为0、1、2三个。
 0，表示当事务提交时，不做日志写入操作，而是每秒钟将log buffer中的数据写入日志文件并flush磁盘一次；
 1，则在每秒钟或是每次事物的提交都会引起日志文件写入、flush磁盘的操作，确保了事务的ACID；
 2，每次事务提交引起写入日志文件的动作，但每秒钟完成一次flush磁盘操作。
-（2）配置依据
 
+（2）配置依据
 实际测试发现，该值对插入数据的速度影响非常大，设置为2时插入10000条记录只需要2秒，设置为0时只需要1秒，而设置为1时则需要229秒。因此，MySQL手册也建议尽量将插入操作合并成一个事务，这样可以大幅提高速度。
 根据MySQL官方文档，在允许丢失最近部分事务的危险的前提下，可以把该值设为0或2。
+
 （3）配置方法
 innodb_flush_log_at_trx_commit=1
+# redo日志刷盘策略，可选值0/1/2
+# 0每秒刷盘、1事务提交必刷盘(最安全)、2提交写缓存+每秒刷盘；核心业务推荐1
+innodb_flush_log_at_trx_commit=1
 
-1.13 innodb_thread_concurrency 
+
+
+
+13 innodb_thread_concurrency 
 （1）简介
 此参数用来设置innodb线程的并发数量，默认值为0表示不限制。
 （2）配置依据
@@ -7079,123 +7067,212 @@ innodb_flush_log_at_trx_commit=1
 
 （3）配置方法：
 innodb_thread_concurrency=8
+# InnoDB并发线程数，0表示不限制，支持自定义正整数
+# 低并发用0，高并发按需调优，常规线上业务推荐8~128
 
 
-1.14 innodb_log_buffer_size
-
-此参数确定些日志文件所用的内存大小，以M为单位。缓冲区更大能提高性能，对于较大的事务，可以增大缓存大小。
-innodb_log_buffer_size=8M
 
 
-1.15. innodb_log_file_size = 50M
-此参数确定数据日志文件的大小，以M为单位，更大的设置可以提高性能.
+14 innodb_log_buffer_size
+# redo日志内存缓冲区，单位M，大事务可适当调大
+# 常规业务推荐8M~32M
 
-如果设置过小,data buffer写入ibd频率会过高,对于IO压力较大
+15. innodb_log_file_size = 50M
+# innodb_log_file_size：单个redo日志文件大小，单位M，越大日志切换越少、IO越平稳
+# 常规OLTP推荐128M~256M，参考配置50M
 
-1.16. innodb_log_files_in_group = 3
-为提高性能，MySQL可以以循环方式将日志文件写到多个文件。推荐设置为3
+16. innodb_log_files_in_group = 3
+# redo日志循环文件组数，行业通用推荐3组
+innodb_log_files_in_group=3
 
-1.17.read_buffer_size = 1M
-MySql读入缓冲区大小。对表进行顺序扫描的请求将分配一个读入缓冲区，MySql会为它分配一段内存缓冲区。如果对表的顺序扫描请求非常频繁，并且你认为频繁扫描进行得太慢，可以通过增加该变量值以及内存缓冲区大小提高其性能。和 sort_buffer_size一样，该参数对应的分配内存也是每个连接独享
+redo log，对应的物理文件：ib_logfile0、ib_logfile1、ib_logfile2
+并不是同时往 3 个文件写，不会乱；采用顺序写入、循环复用机制。
 
-18.read_rnd_buffer_size = 1M MySql的随机读（查询操作）缓冲区大小。当按任意顺序读取行时(例如，按照排序顺序)，将分配一个随机读缓存区。进行排序查询时，MySql会首先扫描一遍该缓冲，以避免磁盘搜索，提高查询速度，如果需要排序大量数据，可适当调高该值。但MySql会为每个客户连接发放该缓冲空间，所以应尽量适当设置该值，以避免内存开销过大。
- 注：顺序读是指根据索引的叶节点数据就能顺序地读取所需要的行数据。随机读是指一般需要根据辅助索引叶节点中的主键寻找实际行数据，而辅助索引和主键所在的数据段不同，因此访问方式是随机的。
+17.read_buffer_size = 1M
+# read_buffer_size：顺序读缓冲区，单会话独占，单位M，全表扫描生效
+# 常规业务推荐1M~2M
+read_buffer_size=1M
+
+
+18.read_rnd_buffer_size = 1M 
+# read_rnd_buffer_size：随机读缓冲区，单会话独占，排序、索引回表查询生效
+# 不宜设置过大，常规推荐1M~2M
+read_rnd_buffer_size=1M
 
 19.bulk_insert_buffer_size = 8M
-批量插入数据缓存大小，可以有效提高插入效率，默认为8M
+# MyISAM引擎批量插入专用缓存，加速LOAD DATA、批量INSERT语句写入速度
+# 仅对MyISAM表生效，InnoDB不识别该参数；常规业务默认8M足够，大批量导入可上调至64M
+bulk_insert_buffer_size = 8M
 
-1.20.binary log
+20.binary log
+# 开启二进制日志，路径与日志前缀，主从复制、数据恢复必备，生产库必开
 log-bin=/data/mysql-bin
+# binlog记录格式：row行模式，记录每行数据变更，主从同步一致性最高，OLTP线上库标准推荐
 binlog_format=row
-binlog_cache_size = 2M //为每个session 分配的内存，在事务过程中用来存储二进制日志的缓存, 提高记录bin-log的效率。没有什么大事务，dml也不是很频繁的情况下可以设置小一点，如果事务大而且多，dml操作也频繁，则可以适当的调大一点。前者建议是--1M，后者建议是：即 2--4M
-max_binlog_cache_size = 8M //表示的是binlog 能够使用的最大cache 内存大小
-max_binlog_size= 512M //指定binlog日志文件的大小，如果当前的日志大小达到max_binlog_size，还会自动创建新的二进制日志。你不能将该变量设置为大于1GB或小于4096字节。默认值是1GB。在导入大容量的sql文件时，建议关闭sql_log_bin，否则硬盘扛不住，而且建议定期做删除。
+# 事务binlog会话缓存，单会话事务binlog内存缓存，常规业务推荐2M--4M
+binlog_cache_size = 2M
+# binlog缓存最大上限，防止大事务内存溢出，常规业务推荐8M
+max_binlog_cache_size = 8M
+# 单个binlog文件阈值，达上限自动切割，范围4K~1G，线上统一设512M
+max_binlog_size= 512M
+# binlog自动保留天数，到期自动清理，线上常规推荐保留7天
+expire_logs_days = 7
 
-expire_logs_days = 7 //定义了mysql清除过期日志的时间。
-二进制日志自动删除的天数。默认值为0,表示“没有自动删除”。
+# innodb_max_dirty_pages_pct：缓冲池脏页占比阈值，触发刷脏页；取值0-100
+# 企业推荐：普通OLTP 75，高写入业务 60~70，减少刷盘抖动
+innodb_max_dirty_pages_pct = 75
+
+# innodb_additional_mem_pool_size：InnoDB额外内存池，存数据字典/锁信息；5.7.6+已废弃
+# 取值参考：内存<2G设20M，32G内存设100M；老版本按内存配置，新版可注释
+innodb_additional_mem_pool_size = 20M
+
+# transaction_isolation：事务隔离级别，4个可选值
+# READ-UNCOMMITTED(读未提交)、READ-COMMITTED(读已提交)、REPEATABLE-READ(可重复读,默认)、SERIALIZABLE(串行化)
+# 企业推荐：绝大多数OLTP用 READ-COMMITTED；金融强一致场景用默认 REPEATABLE-READ
+transaction_isolation = READ-COMMITTED
+
+OLTP啥意思
+# OLTP：联机事务处理（Online Transaction Processing）
+# 特点：日常业务读写、短事务、高并发、要求低延迟
+# 典型场景：电商、支付、后台业务系统、主库/线上生产库（MySQL主流应用场景）
+
+# 补充对照：OLAP 联机分析处理
+# 特点：大批量查询、报表统计、数据分析、长SQL、并发低
+# 典型场景：数据仓库、报表库、离线分析
 
 
 
-innodb_max_dirty_pages_pct        ***********
-innodb_additional_mem_pool_size (于2G内存的机器，推荐值是20M。32G内存的?100M)
-transaction_isolation            *********
-
-
-1.21 安全参数
-
+21 安全参数
+innodb_flush_log_at_trx_commit=(0,1,2)
 Innodb_flush_method=(O_DIRECT, fdatasync) 
-		1、fdatasync    ：
-		（1）在数据页需要持久化时，首先将数据写入OS buffer中，然后由os决定什么时候写入磁盘
-		（2）在redo buffuer需要持久化时，首先将数据写入OS buffer中，然后由os决定什么时候写入磁盘
-			但，如果innodb_flush_log_at_trx_commit=1的话，日志还是直接每次commit直接写入磁盘
-		2、 Innodb_flush_method=O_DIRECT
-		 （1）在数据页需要持久化时，直接写入磁盘
-		 （2）在redo buffuer需要持久化时，首先将数据写入OS buffer中，然后由os决定什么时候写入磁盘
-			但，如果innodb_flush_log_at_trx_commit=1的话，日志还是直接每次commit直接写入磁盘
 
-最高安全模式：
-		innodb_flush_log_at_trx_commit=1
-		innodb_flush_method=O_DIRECT
+# innodb_flush_log_at_trx_commit：事务redo日志落盘策略，控制数据安全与性能
+# 1（企业金融核心业务推荐）：每次事务提交，刷redo到磁盘，完全符合ACID，宕机无丢数据
+# 2（普通OLTP业务推荐）：事务提交仅刷到OS缓存，每秒统一刷磁盘，性能高，宕机最多丢1秒数据
+# 0（测试/离线批量任务）：每秒刷一次磁盘，事务提交不刷，宕机丢1秒内全部事务，线上禁用
+innodb_flush_log_at_trx_commit=1
+
+# innodb_flush_method：InnoDB数据文件刷盘方式，控制缓冲池脏页落盘IO模式
+# O_DIRECT（企业线上通用推荐）：绕过操作系统页缓存，直接写磁盘，避免双份内存占用，减少刷盘抖动
+# fdatasync（老旧机械盘兼容）：走OS缓存再刷盘，容易占用大量系统内存，数据库场景不推荐
+innodb_flush_method=O_DIRECT
+
+最高安全模式：标准安全高性能组合（生产标配）
+    innodb_flush_log_at_trx_commit=1
+    innodb_flush_method=O_DIRECT
 最高性能模式：
-		innodb_flush_log_at_trx_commit=0
-		innodb_flush_method=fdatasync
-		
+    innodb_flush_log_at_trx_commit=0
+    innodb_flush_method=fdatasync	
 一般情况下，我们更偏向于安全。
-		
+	
 “双一标准”
-		innodb_flush_log_at_trx_commit=1        ***************
-		sync_binlog=1                    		***************
-		innodb_flush_method=O_DIRECT
+		innodb_flush_log_at_trx_commit=1 #事务提交 redo日志刷到硬盘
+		sync_binlog=1                    #事务提交立马强制刷到硬盘
+		innodb_flush_method=O_DIRECT     #绕过操作系统页缓存，直接读写磁盘，减少内存占用与IO抖动
 
-
+# sync_binlog=1：每提交1次事务，就将binlog从OS缓存同步写入磁盘
+# 可选值说明：
+# 0：MySQL不主动刷盘，交给操作系统自行调度，性能最高，宕机易丢binlog
+# 1：每次事务提交强制刷盘，ACID安全，主库/金融业务强制推荐
+# N(N>1)：累计N次事务再统一刷盘，性能提升，宕机最多丢失N条事务binlog
+# 企业线上主库标准配置 sync_binlog=1
+sync_binlog=1
 	
 
 
 
-三、参数优化结果
+
+
+```
+
+
+
+### 3. 优化结果
+
+```bash
+# 生产优化参数注释（简洁通俗）
+# vim MySQL my.cnf 
 [mysqld]
+# mysql程序安装根目录
 basedir=/application/mysql
+# 数据文件存储目录（库、表、ibd数据）
 datadir=/application/mysql/data
+# 本地socket通信文件，免TCP连接本地MySQL
 socket=/tmp/mysql.sock
+# MySQL错误日志路径，记录崩溃、启动、运行报错
 log-error=/var/log/mysql.log
+# 开启二进制日志，主从复制、数据恢复必备
 log_bin=/data/binlog/mysql-bin
+# binlog行模式，记录行数据变更，主从数据一致性最高，推荐生产
 binlog_format=row
+# 禁止域名反向解析，消除登录卡顿，提速连接
 skip-name-resolve
+# 实例唯一ID，主从复制、GTID、MHA/MGR必须全局不重复
 server-id=52
+# 开启GTID全局事务ID，简化主从搭建、故障切换
 gtid-mode=on
+# 强制GTID事务一致性，禁止破坏GTID语义的SQL，生产必开
 enforce-gtid-consistency=true
+# 从库回放relay-log后写入自身binlog，支持级联复制、MHA切换提升新主
 log-slave-updates=1
+# 关闭自动清理relay-log，MHA环境防止切换丢失中继日志
 relay_log_purge=0
+# 最大并发客户端连接数，业务高峰期调大，默认151过小
 max_connections=1024
+# TCP半连接队列长度，应对瞬间大量新建连接
 back_log=128
+# 非交互式连接空闲60秒自动断开（程序长连接）
 wait_timeout=60
+# 交互式客户端（navicat/mysql命令行）空闲2小时断开
 interactive_timeout=7200
+# MyISAM引擎索引缓存，仅作用MyISAM表
 key_buffer_size=16M
+# 开启查询缓存，缓存静态SELECT结果，8.0已移除该参数
 query_cache_size=64M
+# 查询缓存开启模式：1=按需缓存SELECT
 query_cache_type=1
+# 单条查询结果超过50M不存入缓存
 query_cache_limit=50M
+# 同一IP连续失败20次连接，临时拉黑防暴力破解
 max_connect_errors=20
+# 单会话排序缓冲区，order by/group by使用，不全局占用
 sort_buffer_size=2M
+# 客户端单次传输数据包最大限制，适配大字段、批量导入
 max_allowed_packet=32M
+# 表关联查询缓冲区，多表JOIN使用
 join_buffer_size=2M
+# 空闲线程缓存，复用连接线程，减少频繁创建销毁开销
 thread_cache_size=200
+# InnoDB缓冲池，缓存表数据+索引，内存数据库核心参数，建议物理内存50%-70%
 innodb_buffer_pool_size=1024M
+# 事务提交立刻刷redo日志到磁盘，ACID安全，数据不丢失；2=性能高但有丢数据风险
 innodb_flush_log_at_trx_commit=1
+# redo日志内存缓冲区，事务先写内存再落盘
 innodb_log_buffer_size=32M
+# 单个redo日志文件大小，大写入场景调大，减少日志切换刷盘抖动
 innodb_log_file_size=128M
+# redo日志文件组数，3个循环覆盖写入
 innodb_log_files_in_group=3
+# 单会话binlog内存缓存，存放未提交事务binlog
 binlog_cache_size=2M
+# 会话binlog缓存上限，超大事务临时扩容上限
 max_binlog_cache_size=8M
+# binlog单文件最大512M，自动切割新文件，方便按文件清理备份
 max_binlog_size=512M
+# binlog自动保留7天，过期自动删除，防止磁盘打满
 expire_logs_days=7
+# 顺序读缓冲区，全表扫描、顺序查询提速
 read_buffer_size=2M
+# 随机读缓冲区，索引分页查询、join随机读取提速
 read_rnd_buffer_size=2M
+# MyISAM批量插入缓存，load data、批量insert提速
 bulk_insert_buffer_size=8M
 [client]
+# 客户端本地连接优先使用socket文件，不走TCP网络，连接效率更高
 socket=/tmp/mysql.sock	
-		
-再次压力测试	：
 
+
+再次压力测试	：
 [root@db02 ~]# mysqlslap --defaults-file=/etc/my.cnf \
 >  --concurrency=100 --iterations=1 --create-schema='oldboy' \
 > --query='select * from oldboy.lufei where stuname="guojialei_100"' engine=innodb \
@@ -7240,7 +7317,756 @@ Benchmark
 
 
 
+```
 
+
+
+
+
+
+
+# MySQL MGR
+
+**MGR = MySQL Group Replication（MySQL 组复制）**，是 MySQL 官方在**5.7.17 版本**引入、8.0 版本完善的**原生高可用集群方案**，基于 Paxos 协议实现数据强一致性与自动故障转移，替代传统主从复制 + MHA 的组合方案。
+
+### 核心定位与优势
+
+| 特性             | 说明                                                         |
+| :--------------- | :----------------------------------------------------------- |
+| **强一致性**     | 基于 Paxos 协议，事务需集群**多数节点确认**才提交，避免数据分裂 |
+| **高容错**       | 集群支持**N 节点（建议 3/5 节点）**，只要多数节点存活（如 3 节点最多 1 节点故障），服务不中断 |
+| **自动故障转移** | 主库宕机后，集群自动选举新主，无需第三方工具（如 MHA）       |
+| **两种模式**     | - **单主模式**（默认）：1 个主库可读写，其他从库只读- **多主模式**（实验性）：所有节点可读写，需严格冲突检测 |
+| **原生集成**     | MySQL 官方插件，无需额外部署第三方软件，配置简单             |
+
+### 与 MHA 的关键区别
+
+| 对比项     | MGR                      | MHA                                          |
+| :--------- | :----------------------- | :------------------------------------------- |
+| 部署方式   | 官方原生插件，内置支持   | 第三方工具，需额外部署 Manager+Node          |
+| 故障转移   | 集群自动完成，无单点     | 依赖 Manager 节点，需额外保障 Manager 高可用 |
+| 数据一致性 | 强一致性（Paxos 协议）   | 最终一致性（依赖半同步 + 日志补全）          |
+| 架构支持   | 多主 / 单主模式          | 仅支持一主多从                               |
+| 适用场景   | 对一致性要求高的核心业务 | 传统主从架构的平滑升级                       |
+
+## 一、整体环境规划
+
+| 节点角色        | IP 地址   | 主机名    | MySQL 端口 | MGR 通信端口 | Server-ID |
+| :-------------- | :-------- | :-------- | :--------- | :----------- | :-------- |
+| 节点 1 (初始主) | 10.0.0.20 | mgr-node1 | 3306       | 33061        | 1         |
+| 节点 2 (从节点) | 10.0.0.21 | mgr-node2 | 3306       | 33061        | 21        |
+| 节点 3 (从节点) | 10.0.0.22 | mgr-node3 | 3306       | 33061        | 22        |
+
+统一目录规划（所有节点一致）：
+
+- 安装目录：`/usr/local/mysql`
+- 数据目录：/usr/local/mysql/data
+- 日志目录：`/usr/local/mysql/log`
+- Socket 文件：`/tmp/mysql.sock`
+
+5.7的版本选择
+
+```bash
+# 存量业务平稳运行 → 5.7.33
+# 存量+安全合规需求 → 5.7.37
+# 全新搭建5.7集群（含MGR） → 5.7.44 （5.7系列最后发布GA，新部署唯一推荐）
+
+# 避坑黑名单（严禁生产）
+# <5.7.30：MGR脑裂、GTID断同步、InnoDB内存泄漏、在线DDL崩溃风险极高
+# 5.7.26~5.7.29：并发INSERT ON DUPLICATE KEY死锁概率大幅上升
+
+5.6版本选择
+企业存量环境最主流：MySQL 5.6.44（5.6 最后一个官方 GA 稳定终版）
+早年大规模装机普及款：MySQL 5.6.36 / 5.6.38
+
+```
+
+## 时间同步（MGR 必备，否则集群异常）
+
+```bash
+
+# 1. 检查并安装 chrony（最小化安装默认已装）
+rpm -q chrony || yum install -y chrony 
+
+# 2. 配置阿里云 NTP 服务器（国内首选，稳定低延迟）
+cp /etc/chrony.conf /etc/chrony.conf.bak  # 备份原配置
+# 写入新配置
+cat > /etc/chrony.conf << EOF
+# 使用阿里云公共NTP服务器
+server ntp1.aliyun.com iburst
+server ntp2.aliyun.com iburst
+server ntp3.aliyun.com iburst
+
+# 允许本机查询时间（可选）
+allow 127.0.0.1
+
+# 同步硬件时钟
+rtcsync
+
+# 不使用本地时钟兜底（外网可用时建议开启）
+# local stratum 10
+EOF
+
+# 启用并立即启动
+systemctl enable chronyd --now 
+# 确认状态 active(running) 
+systemctl status chronyd
+
+ # 设置为上海时区
+timedatectl set-timezone Asia/Shanghai
+ # 验证时区与同步状态 
+timedatectl status                   
+
+# 1. 查看时间源状态（^* 表示当前活跃源）
+chronyc sources -v 
+
+# 2. 查看同步精度（offset 应 < 10ms，MGR 要求 < 50ms）
+chronyc tracking 
+
+# 3. 强制立即同步（仅首次部署时可选）
+chronyc makestep 
+```
+
+
+
+
+
+## 官方文档mysql5.7 二进制安装指导
+
+```bash
+前提准备
+#卸载冲突 的mariadb
+rpm -qa |grep mariadb  
+yum remove mariadb*
+
+wget https://downloads.mysql.com/archives/get/p/23/file/mysql-5.7.33-linux-glibc2.12-x86_64.tar.gz
+
+# 每台机器配置好hosts
+vim /etc/hosts
+10.0.0.20 db01
+10.0.0.21 db02
+10.0.0.22 db03
+
+#安装 MySQL 依赖包
+yum install libaio wget
+# 创建用户组+用户
+groupadd mysql
+# -r 系统用户  无家目录 
+useradd -r -g mysql -s /bin/false mysql
+
+cd /usr/local
+tar zxvf mysql-5.7.33-linux-glibc2.12-x86_64.tar.gz
+ln -s mysql-5.7.33-linux-glibc2.12-x86_64 mysql
+
+echo 'export PATH=$PATH:/usr/local/mysql/bin' >> /etc/profile
+source /etc/profile
+
+cd mysql
+mkdir mysql-files
+chown mysql:mysql mysql-files
+chmod 750 mysql-files
+
+cd /usr/local/mysql
+# bin/mysqld --initialize --user=mysql
+
+# bin/mysqld --initialize --user=mysql --basedir=/opt/mysql/mysql --datadir=/opt/mysql/mysql/data
+
+#basedir datadir 也可以在配置文件设置 /etc/my.cnf
+#[mysqld]
+#basedir=/usr/local/mysql
+#datadir=/usr/local/mysql/data
+
+# --initialize-insecure 不会生成随机密码
+bin/mysqld --initialize-insecure --user=mysql -basedir=/usr/local/mysql --datadir=/usr/local/mysql/data
+
+# 让服务器能够自动支持安全连接
+# bin/mysql_ssl_rsa_setup
+
+# 配置systemd 启动
+bin/mysqld_safe --user=mysql &
+
+mysql -u root --skip-password
+# ALTER USER 'root'@'localhost' IDENTIFIED BY 'root-password';
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'Root@123456';
+quit;
+
+# Next command is optional
+cp support-files/mysql.server /etc/init.d/mysql.server
+
+mysql --version
+/etc/init.d/mysql.server stop|start 
+
+
+
+# 配置 systemd 开机自启服务
+cat > /usr/lib/systemd/system/mysqld.service <<\EOF
+[Unit]
+Description=MySQL Server
+Documentation=man:mysqld(8)
+After=network.target
+
+[Service]
+User=mysql
+Group=mysql
+ExecStart=/usr/local/mysql/bin/mysqld --defaults-file=/etc/my.cnf
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 3. 重载服务、设置开机自启
+systemctl daemon-reload
+systemctl enable mysqld -now
+
+
+```
+
+
+
+
+
+## 四、所有节点：编写 my.cnf 配置文件（核心 MGR 配置）
+
+> 重点：**3 台节点配置几乎一致，仅 `server_id`、`loose-group_replication_local_address` 不同**
+
+```sql
+-- 组复制实例配置
+
+vi /etc/my.cnf
+[mysqld]
+# 基础配置
+basedir = /usr/local/mysql
+datadir = /usr/local/mysql/data
+socket = /tmp/mysql.sock
+#pid-file = /usr/local/mysql/mysql.pid
+user = mysql
+port = 3306
+default-storage-engine = InnoDB
+character-set-server = utf8mb4
+
+# 数据必须存储在InnoDB事务型存储引擎中
+disabled_storage_engines="MyISAM,BLACKHOLE,FEDERATED,ARCHIVE,MEMORY"
+server_id=1
+gtid_mode=ON
+enforce_gtid_consistency=ON
+master_info_repository=TABLE
+relay_log_info_repository=TABLE
+binlog_checksum=NONE
+log_slave_updates=ON
+log_bin=binlog
+binlog_format=ROW
+
+plugin_load_add='group_replication.so'
+transaction_write_set_extraction=XXHASH64
+#使用uuidgen 生成一个 或者 select uuid();
+group_replication_group_name="50d46af7-4086-4b04-8ca9-f9bfbee215cf"
+#以确保插件在服务器启动时不会自动开始运行。这一点在设置组复制功能时非常重要，因为它能让你在手动启动插件之前先完成对服务器的配置。一旦相关设置完成，就可以将group_replication_start_on_boot<#>8#<#>设置为on，这样服务器启动时，组复制功能就会自动开始运行。
+group_replication_start_on_boot=off
+group_replication_local_address= "10.0.0.20:33061"
+group_replication_group_seeds= "10.0.0.20:33061,10.0.0.21:33061,10.0.0.22:33061"
+# 确保只有其中一个成员真正负责启动该组。
+# 务必在第一个服务器实例启动后才能设置group_replication_bootstrap_group=off选项。
+group_replication_bootstrap_group=off
+
+------------------------------------------------------------
+/etc/init.d/mysql.server restart 
+```
+
+## 五、创建 MGR 集群专用复制账号（**3 台节点必须创建完全一致的账号**）
+
+```bash
+# 用户凭证
+mysql -uroot -pRoot@123456
+#复制用户 每个服务器上手动创建该用户
+SET SQL_LOG_BIN=0;
+CREATE USER rpl_user@'%' IDENTIFIED BY 'password';
+GRANT REPLICATION SLAVE ON *.* TO rpl_user@'%';
+FLUSH PRIVILEGES;
+SET SQL_LOG_BIN=1;
+
+#专门给 MGR（MySQL 组复制）配置恢复通道的复制账号。每个节点操作
+# MGR 集群新节点 / 故障重启节点加入集群时，会通过内置通道 group_replication_recovery 从集群里正常节点拉取缺失 binlog，完成数据同步（分布式恢复）。
+#这个通道本质是一条内置异步复制链路，需要复制账号，该语句就是给这条内置复制链路指定用户名密码
+CHANGE MASTER TO MASTER_USER='rpl_user', MASTER_PASSWORD='password' \
+FOR CHANNEL 'group_replication_recovery';
+
+#组复制插件安装  配置文件中选择了选项plugin_load_add='group_replication.so' ,这个就不用操作
+# INSTALL PLUGIN group_replication SONAME 'group_replication.so';
+#检查插件是否安装了
+SHOW PLUGINS;
+
+
+ 
+```
+
+
+
+## 七、部署 MGR 单主集群（核心步骤）
+
+```bash
+# 连接到s1服务器，然后执行相应指令  只能执行一次  # 创建群组的过程被称为“引导启动”。
+# 1. 开启集群引导（仅第一个节点使用）
+SET GLOBAL group_replication_bootstrap_group=ON;
+## 2. 启动组复制（加入集群）
+START GROUP_REPLICATION;
+# # 3. 立即关闭引导组（禁止长期开启，会重复创建集群）
+SET GLOBAL group_replication_bootstrap_group=OFF;
+
+# 查看集群状态（验证角色）
+SELECT * FROM performance_schema.replication_group_members;
+
+
+# 模拟数据
+CREATE DATABASE test;
+USE test;
+CREATE TABLE t1 (c1 INT PRIMARY KEY, c2 TEXT NOT NULL);
+INSERT INTO t1 VALUES (1, 'Luis');
+SELECT * FROM t1;
+SHOW BINLOG EVENTS;
+
+
+# 节点2 将实例添加到组中  db02
+cat > /etc/my.cnf <<EOF
+[mysqld]
+# 基础配置
+basedir = /usr/local/mysql
+datadir = /usr/local/mysql/data
+socket = /tmp/mysql.sock
+user = mysql
+port = 3306
+default-storage-engine = InnoDB
+character-set-server = utf8mb4
+
+disabled_storage_engines="MyISAM,BLACKHOLE,FEDERATED,ARCHIVE,MEMORY"
+server_id=21
+gtid_mode=ON
+enforce_gtid_consistency=ON
+master_info_repository=TABLE
+relay_log_info_repository=TABLE
+binlog_checksum=NONE
+log_slave_updates=ON
+log_bin=binlog
+binlog_format=ROW
+
+plugin_load_add='group_replication.so'
+transaction_write_set_extraction=XXHASH64
+group_replication_group_name="50d46af7-4086-4b04-8ca9-f9bfbee215cf"
+group_replication_start_on_boot=off
+group_replication_local_address= "10.0.0.21:33061"
+group_replication_group_seeds= "10.0.0.20:33061,10.0.0.21:33061,10.0.0.22:33061"
+group_replication_bootstrap_group=off
+EOF
+
+/etc/init.d/mysql.server restart
+
+mysql -uroot -pRoot@123456
+#复制用户 每个服务器上手动创建该用户
+SET SQL_LOG_BIN=0;
+CREATE USER rpl_user@'%' IDENTIFIED BY 'password';
+GRANT REPLICATION SLAVE ON *.* TO rpl_user@'%';
+FLUSH PRIVILEGES;
+SET SQL_LOG_BIN=1;
+
+CHANGE MASTER TO MASTER_USER='rpl_user', MASTER_PASSWORD='password' \
+FOR CHANNEL 'group_replication_recovery';
+#db02 加入组流程
+START GROUP_REPLICATION;
+
+# 确认加入了组
+SELECT * FROM performance_schema.replication_group_members;
+
+#确认db02确实已与服务器db01同步。
+SHOW DATABASES LIKE 'test';
+SELECT * FROM test.t1;
+SHOW BINLOG EVENTS;
+
+
+# db03加入组流程  和db02 一样
+cat > /etc/my.cnf <<EOF
+[mysqld]
+# 基础配置
+basedir = /usr/local/mysql
+datadir = /usr/local/mysql/data
+socket = /tmp/mysql.sock
+user = mysql
+port = 3306
+default-storage-engine = InnoDB
+character-set-server = utf8mb4
+
+disabled_storage_engines="MyISAM,BLACKHOLE,FEDERATED,ARCHIVE,MEMORY"
+server_id=22
+gtid_mode=ON
+enforce_gtid_consistency=ON
+master_info_repository=TABLE
+relay_log_info_repository=TABLE
+binlog_checksum=NONE
+log_slave_updates=ON
+log_bin=binlog
+binlog_format=ROW
+
+plugin_load_add='group_replication.so'
+transaction_write_set_extraction=XXHASH64
+group_replication_group_name="50d46af7-4086-4b04-8ca9-f9bfbee215cf"
+group_replication_start_on_boot=off
+group_replication_local_address= "10.0.0.22:33061"
+group_replication_group_seeds= "10.0.0.20:33061,10.0.0.21:33061,10.0.0.22:33061"
+group_replication_bootstrap_group=off
+EOF
+
+/etc/init.d/mysql.server restart
+
+mysql -uroot -pRoot@123456
+#复制用户 每个服务器上手动创建该用户
+SET SQL_LOG_BIN=0;
+CREATE USER rpl_user@'%' IDENTIFIED BY 'password';
+GRANT REPLICATION SLAVE ON *.* TO rpl_user@'%';
+FLUSH PRIVILEGES;
+SET SQL_LOG_BIN=1;
+
+CHANGE MASTER TO MASTER_USER='rpl_user', MASTER_PASSWORD='password' \
+FOR CHANNEL 'group_replication_recovery';
+#db02 加入组流程
+START GROUP_REPLICATION;
+
+# 确认加入了组
+SELECT * FROM performance_schema.replication_group_members;
+
+#确认db03确实已与服务器db01同步。
+SHOW DATABASES LIKE 'test';
+SELECT * FROM test.t1;
+SHOW BINLOG EVENTS;
+
+
+
+# 全集群最终状态验证（任意节点执行）
+-- 查看集群所有成员、角色、状态
+SELECT * FROM performance_schema.replication_group_members;
+
+-- 查看集群运行统计
+SELECT * FROM performance_schema.replication_group_member_stats;
+
+-- 查看MGR所有参数
+SHOW VARIABLES LIKE 'group_replication%';
+```
+
+
+
+# MySQL MGR 面试背诵精简版（流程 + 高频题）
+
+## 一、MGR 单主完整工作流程（背诵版）
+
+### 1. 集群搭建接入流程
+
+1. 所有节点开启 GTID、行级 binlog，加载 group_replication 插件；配置统一组名、独立通信端口 33061、种子节点列表。
+2. 首个节点开启 bootstrap 引导，执行 start group_replication 初始化集群；其余节点直接启动组复制。
+3. 新节点接入：与集群握手对比 GTID 集合，缺少数据自动走增量 binlog 恢复，差距大则调用 clone 插件全量克隆，同步完成状态变为 ONLINE。
+
+### 2. 事务提交核心 Paxos 两阶段（必考）
+
+1. **本地执行**：主库执行 DML，生成 row 格式 binlog，事务不提交、挂起等待。
+2. **全网广播**：把行变更、GTID 事务包通过 XCom 通信层发给全部节点。
+3. **过半投票**：所有节点校验主键、约束无冲突后投票；必须超过半数节点同意才算合法。
+4. 统一提交 / 回滚
+   - 投票通过：主库本地提交落盘，下发全局提交指令，所有节点统一回放事务；
+   - 投票失败：主库本地回滚，返回客户端报错。
+5. **从库串行回放**：所有节点按全局统一顺序回放事务，集群强一致。
+
+### 3. 主节点故障切换流程
+
+1. 心跳 5s 超时，集群判定原主 UNREACHABLE；
+2. 存活节点发起选举，优先级：member_weight 权重 > 本地 GTID 最全 > server_uuid 字典序；
+3. 过半节点认可的节点成为新主，自动放开读写；
+4. MySQL Router 自动切写流量，旧主修复上线自动变只读从库。
+
+### 4. 集群防脑裂机制
+
+采用**过半仲裁**：只有存活节点数量 > 总节点 / 2，集群才可写入；少数分区自动 super_read_only，杜绝双主脑裂。
+
+------
+
+##二、高频面试题 + 极简标准答案（直接背）
+
+### 基础概念
+
+1. **什么是 MGR？解决什么问题**
+
+   MySQL Group Replication，MySQL 官方基于 Paxos 的原生高可用集群；解决传统主从数据不一致、故障手动切换、单点故障问题，支持自动选主、强一致、多副本容错。
+
+2. **单主 / 多主模式区别，生产选哪个**
+
+- 单主：仅 1 节点可写，其余只读，无行冲突，DDL 友好，**生产标配**；
+- 多主：所有节点支持读写，并发修改同一行会触发回滚，线上极少使用。
+
+1. **MGR 最少几个节点？为什么不能 2 节点**
+
+   最少 3 节点。过半投票机制：3 节点挂 1 台剩 2 台满足过半，可正常选主；2 节点宕 1 台只剩 1 台，不满足半数，集群只读无法提供写入。
+
+2. **MGR 和 Galera、原生异步主从区别**
+
+- 异步主从：无共识、存在数据延迟、故障切换易丢数据；
+- Galera：第三方 wsrep 实现；MGR 官方原生，8.0 性能、兼容性更强；
+- MGR 自带自动选主、clone 恢复、内置监控视图。
+
+## 核心原理
+
+1. **MGR 如何保证数据零丢失**
+
+   事务必须集群过半节点投票确认才允许提交；故障时事务已同步至多数副本，新主一定持有完整事务；配合 sync_binlog=1、innodb 刷盘参数，本地事务持久化。
+
+2. **MGR 事务有哪些限制**
+
+3. 仅支持 InnoDB，每张表必须有主键 / 唯一键；
+
+4. 不支持 XA 事务、FLUSH TABLES WITH READ LOCK、表锁；
+
+5. 大事务广播开销大，建议拆分；
+
+6. 多主禁止跨节点并发修改同一行。
+
+7. **XCom 通信层作用**
+
+   MGR 独立通信模块，使用 33061 端口，负责节点心跳、事务广播、Paxos 投票消息传输，与业务 3306 端口隔离。
+
+8. **GTID 在 MGR 的作用**
+
+   全局唯一事务 ID；新节点分布式恢复对比缺失事务；主节点选举判断哪个节点数据最新。
+
+## 故障容灾
+
+1. 主库宕机切换耗时？业务影响
+
+   心跳默认 5s + 选举毫秒级，整体中断 1~10s；搭配 MySQL Router 自动路由，无需改业务配置。
+
+2. 半数以上节点宕机（3 节点挂 2 台）现象
+
+   存活节点不足半数，集群全部节点进入 super_read_only，拒绝所有写，防止数据分裂。
+
+3. 故障旧主修复重新上线流程
+
+   自动对比集群 GTID，增量回放缺失 binlog；数据差距过大自动 clone 全量同步，同步完成自动加入集群成为只读节点。
+
+4. 网络抖动节点短暂失联会怎样
+
+   节点标记 UNREACHABLE，网络恢复后自动重连同步数据；失联期间大量写入会触发 clone 全量拷贝。
+
+## 运维调优
+
+1. 搭建 MGR 核心必开参数
+
+   gtid_mode=ON、enforce_gtid_consistency=ON、binlog_format=ROW；
+
+   组复制参数：统一 group_name、local 通信地址、seed 种子节点、单主模式、member_weight 选举权重。
+
+2. MGR 性能瓶颈与优化方案
+
+   瓶颈：事务全网广播、Paxos 投票、超大事务网络 IO。
+
+   优化：拆分大事务；内网万兆网卡；调大消息缓存；低峰执行 DDL；使用 clone 快速扩容。
+
+3. 常用排查 SQL
+
+```
+-- 查看集群所有节点、主从角色
+select * from performance_schema.replication_group_members;
+-- 冲突、事务共识统计
+select * from performance_schema.replication_group_member_stats;
+```
+
+1. MySQL Router 作用
+
+   
+
+   官方轻量中间件，屏蔽多节点地址；自动读写分离；主节点切换后自动更新写路由，业务无感知。
+
+## 综合拔高题
+
+1. MGR、MySQL Router、ProxySQL 怎么选
+
+- MGR：底层数据库高可用集群；
+- Router：官方轻量，简单读写分离、故障路由，中小企业首选；
+- ProxySQL：第三方代理，支持 SQL 过滤、限流、复杂读写权重、分库分表场景，高并发复杂业务使用。
+
+1. DDL 在 MGR 注意事项
+
+   单主仅主库执行 DDL，同步至从节点；超大 DDL 会阻塞全集群写入，必须业务低峰执行，不支持并发 DDL。
+
+2. MGR 跨机房部署风险
+
+   跨机房网络延迟高，每次写入需跨机房投票，写入性能衰减严重；同城多机房可行，异地机房建议搭配异步复制做灾备。
+
+3. 如何排查 MGR 事务冲突
+
+   查询 replication_group_member_stats 视图中 CONFLICT_DETECTS 冲突计数，多主模式冲突高发，单主几乎无冲突。
+
+
+
+
+
+
+
+# CentOS 7 时间同步：推荐用 chrony（替代 ntpdate）
+
+
+
+## 一、为什么不推荐 ntpdate（生产环境）
+
+| 问题               | 说明                                                        | 对 MGR 的影响                                              |
+| ------------------ | ----------------------------------------------------------- | ---------------------------------------------------------- |
+| **时间跳跃风险**   | 一次性强制同步，会导致系统时间突变（如从 10:00 跳到 10:05） | MGR 依赖严格时间一致性，时间跳跃可能触发集群脑裂、事务冲突 |
+| **无持续校准**     | 需配合 crontab 定时执行，间隔期间时间会漂移                 | 节点间时间差累积，引发 MGR 数据同步延迟 / 失败             |
+| **官方弃用趋势**   | 主流 Linux 发行版已逐步淘汰，功能受限                       | 长期维护风险高，无社区支持                                 |
+| **不修正时钟频率** | 仅改时间，不校准硬件时钟偏差                                | 虚拟机 / 物理机时钟漂移加剧，需频繁同步                    |
+
+## 二、为什么 chrony 是 CentOS 7 首选
+
+chrony 是 **NTP 协议的现代实现**，CentOS 7 最小化安装默认包含，专为生产环境设计：
+
+| 核心优势          | 说明                                      | 对 MGR 的价值                            |
+| ----------------- | ----------------------------------------- | ---------------------------------------- |
+| **平滑时间调整**  | 渐进修正时间，避免 “跳跃”，保证时间单调性 | 保护 MGR 事务顺序、集群状态稳定          |
+| **持续后台校准**  | 常驻服务，实时监控并修正时间              | 节点间时间差控制在毫秒级，符合 MGR 要求  |
+| **适应网络波动**  | 优化算法应对网络延迟，支持间歇连接        | 跨机房 / 不稳定网络环境下 MGR 集群更稳定 |
+| **低资源占用**    | 内存 / CPU 消耗远低于传统 ntpd            | 不影响 MySQL 性能，适合资源受限环境      |
+| **兼容 NTP 协议** | 可与标准 NTP 服务器通信，支持认证         | 对接阿里云 / 腾讯云等公共 NTP 服务       |
+
+## 三、CentOS 7 配置 chrony 完整步骤（MGR 生产环境标准）
+
+```bash
+
+# 1. 检查并安装 chrony（最小化安装默认已装）
+rpm -q chrony || yum install -y chrony 
+
+# 2. 配置阿里云 NTP 服务器（国内首选，稳定低延迟）
+cp /etc/chrony.conf /etc/chrony.conf.bak  # 备份原配置
+# 写入新配置
+cat > /etc/chrony.conf << EOF
+# 使用阿里云公共NTP服务器
+server ntp1.aliyun.com iburst
+server ntp2.aliyun.com iburst
+server ntp3.aliyun.com iburst
+
+# 允许本机查询时间（可选）
+allow 127.0.0.1
+
+# 同步硬件时钟
+rtcsync
+
+# 不使用本地时钟兜底（外网可用时建议开启）
+# local stratum 10
+EOF
+
+# 启用并立即启动
+systemctl enable chronyd --now 
+# 确认状态 active(running) 
+systemctl status chronyd
+
+ # 设置为上海时区
+timedatectl set-timezone Asia/Shanghai
+ # 验证时区与同步状态 
+timedatectl status                   
+
+# 1. 查看时间源状态（^* 表示当前活跃源）
+chronyc sources -v 
+
+# 2. 查看同步精度（offset 应 < 10ms，MGR 要求 < 50ms）
+chronyc tracking 
+
+# 3. 强制立即同步（仅首次部署时可选）
+chronyc makestep 
+```
+
+## 五、ntpdate 与 chrony 对比表（快速参考）
+
+| 特性         | ntpdate      | chrony         | 生产推荐 |
+| ------------ | ------------ | -------------- | -------- |
+| 运行方式     | 一次性命令   | 常驻服务       | chrony   |
+| 时间调整     | 跳跃式       | 平滑式         | chrony   |
+| 持续校准     | ❌ 需 crontab | ✅ 自动         | chrony   |
+| 时钟频率修正 | ❌            | ✅              | chrony   |
+| 网络波动适应 | ❌            | ✅              | chrony   |
+| MGR 兼容性   | 差（风险高） | 优（完美适配） | chrony   |
+
+
+
+
+
+
+
+
+
+
+
+# ProxySQL
+
+```bash
+# 一、基础定位
+# ProxySQL：C++开发、第三方开源高性能MySQL协议代理，非Oracle官方产品；兼容MySQL/MariaDB/Percona，互联网企业主流读写分离中间件
+# 部署位置：应用 ↔ ProxySQL ↔ MySQL主从/MGR集群
+
+# 二、核心优势
+# 1.性能极强：轻量低延迟，支持连接多路复用，前端万级连接复用后端少量长连接，大幅降低数据库max_connections压力
+# 2.全动态配置：配置存内置SQLite，分三层内存/运行/磁盘；改配置执行LOAD SAVE即可生效，无需重启服务
+# 3.灵活SQL路由：支持正则、账号、库、SQL注释自定义路由，完美实现读写分离
+# 4.自动节点健康检测：心跳、复制延迟、只读状态检测，故障节点自动下线，流量自动切换
+# 5.内置监控统计：全量SQL指纹、耗时、访问频次统计，统一观测慢SQL流量
+# 6.附加能力：SQL缓存、SQL限流/黑名单、SQL重写、审计日志、权重负载均衡
+
+# 三、核心功能明细
+# 1.读写分离（最常用）
+# hostgroup分组：写组放主库、读组放从库；匹配SELECT走读组，DML走写组；支持强制主库读、延迟从库隔离
+# 2.连接池多路复用
+# 事务级连接回收，短连接业务大幅减少数据库连接创建销毁开销
+# 3.负载均衡
+# 多从库支持权重、最少连接、响应时间三种分发策略
+# 4.故障自动转移
+# 持续探测后端实例，宕机/延迟过高自动剔除，恢复后自动加回集群
+# 5.SQL管控
+# 自定义规则拦截高危SQL、限制大查询并发、缓存静态字典查询结果
+# 6.适配集群架构
+# 支持一主多从、MGR单主集群、GTID主从架构
+
+# 四、三层配置架构（核心特性）
+# MEMORY：当前操作临时内存表，修改配置先写这里
+# RUNTIME：实时运行生效配置，LOAD MYSQL VARIABLES TO RUNTIME 生效
+# DISK：持久化SQLite库，SAVE MYSQL VARIABLES TO DISK 重启不丢失配置
+# 标准流程：改内存表 → LOAD → SAVE
+
+# 五、企业适用场景
+# 推荐：OLTP一主多从、高并发读写分离、MGR集群流量代理、需要在线动态调规则的业务
+# 不推荐：海量数据分库分表（无原生分片能力，分片选用ShardingSphere/MyCat）
+
+# 六、同类对比简要
+# MySQL Router：官方轻量，无SQL解析，无读写分离规则，适合纯MGR转发
+# ProxySQL：第三方高性能，完整SQL路由、连接池、动态配置，互联网读写分离首选
+# MaxScale：MariaDB官方，审计合规强，国内普及低
+# ShardingSphere：主打分库分表，读写分离为辅，分片业务专用
+```
+
+
+
+各 MySQL 中间件对比 & 选型表
+
+| 中间件               | 开发归属              | 核心定位               | 核心优势                                                     | 短板                                    | 企业适用场景                                          |
+| -------------------- | --------------------- | ---------------------- | ------------------------------------------------------------ | --------------------------------------- | ----------------------------------------------------- |
+| ProxySQL             | 第三方独立开源 (C++)  | 高性能读写分离代理     | 连接池复用、动态配置无需重启、SQL 路由灵活、性能高、健康检测完善 | 无原生分库分表                          | 互联网一主多从高并发 OLTP、只做读写分离、MGR 流量转发 |
+| MySQL Router         | Oracle MySQL 官方     | 轻量集群转发工具       | 官方原生、零解析损耗、适配 MGR/InnoDB Cluster、部署简单      | 无连接池、无 SQL 路由、读写分离能力极弱 | MGR 集群、中小型业务、追求官方兼容不想引入第三方组件  |
+| MaxScale             | MariaDB 官方          | 企业级数据库代理       | 官方商业支持、SQL 审计 / 防火墙、复制管控、合规性强          | 资源开销大、国内落地少、社区生态弱      | MariaDB 集群、金融等有安全审计合规需求场景            |
+| Atlas                | 360 开源              | 简易读写分离代理       | 部署简单、上手门槛低                                         | 项目停止维护、高并发稳定性差、功能简陋  | 老旧小型传统业务，低并发简单读写分离                  |
+| MyCat                | 社区开源 (Java)       | 传统分库分表中间件     | 分片功能齐全、国内文档存量多、同时支持读写分离               | Java 性能损耗大、分布式事务弱、迭代缓慢 | 存量老旧业务分库分表、传统企业单机分片场景            |
+| ShardingSphere-Proxy | Apache 开源 (Java/Go) | 云原生分布式分片中间件 | 分片 + 读写分离一体化、分布式事务完善、微服务友好、持续迭代  | 单纯读写分离场景过重、配置复杂          | 海量数据分库分表、微服务架构、大数据量分片业务        |
+
+
+
+```bash
+极简选型总结
+# 仅MGR集群、要官方组件 → MySQL Router
+# MariaDB集群、需要审计合规 → MaxScale
+# 高并发一主多从、只做读写分离、追求性能 → ProxySQL
+# 极低并发老旧小业务简易读写分离 → Atlas
+# 传统老系统分库分表、存量业务迁移 → MyCat
+# 微服务、海量数据分片、需要分布式事务 → ShardingSphere-Proxy
 ```
 
 
@@ -7252,4 +8078,145 @@ Benchmark
 
 
 
+
+# mysql 5.6 和mysql5.7区别与性能提升
+
+```bash
+# MySQL5.6 与 MySQL5.7 完整差异 + 5.7专属性能提升合并汇总
+# 一、复制相关（生产主从/MGR核心）
+# 5.6：支持GTID、库级并行复制、crash-safe slave；无MGR，半同步复制需手动安装插件
+# 5.7：内置半同步复制、并行复制升级为事务级、新增MGR集群、复制延迟监控、在线切换复制过滤规则
+
+# 二、InnoDB引擎功能差异
+# 5.6：独立undo表空间、部分操作支持在线DDL、缓冲池预热
+# 5.7：临时表独立undo、分区表完整在线DDL、缓冲池热加载、自适应脏页刷新、锁优化、原生JSON字段、多页清理线程
+
+# 三、安全权限
+# 5.6：初始化root允许空密码、匿名用户存在、密码校验宽松
+# 5.7：初始化强制随机root密码、默认密码过期策略、新密码加密插件、删除匿名用户、支持表空间加密
+
+# 四、SQL语法与数据类型
+# 5.6：无JSON类型，派生表必须写别名，GROUP BY模式宽松
+# 5.7：原生JSON、生成列、字段默认值支持函数、默认关闭宽松GROUP BY、完整utf8mb4 emoji支持
+
+# 五、运维监控与参数
+# 5.6：sys库监控简陋、仅单线程redo刷盘、在线可修改参数少
+# 5.7：完善sys系统视图、大量InnoDB参数可在线动态调整、原生表空间迁移、崩溃恢复速度大幅提升
+
+# 六、MySQL5.7对比5.6 专项性能提升
+## 1.InnoDB IO/刷盘优化（写入提升最明显）
+# 1）多线程redo刷盘：5.6单线程写redo；5.7多线程并行刷redo，高并发写入减少IO阻塞
+# 2）多页清理线程innodb_page_cleaners：5.6单线程刷脏页，5.7多线程，大缓冲池无集中IO抖动
+# 3）自适应脏页低水位innodb_max_dirty_pages_pct_lwm，平稳持续刷脏，避免瞬间磁盘压力峰值
+# 4）临时undo独立表空间，减少ibd碎片，读写更平稳
+# 5）缓冲池持久化，重启自动加载热数据，消除冷启动性能爬坡
+
+## 2.锁与事务并发优化（OLTP高并发吞吐提升）
+# 1）读操作无行锁竞争，读写冲突大幅减少，短事务并发能力显著上涨
+# 2）事务级并行复制，5.6仅库级并行，大批量DML主从延迟大幅降低
+# 3）间隙锁、死锁检测逻辑优化，热点行等待时间减少
+
+## 3.复制性能优化
+# 1）半同步内置无需插件，切换开销更低
+# 2）crash-safe binlog/relaylog机制完善，崩溃恢复无需重放海量日志
+# 3）新增复制心跳、延迟指标监控，大事务回放效率更高
+
+## 4.SQL优化器执行提升
+# 1）优化器代价模型重构，多表JOIN、子查询生成更优执行计划
+# 2）派生表物化逻辑优化，减少临时表磁盘开销
+# 3）JSON原生存储+JSON索引，对比5.6字符串存储查询速度提升数倍
+# 4）默认严格GROUP BY，规避无效临时表与文件排序
+
+## 5.线程调度与监控开销优化
+# 1）后台IO、刷新、清理任务拆分为独立线程，资源不互相抢占CPU
+# 2）连接线程调度优化，短连接高并发场景CPU利用率更高
+# 3）轻量化performance_schema，开启监控几乎不损耗业务性能
+
+## 6.崩溃恢复速度提升
+# 重做日志扫描、事务回滚逻辑重构，大实例宕机后恢复时间缩短50%以上
+
+# 七、企业选型建议
+# 存量老旧低并发、历史系统兼容需求 → MySQL5.6
+# 新业务、高并发OLTP、MGR集群、JSON存储、安全合规、低运维成本 → MySQL5.7（互联网稳定主流版本）
+
+# 实测性能结论
+# 普通混合读写业务：整体吞吐量提升20%~40%
+# 高写入热点业务：写入性能提升50%以上，IO刷盘抖动大幅缓解
+# 主从复制集群：大批量更新场景从库回放延迟明显降低
+
+
+```
+
+
+
+## mysql8.0 对比mysql5.7 
+
+```bash
+# MySQL8.0 对比5.7 全维度改动、性能提升、新功能汇总（企业简洁版）
+# 一、底层架构颠覆性改动（最大差异）
+# 1.全新事务型数据字典（里程碑）
+# 5.7：表元数据存frm文件+MyISAM系统表，DDL崩溃易元数据不一致；
+# 8.0：全部元数据存入InnoDB系统表mysql.ibd，废除frm文件；支持原子DDL，CREATE/ALTER/DROP要么全成功要么回滚，崩溃无残留碎片，information_schema查询提速30倍
+# 2.彻底移除Query Cache查询缓存
+# 5.7自带QC，表更新全缓存失效、锁竞争严重；8.0直接删除，减少内核开销，读多写少场景改用应用层缓存
+# 3.系统表全部迁移InnoDB
+# 5.7权限/事件/存储过程系统表为MyISAM；8.0统一InnoDB，支持事务操作权限、崩溃安全
+
+# 二、InnoDB引擎性能大幅提升（官方压测混合读写提升80%~150%）
+## 并发锁优化
+# 1）锁系统分片，高并发热点行锁冲突大幅降低；
+# 2）新增NOWAIT / SKIP LOCKED，SELECT FOR UPDATE争抢库存直接跳过/报错，无长阻塞；
+# 3）innodb_deadlock_detect可关闭，超高写入场景关闭后吞吐显著上涨
+## 刷盘、日志优化
+# 1）redo日志动态扩容innodb_redo_log_capacity，无需重启改日志大小；多组双写缓冲区，SSD IO压力平滑；
+# 2）独立undo表空间在线收缩，5.7无法回收undo磁盘；
+# 3）innodb_dedicated_server自动适配内存分配，单机专用库一键调参
+## 索引增强
+# 1）真正降序索引，ORDER BY DESC不再文件排序；
+# 2）函数索引，JSON、表达式查询不走计算；
+# 3）隐藏索引：软删除索引，灰度验证索引必要性；
+# 4）跳过索引扫描skip scan优化范围查询
+## 并行与多核优化
+# 1）并行聚簇索引扫描，全表/CHECK TABLE速度提升；
+# 2）多核CPU利用率从5.7 60%提升至90%+，解决多核调度瓶颈
+
+# 三、主从复制/MGR重大升级
+# 1.WriteSet并行复制（核心）：5.7仅组提交并行，依赖主库并发；8.0通过冲突检测并行回放，低并发主库也能大幅降低从库延迟，MGR同步同步复用该机制
+# 2.轻量级备份锁 LOCK INSTANCE FOR BACKUP：备份不阻塞DML，替代全局读锁FTWRL，在线备份无业务阻塞
+# 3.复制日志崩溃安全性增强，relay log无需完整重放
+
+# 四、SQL语法全新能力（5.7完全不支持）
+# 1.窗口函数 ROW_NUMBER/RANK/LAG/LEAD，分组内排名、移动平均，替代复杂子查询
+# 2.CTE公用表表达式：普通WITH + 递归WITH，树形结构（组织/分类）极简实现
+# 3.Hash Join优化，多表大关联性能大幅提升，自动选择哈希连接
+# 4.直方图统计信息，优化器精准预估行数，执行计划更稳定
+# 5.JSON增强：JSON_TABLE将JSON转为关系表、局部JSON更新减少日志写入
+# 6.正则表达式原生Unicode支持、GIS地理空间完整规范
+
+# 五、安全权限体系重构
+# 1.默认字符集utf8mb4，排序utf8mb4_0900_ai_ci；5.7默认latin1，原生支持emoji、生僻字
+# 2.默认认证插件caching_sha2_password，密码加密更强；5.7默认mysql_native_password；旧客户端需改插件兼容
+# 3.Role角色权限，批量给账号分配权限，简化运维；5.7无角色
+# 4.SUPER权限拆分，细分BACKUP_ADMIN/SESSION_VARIABLES_ADMIN等最小权限
+# 5.密码轮换、历史密码防重复、更严格密码强度校验
+
+# 六、运维监控与可观测性
+# 1.Performance_schema、sys库监控维度翻倍，锁等待、事务、内存、SQL耗时全链路采集
+# 2.错误日志结构化JSON格式，便于日志平台解析
+# 3.大量InnoDB参数支持在线动态调整，无需重启实例
+# 4.瞬时DDL Instant Add Column，新增字段秒级完成不锁表（5.7仅支持少量字段类型）
+
+# 七、默认参数变更&废弃项
+# 废弃：Query Cache、compressed row格式、部分老旧sql_mode
+# 默认变更：
+# character_set_server=utf8mb4
+# sql_mode更严格，移除宽松模式
+# innodb_page_cleaners默认多线程
+# authentication_plugin=caching_sha2_password
+
+# 八、企业选型总结
+# 新业务、高并发OLTP、MGR集群、复杂报表分析、需要严格安全管控 → MySQL8.0
+# 老旧系统、老旧客户端驱动无法升级、存量大量5.7业务不改动 → 保留MySQL5.7
+
+```
 

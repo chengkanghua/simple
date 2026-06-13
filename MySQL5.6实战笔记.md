@@ -1,7 +1,7 @@
-
-DBMS（database management system）
+RDBMS 指关系型数据库管理系统，全称 Relational Database Management System。
 
 # MySQL二进制安装：
+
 ```bash
 #安装所需要的依赖包
 yum -y install cmake bison-devel ncurses-devel libaio-devel gcc gcc-c++ automake autoconf
@@ -8219,4 +8219,12 @@ chronyc makestep
 # 老旧系统、老旧客户端驱动无法升级、存量大量5.7业务不改动 → 保留MySQL5.7
 
 ```
+
+
+
+
+
+
+
+
 

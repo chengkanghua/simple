@@ -7433,6 +7433,111 @@ chronyc makestep
 
 ## 官方文档mysql5.7 二进制安装指导
 
+
+
+```bash
+
+# MySQL5.7.33 解压根目录各文件夹说明
+# bin：MySQL所有可执行命令，客户端、服务端、备份、日志解析等工具
+# data：核心目录，存放所有库表数据、binlog、错误日志、系统库、GTID的auto.cnf
+# docs：官方文档、许可说明，运维基本不用
+# include：C/C++开发头文件，用于二次编译开发
+# lib：程序依赖的静态/动态库文件
+# man：Linux命令帮助手册
+# mysql-files：LOAD DATA/SELECT INTO OUTFILE 默认安全导入导出目录
+# share：字符集、时区、错误提示、初始化SQL脚本
+# support-files：配置模板my-default.cnf、服务启停脚本等部署相关文件
+
+# LICENSE：开源许可协议
+# README：版本简要说明文档
+
+
+[root@db01 mysql]# tree -L 2
+.
+├── bin
+│   ├── innochecksum       # InnoDB文件校验工具，检查ibd文件损坏
+│   ├── lz4_decompress     # lz4压缩格式解压工具
+│   ├── myisamchk          # MyISAM表修复、优化工具
+│   ├── myisam_ftdump      # MyISAM全文索引信息查看工具
+│   ├── myisamlog          # MyISAM日志分析工具
+│   ├── myisampack         # MyISAM表压缩工具
+│   ├── my_print_defaults   # 读取my.cnf配置参数工具
+│   ├── mysql              # MySQL客户端登录命令
+│   ├── mysqladmin         # MySQL运维管理命令(启停、状态、授权刷新等)
+│   ├── mysqlbinlog        # binlog二进制日志解析工具，数据恢复必备
+│   ├── mysqlcheck         # 表检查、修复、优化工具
+│   ├── mysql_client_test_embedded # 嵌入式客户端测试工具
+│   ├── mysql_config       # 编译获取MySQL库、头文件路径
+│   ├── mysql_config_editor # 免密登录配置工具(.mylogin.cnf)
+│   ├── mysqld             # MySQL服务端主程序
+│   ├── mysqld-debug       # debug调试版服务端程序
+│   ├── mysqld_multi       # 多实例MySQL管理工具
+│   ├── mysqld_safe        # 守护进程，后台安全启动mysqld，崩溃自动重启
+│   ├── mysqldump          # 逻辑备份工具，导出SQL备份
+│   ├── mysqldumpslow      # 慢查询日志分析汇总工具
+│   ├── mysql_embedded     # 嵌入式MySQL程序
+│   ├── mysqlimport        # 文本文件批量导入表工具
+│   ├── mysql_install_db   # MySQL5.7初始化数据库工具
+│   ├── mysql_plugin       # MySQL插件安装卸载工具
+│   ├── mysqlpump          # 并行逻辑备份工具，比mysqldump性能更强
+│   ├── mysql_secure_installation # 安全初始化脚本，删除匿名用户、禁用远程root等
+│   ├── mysqlshow          # 查看库、表、字段结构工具
+│   ├── mysqlslap          # MySQL压力测试压测工具
+│   ├── mysql_ssl_rsa_setup # 一键生成SSL加密证书密钥文件
+│   ├── mysqltest_embedded # 嵌入式测试工具
+│   ├── mysql_tzinfo_to_sql # 系统时区导入MySQL系统表脚本
+│   ├── mysql_upgrade      # MySQL版本升级工具，升级系统表结构
+│   ├── mysqlxtest         # X协议测试工具
+│   ├── perror             # 错误号查询详细错误描述工具
+│   ├── replace            # 文本内容替换小工具
+│   ├── resolveip          # IP与主机名互相解析工具
+│   ├── resolve_stack_dump # 服务崩溃堆栈信息解析工具
+│   └── zlib_decompress    # zlib压缩文件解压工具
+├── data
+│   ├── auto.cnf           # MySQL实例唯一UUID，GTID主从复制依赖文件
+│   ├── binlog.000001     # 二进制日志，记录DML/DDL，用于主从、数据恢复
+│   ├── binlog.000002
+│   ├── binlog.index       # binlog日志索引文件，记录所有binlog文件名
+│   ├── ca-key.pem         # SSL根证书私钥
+│   ├── ca.pem             # SSL根证书公钥
+│   ├── client-cert.pem    # SSL客户端证书
+│   ├── client-key.pem     # SSL客户端私钥
+│   ├── db01.err           # MySQL错误日志，故障排查核心文件
+│   ├── db01.pid           # MySQL进程PID文件，记录当前运行进程号
+│   ├── db01-relay-bin-group_replication_applier.000001 # 组复制中继日志
+│   ├── db01-relay-bin-group_replication_applier.000002
+│   ├── db01-relay-bin-group_replication_applier.000003
+│   ├── db01-relay-bin-group_replication_applier.000004
+│   ├── db01-relay-bin-group_replication_applier.index
+│   ├── db01-relay-bin-group_replication_recovery.000001 # 组复制故障恢复中继日志
+│   ├── db01-relay-bin-group_replication_recovery.000002
+│   ├── db01-relay-bin-group_replication_recovery.index
+│   ├── ib_buffer_pool     # InnoDB缓冲池落地文件，重启快速预热缓冲池
+│   ├── ibdata1            # InnoDB共享表空间，存放数据字典、回滚段等
+│   ├── ib_logfile0        # InnoDB重做日志文件，崩溃恢复、事务持久化
+│   ├── ib_logfile1
+│   ├── ibtmp1             # InnoDB临时表空间
+│   ├── mysql              # mysql系统库，存放账号、权限、存储过程等元数据
+│   ├── performance_schema # 性能监控库，SQL、线程、锁等性能采集库
+│   ├── private_key.pem    # RSA私钥文件
+│   ├── public_key.pem     # RSA公钥文件
+│   ├── server-cert.pem    # 服务端SSL证书
+│   ├── server-key.pem     # 服务端SSL私钥
+│   ├── sys                # 系统视图库，基于performance_schema封装的监控视图
+│   └── test               # 测试业务数据库目录
+└── support-files
+    ├── magic               # 文件类型识别配置文件
+    ├── mysqld_multi.server # MySQL多实例开机自启服务脚本模板
+    ├── mysql-log-rotate    # MySQL日志轮转切割脚本，防止日志文件过大
+    └── mysql.server        # MySQL系统启停service脚本，用于systemd/service管理开机自启
+```
+
+
+
+
+
+
+
 ```bash
 前提准备
 #卸载冲突 的mariadb

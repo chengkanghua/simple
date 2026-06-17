@@ -620,6 +620,504 @@ docker build --no-cache . -t eladmin-web:v1 -f Dockerfile.multi
 
 # k8s
 
+
+
+**本例为了演示slave节点的添加，会部署一台master+2台slave**，节点规划如下：
+
+| 主机名     | 节点ip    | 角色   | 部署组件                                                     |
+| ---------- | --------- | ------ | ------------------------------------------------------------ |
+| k8s-master | 10.0.0.80 | master | etcd, kube-apiserver, kube-controller-manager, kubectl, kubeadm, kubelet, kube-proxy, flannel |
+| k8s-slave1 | 10.0.0.81 | slave  | kubectl, kubelet, kube-proxy, flannel                        |
+| k8s-slave2 | 10.0.0.82 | slave  | kubectl, kubelet, kube-proxy, flannel                        |
+
+##  安装前准备 + docker安装
+
+```bash
+# 在master节点
+hostnamectl set-hostname k8s-master #设置master节点的hostname
+# 在slave-1节点
+hostnamectl set-hostname k8s-slave1 #设置slave1节点的hostname
+# 在slave-2节点
+hostnamectl set-hostname k8s-slave2 #设置slave2节点的hostname
+
+cat >>/etc/hosts<<EOF
+10.0.0.80 k8s-master
+10.0.0.81 k8s-slave1
+10.0.0.82 k8s-slave2
+EOF
+
+# 关闭swap
+swapoff -a 
+# 防止开机自动挂载 swap 分区
+sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+#或者
+#sed -ri '/ swap / s/(.*)/#\1/g' /etc/fstab
+
+
+关闭selinux和防火墙
+sed -ri 's#(SELINUX=).*#\1disabled#' /etc/selinux/config
+setenforce 0
+systemctl disable firewalld && systemctl stop firewalld
+
+# 默认放行所有转发流量
+iptables -P FORWARD ACCEPT
+
+修改内核参数
+cat <<EOF >  /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+# 让网桥转发的 IPv4 流量经过 iptables 防火墙规则，实现 NAT、端口映射、网络策略管控。
+net.bridge.bridge-nf-call-iptables = 1
+# 开启 IPv4 数据包跨网卡转发，容器访问外网、宿主机端口映射必备。
+net.ipv4.ip_forward=1
+# 调整进程最大内存映射区域数
+vm.max_map_count=262144
+EOF
+modprobe br_netfilter
+sysctl -p /etc/sysctl.d/k8s.conf
+
+
+#配置yum源
+rm -rf /etc/yum.repos.d/*
+curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo
+curl -o /etc/yum.repos.d/Centos-7.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+# curl -o /etc/yum.repos.d/docker-ce.repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=http://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=0
+repo_gpgcheck=0
+gpgkey=http://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg
+        http://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
+EOF
+yum clean all && yum makecache
+
+#所有节点安装docker
+#docker 安装
+# https://mirrors.huaweicloud.com/mirrorDetail/5ea14d84b58d16ef329c5c13?mirrorName=docker-ce&catalog=docker
+sudo yum remove docker docker-common docker-selinux docker-engine
+sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+wget -O /etc/yum.repos.d/docker-ce.repo https://mirrors.huaweicloud.com/docker-ce/linux/centos/docker-ce.repo
+sudo sed -i 's+download.docker.com+mirrors.huaweicloud.com/docker-ce+' /etc/yum.repos.d/docker-ce.repo
+sudo yum makecache fast
+sudo yum -y install docker-ce
+
+
+## 配置docker加速和非安全的镜像仓库，需要根据个人的实际环境修改
+mkdir -p /etc/docker
+cat <<EOF > /etc/docker/daemon.json
+{
+    "registry-mirrors": [ "https://4c0c57d8b79a402d811834c1be74f7ae.mirror.swr.myhuaweicloud.com" ],
+    "insecure-registries": ["10.0.0.80:5000"]
+}
+EOF
+## 启动docker
+systemctl enable docker && systemctl start docker
+
+
+
+```
+
+
+
+## [初始化集群](https://docs.chengkanghua.top/k8s-2023/2Kubernetes安装文档?id=初始化集群)
+
+
+
+```bash
+#所有节点执行
+yum install -y kubelet-1.24.4 kubeadm-1.24.4 kubectl-1.24.4 --disableexcludes=kubernetes
+## 查看kubeadm 版本
+kubeadm version
+## 设置kubelet开机启动
+systemctl enable kubelet --now
+
+
+# 导出默认配置，config.toml这个文件默认是不存在的
+# 将 sandbox_image 镜像源设置为阿里云google_containers镜像源
+containerd config default > /etc/containerd/config.toml
+grep sandbox_image  /etc/containerd/config.toml
+
+sed -i "s#k8s.gcr.io/pause#registry.aliyuncs.com/google_containers/pause#g"       /etc/containerd/config.toml
+sed -i "s#registry.k8s.io/pause#registry.aliyuncs.com/google_containers/pause#g"       /etc/containerd/config.toml
+
+#配置镜像加速
+sed -i '147s#\"\"#\"/etc/containerd/certs.d\"#g' /etc/containerd/config.toml
+# 创建对应的目录
+mkdir -p /etc/containerd/certs.d/docker.io
+# 配置加速
+cat >/etc/containerd/certs.d/docker.io/hosts.toml <<EOF
+server = "https://docker.io"
+[host."https://4c0c57d8b79a402d811834c1be74f7ae.mirror.swr.myhuaweicloud.com"]
+  capabilities = ["pull","resolve"]
+[host."https://docker.mirrors.ustc.edu.cn"]
+  capabilities = ["pull","resolve"]
+[host."https://registry-1.docker.io"]
+  capabilities = ["pull","resolve","push"]
+EOF
+
+
+# 配置containerd cgroup 驱动程序systemd
+sed -i 's#SystemdCgroup = false#SystemdCgroup = true#g' /etc/containerd/config.toml
+
+
+
+# 配置非安全的私有镜像仓库：
+# 此处目录必须和个人环境中实际的仓库地址保持一致
+mkdir -p /etc/containerd/certs.d/10.0.0.80:5000
+cat >/etc/containerd/certs.d/10.0.0.80:5000/hosts.toml <<EOF
+server = "http://10.0.0.80:5000"
+[host."http://10.0.0.80:5000"]
+  capabilities = ["pull", "resolve", "push"]
+  skip_verify = true
+EOF
+
+systemctl restart containerd
+
+
+# 操作节点： 只在master节点（k8s-master）执行
+kubeadm config print init-defaults > kubeadm.yaml
+sed -ri 's#(advertiseAddress: ).*#\110.0.0.80#' kubeadm.yaml
+sed -ri 's#(name: ).*#\1k8s-master#' kubeadm.yaml
+sed -ri 's#(imageRepository: ).*#\1registry.aliyuncs.com/google_containers#' kubeadm.yaml
+sed -ri 's#(kubernetesVersion: ).*#\11.24.4#' kubeadm.yaml
+#sed -i '34a\ \ podSubnet: 10.244.0.0/16' kubeadm.yaml  #指定34行挤下一行添加
+sed -i '/dnsDomain:/a\ \ podSubnet: 10.244.0.0/16' kubeadm.yaml
+
+  # 查看需要使用的镜像列表,若无问题，将得到如下列表
+$ kubeadm config images list --config kubeadm.yaml
+registry.aliyuncs.com/google_containers/kube-apiserver:v1.24.4
+registry.aliyuncs.com/google_containers/kube-controller-manager:v1.24.4
+registry.aliyuncs.com/google_containers/kube-scheduler:v1.24.4
+registry.aliyuncs.com/google_containers/kube-proxy:v1.24.4
+registry.aliyuncs.com/google_containers/pause:3.7
+registry.aliyuncs.com/google_containers/etcd:3.5.3-0
+registry.aliyuncs.com/google_containers/coredns:v1.8.6
+ # 提前下载镜像到本地
+$ kubeadm config images pull --config kubeadm.yaml
+
+# 初始化master节点
+kubeadm init --config kubeadm.yaml
+------------- 成功提示
+kubeadm join 10.0.0.80:6443 --token abcdef.0123456789abcdef \
+        --discovery-token-ca-cert-hash sha256:d3cc8c1f6666842101f79964ca5580291a41d54ac13d8a5862e0f84572a9b08a
+----------------
+# 执行集群重置清理残留  #初始化失败 再次执行初始化之前做的
+# kubeadm reset -f
+# 手动删除残留目录（兜底清理）
+# rm -rf /etc/kubernetes /var/lib/etcd
+
+#接下来按照上述提示信息操作，配置kubectl客户端的认证
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+
+
+
+[root@k8s-master ~]# kubeadm token create --print-join-command
+kubeadm join 10.0.0.80:6443 --token srw121.zmapgf66alkiurel --discovery-token-ca-cert-hash sha256:d3cc8c1f6666842101f79964ca5580291a41d54ac13d8a5862e0f84572a9b08a
+
+
+# 添加slave节点到集群中  #再slave节点运行
+kubeadm join 10.0.0.80:6443 --token srw121.zmapgf66alkiurel --discovery-token-ca-cert-hash sha256:d3cc8c1f6666842101f79964ca5580291a41d54ac13d8a5862e0f84572a9b08a
+
+
+
+# master 安装网络插件
+wget https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+# wget https://gitee.com/chengkanghua/script/raw/master/k8s/kube-flannel.yml
+
+#命令修改  修改网卡名eth0
+sed -i '/kube-subnet-mgr/a\ \ \ \ \ \ \ \ - --iface=eth0' kube-flannel.yml
+
+# 执行flannel安装
+kubectl apply -f kube-flannel.yml
+kubectl -n kube-flannel get po -owide
+
+# 默认部署成功后，master节点无法调度业务pod，如需设置master节点也可以参与pod的调度，需执行：
+#kubectl taint node k8s-master node-role.kubernetes.io/master:NoSchedule-
+#kubectl taint node k8s-master node-role.kubernetes.io/control-plane:NoSchedule-
+
+# 设置kubectl自动补全
+$ yum install bash-completion -y
+source /usr/share/bash-completion/bash_completion
+source <(kubectl completion bash)
+echo "source <(kubectl completion bash)" >> ~/.bashrc
+
+# 使用kubeadm安装的集群，证书默认有效期为1年，可以通过如下方式修改为10年。
+cd /etc/kubernetes/pki
+
+# 查看当前证书有效期
+for i in $(ls *.crt); do echo "===== $i ====="; openssl x509 -in $i -text -noout | grep -A 3 'Validity' ; done
+
+mkdir backup_key; cp -rp ./* backup_key/
+#git clone https://github.com/yuyicai/update-kube-cert.git
+#cd update-kube-cert/ 
+wget https://gitee.com/chengkanghua/script/raw/master/k8s/update-kubeadm-cert.sh
+bash update-kubeadm-cert.sh all
+#若无法clone项目，可以手动在浏览器中打开后，复制update-kubeadm-cert.sh 脚本内容到机器中执行
+
+#观察集群节点是否全部Ready
+kubectl get nodes  
+
+
+# 测试nginx 服务
+kubectl run  test-nginx --image=nginx:alpine
+
+kubectl get po -o wide
+curl `kubectl get po -o wide |awk 'NR==2{print $6}'`
+
+
+
+
+
+```
+
+
+
+## [containerd客户端介绍](https://docs.chengkanghua.top/k8s-2023/2Kubernetes安装文档?id=containerd客户端介绍)
+
+
+
+```bash
+由于新版本的k8s直接采用`containerd`作为容器运行时，因此，后续创建的服务，通过`docker`的命令无法查询，因此，如果有需要对节点中的容器进行操作的需求，需要用`containerd`的命令行工具来替换，
+目前总共有三种，包含：
+- ctr
+- crictl
+- nerctl
+
+推荐使用 nerdctl，使用效果与 docker 命令的语法基本一致 , 
+官网https://github.com/containerd/nerdctl
+
+#安装
+# 下载精简版安装包，精简版的包无法使用nerdctl进行构建镜像
+wget https://github.com/containerd/nerdctl/releases/download/v0.23.0/nerdctl-0.23.0-linux-amd64.tar.gz
+#如果下载超时或者速度慢，也可以去网盘自取
+链接: https://pan.baidu.com/s/14Q2tPbiNXdN-PLKk1hpKhA 提取码: 496v 
+# 解压后，将nerdctl 命令拷贝至$PATH下即可
+cp nerdctl /usr/bin/
+---------------------浏览器下载
+https://gitee.com/chengkanghua/script/raw/master/k8s/nerdctl-0.23.0-linux-amd64.tar.gz
+tar xvf nerdctl-0.23.0-linux-amd64.tar.gz
+mv nerdctl /usr/bin/
+
+# 常用操作
+nerdctl ns ls
+查看镜像列表
+nerdctl -n k8s.io ps -a
+
+# 执行exec
+nerdctl -n k8s.io exec -ti e2cd02190005 sh
+
+# 登录镜像仓库
+nerdctl login 10.0.0.80:5000
+
+# 拉取镜像,如果是想拉取了让k8s使用，一定加上-n k8s.io,否则会拉取到default空间中， k8s默认只使用k8s.io
+nerdctl -n k8s.io pull 10.0.0.80:5000/eladmin/eladmin-api:v1-rc1
+
+# 启动容器
+nerdctl -n k8s.io run -d --name test nginx:alpine
+
+# exec
+nerdctl -n k8s.io  exec -ti test sh
+
+# 查看日志, 注意，nerdctl 只能查看使用nerdctl命令创建从容器的日志，k8s中kubelet创建的产生的容器无法查看
+nerdctl -n k8s.io logs -f test
+
+# 构建，但是需要额外安装buildkit的包
+nerdctl build . -t xxxx:tag -f Dockerfile
+
+
+使用小经验
+用了k8s后，对于业务应用的基本操作，90%以上都可以通过kubectl命令行完成
+对于镜像的构建，仍然推荐使用docker build 来完成，推送到镜像仓库后，containerd可以直接使用
+对于查看containerd中容器的日志，使用 crictl logs完成，因为ctr、nerdctl均不支持
+对于其他常规的containerd容器操作，建议使用nerdctl完成
+更多命令可以参考下文：
+https://www.modb.pro/db/485911
+https://github.com/containerd/nerdctl#container-management
+
+
+
+
+```
+
+
+
+## 主流容器调度平台选型对比表
+
+一、原生编排调度引擎
+
+| 平台            | 核心优势                                                     | 缺点                                   | 适用场景                                       | 推荐指数 |
+| --------------- | ------------------------------------------------------------ | -------------------------------------- | ---------------------------------------------- | -------- |
+| Kubernetes(K8s) | 生态最全、自愈 / 扩缩容 / 滚动更新 / 服务发现能力完善，行业标准 | 组件多、学习成本高、资源占用偏高       | 绝大多数企业生产、微服务、未来需要集群扩容     | ⭐⭐⭐⭐⭐    |
+| Docker Swarm    | Docker 原生、上手简单、部署轻量化，命令和 docker 一致        | 调度策略简单、生态贫瘠、大规模稳定性差 | 测试环境、内网小集群（5 节点内）、内部工具服务 | ⭐⭐       |
+| Nomad           | 超轻量，可同时调度容器、二进制、虚拟机，资源开销极低         | 容器周边生态不如 K8s 完善              | 边缘节点、混合负载、低配服务器集群             | ⭐⭐⭐      |
+| Apache Mesos    | 超大规模资源调度能力强                                       | 架构复杂、运维成本极高，新项目基本淘汰 | 大厂机房级海量服务器、大数据离线任务           | ⭐        |
+
+二、K8s 可视化企业级管理平台
+
+| 平台                   | 核心优势                                                | 缺点                                     | 适用场景                                    | 推荐指数 |
+| ---------------------- | ------------------------------------------------------- | ---------------------------------------- | ------------------------------------------- | -------- |
+| Rancher                | 多集群统一纳管、权限管控、集群一键部署升级、运维可视化  | 需要单独部署维护                         | 私有化多机房、混合云、中小企业自建 K8s 集群 | ⭐⭐⭐⭐⭐    |
+| OpenShift              | 红帽商业发行版，内置安全、CI/CD、日志合规，官方技术支持 | 商业授权费用高，偏重政企规范             | 金融、国企等强安全合规要求场景              | ⭐⭐⭐⭐     |
+| Portainer              | 部署极简、轻量 Web 面板，同时支持 Docker/Swarm/K8s      | 仅基础运维能力，缺少企业级权限、集群管控 | 小规模测试、单机容器可视化管理              | ⭐⭐⭐      |
+| 云厂商托管 ACK/TKE/CCE | 免运维控制面、自带监控 / 日志 / 负载均衡，一键弹性扩容  | 绑定公有云厂商，私有化无法使用           | 云上业务、不想运维 K8s 控制节点             | ⭐⭐⭐⭐⭐    |
+
+
+
+## 一、官方标准架构（控制平面 + 工作节点）
+
+Kubernetes 采用**控制平面（Control Plane）+ 工作节点（Worker Node）** 的分布式主从架构，是官方定义的标准拓扑结构Kubernetes。
+
+![img](data:image/svg+xml,%3csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20version=%271.1%27%20width=%27256%27%20height=%27192%27/%3e)![image](./k8s.assets/7e883a3f9d3bb6cfc68841c255af384ftplv-a9rns2rl98-pc_smart_face_crop-v1512384.png)
+
+#### 1. 控制平面组件（集群大脑，全局决策）
+
+控制平面负责集群管控、调度、状态存储，不运行业务容器，生产环境建议多节点高可用部署。
+
+| 组件                         | 官方定义与核心作用                                           |
+| :--------------------------- | :----------------------------------------------------------- |
+| **kube-apiserver**           | 集群唯一入口，暴露 RESTful API；所有组件的交互中枢，负责认证、授权、准入校验；是唯一直接读写 etcd 的组件，可水平扩容 |
+| **etcd**                     | 一致性、高可用的键值数据库；集群所有资源状态、配置、元数据的唯一持久化存储；生产必须做数据备份 |
+| **kube-scheduler**           | 监听未绑定节点的新建 Pod，通过「预选过滤 + 优选打分」算法，为 Pod 选择最合适的工作节点 |
+| **kube-controller-manager**  | 运行各类控制器进程，核心机制是**调和循环**：持续监听资源变化，驱动「实际状态」向「期望状态」收敛；内置节点控制器、副本控制器、端点控制器、命名空间控制器等 |
+| **cloud-controller-manager** | 可选组件，对接公有云 API；管理云厂商负载均衡、云盘存储、路由网络等资源，私有化部署可不用 |
+
+#### 2. 工作节点组件（运行业务负载）
+
+每个工作节点负责运行 Pod 并提供容器运行环境，受控于控制平面。
+
+| 组件                   | 官方定义与核心作用                                           |
+| :--------------------- | :----------------------------------------------------------- |
+| **kubelet**            | 节点上的常驻代理，是控制平面与节点的通信桥梁；接收 apiserver 指令，管理本机 Pod 的全生命周期（创建、启停、健康检查、资源限制），确保 Pod 状态符合规约 |
+| **kube-proxy**         | 节点网络代理；维护节点上的 iptables/ipvs 网络规则，实现 Service 负载均衡、集群内服务发现与流量转发 |
+| **容器运行时**         | 遵循 CRI（容器运行时接口）标准，负责拉取镜像、创建 / 销毁容器；主流实现为 containerd，早期版本使用 Docker |
+| **集群插件（Addons）** | 可选扩展能力，包括 CoreDNS（集群内部 DNS 解析）、Ingress Controller、监控日志组件等 |
+
+------
+
+### 二、官方标准工作流程（以创建 Deployment 为例）
+
+K8s 核心设计是**声明式 API + 调和循环**：用户只提交期望状态，系统通过 List-Watch 机制持续监听，自动收敛到目标状态。
+
+以「提交一个 3 副本 Nginx 的 Deployment」为例，完整执行链路：
+
+1. **请求接入**：用户通过 `kubectl apply` 提交 Deployment 配置，请求经认证授权后到达 kube-apiserver
+2. **状态持久化**：apiserver 校验资源合法性，将 Deployment 的期望状态写入 etcd
+3. **控制器调和**：Deployment Controller 监听到资源变更，对比期望状态，创建对应 ReplicaSet 资源并写入 etcd；ReplicaSet Controller 继续创建 3 个未绑定节点的 Pod 资源
+4. **Pod 调度**：kube-scheduler 监听到未调度的 Pod，执行预选 + 优选算法，为每个 Pod 分配目标节点，更新 Pod 的节点绑定信息写入 etcd
+5. **Pod 启动**：目标节点的 kubelet 监听到分配给自己的 Pod，调用本地容器运行时拉取镜像、创建并启动容器
+6. **状态上报**：kubelet 持续上报 Pod 健康状态到 apiserver，同步存入 etcd
+7. **服务网络生效**：Endpoints 控制器监听到 Pod 就绪，更新对应 Service 的后端端点列表；各节点 kube-proxy 同步更新网络规则，完成服务负载均衡配置
+
+------
+
+### 三、核心设计原则（官方核心思想）
+
+1. **声明式 API**：用户只定义最终期望状态，不关心执行步骤，系统自动完成编排
+2. **List-Watch 机制**：所有组件通过监听 apiserver 资源变化触发动作，无轮询开销，实时响应
+3. **不可变基础设施**：容器镜像不可变，更新通过重建 Pod 实现，保证环境一致性
+4. **自愈能力**：节点故障、Pod 异常时，控制器自动重建 / 迁移 Pod，维持期望副本数
+
+
+
+
+
+```bash
+K8s架构+工作流程 3分钟面试背诵版
+一、K8s架构（口述1分钟）
+K8s整体采用控制平面 + 工作节点的主从分布式架构。
+首先是控制平面，是整个集群的管控核心，主要包含四个核心组件：
+第一，kube-apiserver，是集群唯一API入口，所有操作、所有组件都和它交互，负责认证授权、准入控制，也是唯一操作etcd的组件。
+第二，etcd，是集群唯一数据库，存储所有资源的元数据和期望状态。
+第三，kube-scheduler，负责监听未调度的Pod，通过预选、优选策略，把Pod调度到最优工作节点。
+第四，kube-controller-manager，内置各类控制器，通过调谐循环，保证集群实际状态和用户期望状态一致，实现自愈能力。
+
+然后是工作节点，负责运行业务Pod，核心组件有三个：
+kubelet 是节点代理，负责管理本机Pod的全生命周期；
+kube-proxy 维护节点网络规则，实现Service负载均衡和服务发现；
+还有容器运行时，负责拉取镜像、运行容器。
+
+
+二、工作流程（口述2分钟，以Deployment部署为例）
+整体流程遵循 K8s 声明式API、List-Watch监听、控制器调谐 的核心机制。
+第一步，我执行kubectl apply，请求经过认证授权后给到apiserver，apiserver校验后把资源信息持久化到etcd。
+第二步，Deployment控制器监听到资源变化，自动创建ReplicaSet，ReplicaSet再根据配置的副本数，创建对应的Pod资源，写入etcd。
+第三步，调度器监听到这批未绑定节点的Pod，经过过滤、打分，选择最合适的Worker节点，完成Pod节点绑定。
+第四步，对应节点的kubelet监听到分配给自己的Pod，调用容器运行时，创建沙箱和业务容器，完成Pod启动。
+第五步，kubelet实时上报Pod状态，更新到集群数据库。同时kube-proxy更新网络规则，实现Service访问和负载均衡。
+最后如果Pod异常退出，控制器会自动重建Pod，始终维持用户定义的期望副本数，实现集群自愈。
+
+三、收尾加分一句话（必说）
+简言之，K8s无需定义操作步骤，仅需配置业务期望状态，集群可自动完成调度、部署、扩缩容和故障自愈。
+
+
+```
+
+
+
+
+
+
+
+### CRI 和 OCI 标准  什么区别?
+
+## 核心一句话
+
+- **OCI：底层容器通用标准（管镜像、管内核怎么跑容器）**
+- **CRI：K8s 专属上层接口标准（管 K8s 怎么调用容器运行时）**
+
+## 一、核心区别对比表（必背）
+
+| 对比项       | OCI                                                | CRI                                   |
+| ------------ | -------------------------------------------------- | ------------------------------------- |
+| **全称**     | 开放容器规范                                       | K8s 容器运行时接口                    |
+| **归属**     | Linux 基金会、**全行业通用**                       | K8s 官方、**仅 K8s 使用**             |
+| **层级**     | 底层标准                                           | 上层调用接口                          |
+| **作用**     | 统一**镜像格式、容器运行规则**（Namespace/Cgroup） | 统一 **kubelet 调用容器运行时的协议** |
+| **包含规范** | 镜像规范 + 运行时规范                              | 镜像服务 API + 容器运行 API           |
+| **实现**     | runc、crun                                         | containerd、CRI-O                     |
+
+## 二、层级关系
+
+**OCI 是地基，CRI 是上层通道**
+
+- OCI：规定容器**长什么样、怎么跑**
+- CRI：规定 K8s **怎么命令运行时去创建容器**
+
+## 三、K8s 完整调用链路（极简）
+
+```
+kubelet →(CRI gRPC)→ containerd →(遵循OCI)→ runc → 容器
+```
+
+## 四、最简记忆
+
+1. **OCI = 统一容器标准**（所有容器都遵守）
+2. **CRI = K8s 解耦接口**（让 K8s 不绑定 Docker）
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 namespace 理解用来划分资源的一个资源池
 k8s组件 是运行的进程
 pod是 k8s 最小的一个调度单元，一个pod里可以包含多个容器

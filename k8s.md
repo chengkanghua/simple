@@ -669,7 +669,7 @@ docker push 10.0.0.80:5000/eladmin/eladmin-api:v1
 
 
 
-# k8s
+# k8s 安装
 
 
 
@@ -1095,6 +1095,23 @@ https://github.com/containerd/nerdctl#container-management
 
 
 
+# k8s 落地实践
+
+## 纯容器模式（无编排，如单机 Docker）核心问题
+
+1. **无自愈能力**：容器 / 节点故障后需人工修复，业务长时间中断
+2. **无服务发现**：容器 IP 动态变化，跨节点调用需手动维护地址，配置混乱
+3. **扩缩容低效**：手动启停容器，无统一负载均衡，弹性能力差
+4. **发布风险高**：无法滚动更新、一键回滚，替换容器易造成业务停机
+5. **调度能力弱**：人工分配容器节点，无法按资源情况自动最优调度
+6. **配置管理散**：单容器独立配置，批量更新、统一管控成本高
+
+## K8s 核心价值
+
+通过集群级声明式容器编排，自动实现自愈、服务发现、弹性伸缩、滚动发布、智能调度、统一配置管理，大幅提升业务可用性与运维效率。
+
+
+
 ## 主流容器调度平台选型对比表
 
 一、原生编排调度引擎
@@ -1394,6 +1411,7 @@ K8s 中所有可通过`kubectl get`查询的对象统称为**集群资源**，�
 3. **ResourceQuota**：命名空间级别 CPU、内存、Pod 总数配额限制。
 4. **LimitRange**：给命名空间内 Pod / 容器设置默认、最大最小资源限制。
 5. **RBAC**：基于角色的权限控制，管理用户、服务账号对集群资源的操作权限。
+6. **HPA**：水平 Pod 自动扩缩容控制器，根据监控指标自动调整Deployment、StatefulSet 等工作负载的 Pod 副本数量。
 
 ### 三、加分总结
 
@@ -2729,7 +2747,7 @@ cat <<EOF > deploy-eladmin.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: eladmin-api
+  name: eladmin
   namespace: luffy
 spec:
   replicas: 1
@@ -2909,7 +2927,3663 @@ kubectl -n luffy get rs
 
 
 
+### 副本保障机制
 
+controller实时检测pod状态，并保障副本数一直处于期望的值。
+
+```bash
+## 删除pod，观察pod状态变化
+kubectl -n luffy delete pod eladmin-6d78477cc5-kkfv5
+
+# 观察pod
+kubectl -n luffy get pod -w
+kubectl -n luffy get pods -o wide -w
+
+# 设置两个副本, 或者通过kubectl -n luffy edit deploy eladmin-api的方式，
+# 最好通过修改文件，然后apply的方式，这样yaml文件可以保持同步
+kubectl -n luffy scale deploy redis --replicas=2
+
+# 观察pod
+kubectl -n luffy get pod -w
+
+```
+
+
+
+### 服务更新
+
+```bash
+修改服务，重新打tag模拟服务更新。
+
+修改文件测试：
+#进入 cd eladmin
+docker build . -t 10.0.0.80:5000/eladmin/eladmin-api:v2 -f Dockerfile.multi
+docker push 10.0.0.80:5000/eladmin/eladmin-api:v2
+
+更新方式：
+# 1. 修改yaml文件，然后apply更新应用
+kubectl -n luffy apply -f deploy-eladmin.yaml
+
+# 2 直接在线更新
+kubectl -n luffy edit deploy eladmin
+
+# 3 命令更新
+kubectl -n luffy set image deploy eladmin-api eladmin-api=10.0.0.80:5000/eladmin/eladmin-api:v2 --record
+
+
+
+```
+
+
+
+### [Deployment 滚动更新策略（RollingUpdate）](https://docs.chengkanghua.top/k8s-2023/3Kubernetes落地实践之旅?id=滚动更新)
+
+默认更新策略：`strategy: RollingUpdate`，作用：**新旧 Pod 逐步替换，实现不停机发布**，由两个核心参数控制并发幅度。
+
+#### 1. maxSurge 最大峰值
+
+含义：滚动期间，**可以比期望副本数最多多创建多少个新 Pod**
+
+支持两种写法：百分比 / 绝对数字
+
+- 百分比：`maxSurge: 20%`
+- 固定个数：`maxSurge: 1`
+
+示例：`replicas: 10`，`maxSurge: 20%`
+
+最多临时多出：10 × 20% = 2 个新 Pod，集群最多同时运行 12 个 Pod。
+
+#### 2. maxUnavailable 最大不可用 Pod 数
+
+含义：滚动期间，**最多能同时下线多少个旧 Pod**
+
+同样支持百分比、绝对数字。
+
+示例：`replicas:10`，`maxUnavailable:20%`
+
+最多同时停止 2 个旧 Pod，保证至少 8 个 Pod 正常对外提供服务。
+
+默认值
+
+```yaml
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 25%
+    maxUnavailable: 25%
+    
+常用生产配置
+1. 追求高可用（推荐业务服务）
+rollingUpdate:
+  maxSurge: 1
+  maxUnavailable: 0
+  
+不会同时下线任何旧 Pod，先启新、新就绪再删旧，零业务中断。
+
+2. 单实例 MySQL/Redis（必须用重建策略，不要滚动）
+strategy:
+  type: Recreate
+  
+先删除所有旧 Pod，再启动新 Pod，避免新旧 Pod 同时抢占本地存储、端口冲突。
+```
+
+
+
+
+
+```bash
+...
+spec:
+  replicas: 2    #指定Pod副本数
+  selector:        #指定Pod的选择器
+    matchLabels:
+      app: eladmin-api
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate        #指定更新方式为滚动更新，默认策略，通过get deploy yaml查看
+    ...
+    
+---------------修改后完整版
+cat <<EOF > deploy-eladmin-api.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eladmin-api
+  namespace: luffy
+spec:
+  replicas: 2    #指定Pod副本数
+  selector:        #指定Pod的选择器
+    matchLabels:
+      app: eladmin-api
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate        #指定更新方式为滚动更新，默认策略，通过get deploy yaml查看
+  template:
+    metadata:
+      labels:    #给Pod打label
+        app: eladmin-api
+    spec:
+      imagePullSecrets:
+      - name: registry-10-0-0-80
+      containers:
+      - name: eladmin-api
+        image: 10.0.0.80:5000/eladmin/eladmin-api:v1
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: eladmin
+              key: DB_HOST
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: eladmin-secret
+              key: DB_USER
+        - name: DB_PWD
+          valueFrom:
+            secretKeyRef:
+              name: eladmin-secret
+              key: DB_PWD
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: eladmin
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: eladmin
+              key: REDIS_PORT
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: 200Mi
+            cpu: 50m
+          limits:
+            memory: 1Gi
+            cpu: 2
+        livenessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 20  # 容器启动后第一次执行探测是需要等待多少秒
+          periodSeconds: 15     # 执行探测的频率
+          timeoutSeconds: 3        # 探测超时时间
+        readinessProbe:
+          httpGet:
+            path: /auth/code
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 20
+          timeoutSeconds: 3
+          periodSeconds: 15
+EOF
+
+kubectl apply -f deploy-eladmin-api.yaml
+    
+
+```
+
+
+
+### 更新策略 先删后建
+
+```bash
+...
+  strategy:
+    type: Recreate
+...
+
+前面deploy mysql就是这个策略
+
+
+```
+
+### 服务回滚
+
+通过滚动升级的策略可以平滑的升级Deployment，若升级出现问题，需要最快且最好的方式回退到上一次能够提供正常工作的版本。为此K8S提供了回滚机制。
+
+**revision**：更新应用时，K8S都会记录当前的版本号，即为revision，当升级出现问题时，可通过回滚到某个特定的revision，默认配置下，K8S只会保留最近的几个revision，可以通过Deployment配置文件中的spec.revisionHistoryLimit属性增加revision数量，默认是10。
+
+
+
+```bash
+#查看当前
+kubectl -n luffy  rollout history deployment redis
+kubectl -n luffy  rollout history deployment eladmin
+
+# kubectl delete -f deploy-eladmin-api.yaml    ## 方便演示到具体效果，删掉已有deployment
+
+# 记录回滚：
+# 修改了配置文件, apply -f 之后也会记录到历史版本中
+$ kubectl apply -f deploy-eladmin.yaml --record
+$ kubectl -n luffy edit deploy eladmin --record=true  #镜像名v1 修改成v2
+
+#再次查看历史记录
+[root@k8s-master eladmin]# kubectl -n luffy rollout history deploy eladmin
+deployment.apps/eladmin
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+
+回滚到具体的REVISION:
+$ kubectl -n luffy rollout undo deploy eladmin --to-revision=1
+deployment.apps/eladmin-api rolled back
+
+# 访问应用测试
+
+
+
+
+
+```
+
+
+
+### Service基础
+
+#### 一、Service 核心作用
+
+1. **固定访问入口**：Pod IP 会动态变化（重建、调度、节点故障都会变），Service 提供**稳定虚拟 ClusterIP**，后端通过标签自动关联一组 Pod。
+2. **负载均衡**：将请求分发到后端所有就绪 Pod，实现多实例负载。
+3. **服务发现**：集群内部可通过 `服务名.命名空间.svc.cluster.local` 互相访问。
+4. **解耦**：客户端不需要关心 Pod 真实 IP，只访问 Service 即可。
+
+#### 二、Service 四种类型
+
+#### 1. ClusterIP（默认类型，集群内部访问）
+
+- 分配集群内虚拟 IP，**仅集群内部 Pod、节点能访问**，外网无法访问。
+- 集群内访问方式：
+  - `ClusterIP:端口`
+  - `服务名:端口`（同命名空间）
+  - `服务名.luffy.svc.cluster.local:端口`（跨命名空间）
+
+```yaml
+spec:
+  type: ClusterIP
+  selector:
+    app: eladmin
+  ports:
+  - port: 80        # Service暴露端口（集群访问用）
+    targetPort: 80  # 后端Pod容器端口
+    
+# `port`：Service 端口；`targetPort`：Pod 容器端口；两个可以不一致。    
+    
+
+cat <<EOF >service-eladmin-api.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: eladmin-api
+  namespace: luffy
+spec:
+  ports:
+  - port: 8000
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: eladmin-api
+  type: ClusterIP
+EOF
+
+操作演示：
+## 别名
+alias kd='kubectl -n luffy'
+
+## 创建服务
+kd create -f service-eladmin-api.yaml
+kd get po --show-labels
+kd get svc
+kd describe svc eladmin-api
+
+
+## 扩容eladmin-api服务
+kd scale deploy eladmin --replicas=2
+
+## 再次查看 service后关联的Endpoints
+kd describe svc eladmin-api
+# kubectl -n luffy describe service eladmin-api
+
+# Service与Pod如何关联:
+service对象创建的同时，会创建同名的endpoints对象，若服务设置了readinessProbe, 
+当readinessProbe检测失败时，endpoints列表中会剔除掉对应的pod_ip，
+这样流量就不会分发到健康检测失败的Pod中
+
+Service 通过 spec.selector 匹配 Pod 上的标签，自动维护后端 Endpoint 列表。
+只有 Pod 标签完全匹配，才会被加入 Service 负载均衡后端。
+# 查看后端真实 Pod 端点：
+kubectl -n luffy get endpoints eladmin-api
+
+常用命令
+kubectl -n luffy get svc
+kubectl -n luffy describe svc eladmin-api
+kubectl -n luffy get svc eladmin -o yaml
+
+Service Cluster-IP如何访问:
+# 查看Cluster-IP
+kubectl -n luffy get svc eladmin-api
+
+curl -v $(kubectl -n luffy get svc eladmin-api |awk 'NR==2{print $3}'):8000/auth/code
+### 业务自身支持localhost:8000/auth/code -> pod-ip:8000/auth/code -> service-cluster-ip:8000/auth/code
+
+
+
+关键知识点
+Service 不监听宿主机网卡，ClusterIP 只能在集群内部路由访问。
+Service 四层负载均衡（TCP/UDP），不支持 HTTP 路径、域名转发，七层转发用 Ingress。
+没有 selector 的 Service：不会自动关联 Pod，一般用来手动维护 Endpoint 对接外部中间件。
+同一个 Service 可以配置多组端口，实现多端口转发。
+
+常用配置示例
+apiVersion: v1
+kind: Service
+metadata:
+  name: eladmin
+  namespace: luffy
+spec:
+  type: ClusterIP
+  selector:
+    app: eladmin
+  ports:
+  - port: 80
+    targetPort: 80
+  - port: 8000
+    targetPort: 8000
+    
+
+```
+
+
+
+##### 一、Endpoint（服务后端真实地址）
+
+###### 1. 作用
+
+Service 不会直接绑定 Pod，而是通过 **Endpoint** 保存所有匹配标签、且状态就绪的 Pod 的`IP+容器端口`列表，kube-proxy 根据 Endpoint 配置集群内负载均衡规则。
+
+###### 2. 自动生成规则
+
+1. Service 配置了 `selector` → K8s 自动创建同名 Endpoint；
+2. Pod 标签匹配 `selector` + Pod 状态 `Ready` → 该 Pod IP 会写入 Endpoint；
+3. Pod 未就绪、标签不匹配，不会进入 Endpoint，不会接收流量；
+4. Pod 重建 IP 变化，Endpoint 会自动实时更新。
+
+###### 3. 常用命令
+
+```bash
+# 查看当前Service后端真实Pod地址
+kubectl -n luffy get endpoints eladmin
+# 详细查看端点信息
+kubectl -n luffy describe endpoints eladmin
+```
+
+###### 4. 无 Selector 的 Service（手动维护 Endpoint）
+
+场景：对接集群外部 MySQL、Redis 等第三方服务
+
+1. Service 不写`selector`，不会自动生成 Endpoint；
+2. 手动创建同名 Endpoint，写入外部服务 IP + 端口；
+3. 集群内通过 Service 名称访问外部服务，统一收口配置。
+
+示例:
+
+```yaml
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: luffy
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3306
+    targetPort: 3306
+---
+# 手动Endpoint
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: mysql
+  namespace: luffy
+subsets:
+- addresses:
+  - ip: 10.99.161.76
+  ports:
+  - port: 3306
+```
+
+##### 二、Headless Service（无头服务）
+
+###### 1. 定义
+
+不分配`ClusterIP`的 Service：`spec.clusterIP: None`，不做四层负载均衡，只做**服务发现 DNS 解析**。
+
+###### 2. 普通 Service vs Headless Service
+
+- 普通 ClusterIP Service：DNS 解析到唯一虚拟 ClusterIP，流量负载均衡转发到后端 Pod；
+- Headless Service：DNS 直接解析出**所有后端就绪 Pod 的 IP 列表**，客户端拿到所有 Pod 真实 IP，自己做负载均衡。
+
+###### 3. 适用场景
+
+1. StatefulSet（有状态应用：MySQL 主从、Redis 集群、MongoDB），需要固定网络标识、逐个节点发现；
+2. 应用需要直连每个 Pod，不能经过 Service 四层代理。
+
+###### 4. 访问方式
+
+同命名空间：`pod名称.服务名.命名空间.svc.cluster.local`
+
+示例：`mysql-0.mysql.luffy.svc.cluster.local`
+
+###### 5. 标准 yaml 示例
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-headless
+  namespace: luffy
+spec:
+  selector:
+    app: mysql
+  clusterIP: None  # 开启无头服务
+  ports:
+  - port: 3306
+    targetPort: 3306
+```
+
+###### 6. 核心特点
+
+1. 没有 ClusterIP，kube-proxy 不会为其生成 iptables/ipvs 转发规则；
+2. DNS 查询直接返回所有后端 Pod IP；
+3. 配合 StatefulSet 使用，每个 Pod 拥有稳定唯一的 DNS 域名。
+
+
+
+###### 三、补充高频易错点
+
+1. Service 能访问不通，优先排查两点：
+   - Pod 标签是否和 Service 的 selector 完全一致；
+   - Endpoint 里是否存在对应的 Pod IP（为空 = 标签不匹配或 Pod 未就绪）。
+2. Headless Service 也可以不写 selector，手动配置 Endpoint 对接外部集群节点。
+3. 有状态应用必须用 Headless + StatefulSet，无状态 Deployment 用普通 ClusterIP 即可。
+
+
+
+*思考：为何访问cluster-ip可以成功访问到pod的服务*
+
+```bash
+kube-proxy --> dnat-->snat
+
+#kube-proxy组件是安装在kube-system命名空间下
+#是一个进程 
+kubectl -n kube-system get pod -o wide
+kubectl -n kube-system logs -f kube-proxy-gmmlv  #改成当前主机的kube-proxy 容器名
+#日志里显示是 using iptables proxier
+
+```
+
+
+
+#### kube-proxy 三种工作模式详解
+
+kube-proxy 运行在**每个 Node 节点**，核心作用：监听 Service、Endpoint 变化，在节点上配置内核转发规则，实现 Service 到后端 Pod 的流量转发与负载均衡。
+
+##### 一、userspace（用户空间模式，已淘汰，仅历史了解）
+
+###### 原理
+
+1. 所有节点监听随机高端端口；
+2. iptables 把访问 ClusterIP 的流量全部转发给本机 kube-proxy 进程；
+3. kube-proxy 在**用户态**做负载均衡，再回包转发给后端 Pod。
+
+###### 缺点
+
+- 性能极差：用户态↔内核态频繁切换，并发高时延迟高；
+- 最早 K8s 默认模式，v1.2 之后彻底弃用，生产没人用。
+
+##### 二、iptables（v1.2～v1.8 默认模式，最常用、兼容性最好）
+
+###### 原理
+
+1. kube-proxy 监听 API-Server 中 Service、Endpoint 变更；
+2. 自动在节点内核写入大量 `iptables NAT` 规则；
+3. 流量在内核态直接完成负载均衡转发，不经过 kube-proxy 进程。
+
+###### 负载均衡策略：随机策略
+
+流量随机转发到后端任意一个就绪 Pod。
+
+###### 优点
+
+1. 性能远高于 userspace，稳定、兼容性强；
+2. 不需要额外内核模块，所有 Linux 系统原生支持。
+
+###### 缺点
+
+1. 后端 Pod 大量扩容缩容时，iptables 规则数量暴涨，上万条规则后，规则遍历耗时，性能下降；
+2. 仅支持随机负载均衡，不支持会话保持、轮询、最小连接等高级调度策略。
+
+ 排查命令
+
+```
+# 查看节点上Service对应的iptables规则
+iptables -t nat -L KUBE-SERVICES -n
+```
+
+##### 三、ipvs（v1.8 + 推荐，高性能生产首选）
+
+###### 原理
+
+1. 基于 Linux 内核 IPVS（IP 虚拟服务器）模块；
+2. kube-proxy 只维护 IPVS 虚拟服务列表，不会生成海量 iptables 规则；
+3. 流量在内核态由 IPVS 模块直接转发。
+
+###### 支持多种负载均衡调度算法（核心优势）
+
+1. `rr`：轮询（默认），依次分发流量
+2. `wrr`：加权轮询，给性能好的 Pod 分配更多流量
+3. `lc`：最小连接数，优先转发给当前连接最少的 Pod
+4. `sh`：源地址哈希，实现**会话保持**（同一客户端 IP 固定转发到同一个 Pod）
+5. `dh`：目标地址哈希
+
+###### 优点
+
+1. 规则少，海量 Service 场景性能远优于 iptables；
+2. 丰富负载均衡策略，支持会话保持、加权调度；
+3. 内核级转发，并发高、延迟低。
+
+###### 缺点
+
+1. 需要节点内核开启 `ip_vs` 模块，部分精简系统需要手动加载内核模块；
+2. 兼容性略差于 iptables，老旧系统可能缺少 IPVS 依赖模块。
+
+###### 查看当前节点 ipvs 规则
+
+```
+ipvsadm -Ln
+```
+
+##### 四、三种模式核心对比表
+
+| 模式      | 性能 | 负载均衡策略                      | 规则实现               | 适用场景                       |
+| :-------- | :--- | :-------------------------------- | :--------------------- | :----------------------------- |
+| userspace | 极差 | 随机                              | iptables + 用户进程    | 淘汰，仅学习                   |
+| iptables  | 良好 | 随机                              | 海量 iptables NAT 规则 | 小规模集群、兼容老旧系统       |
+| ipvs      | 优秀 | 轮询 / 加权 / 最小连接 / 源哈希等 | IPVS 内核模块          | 中大规模生产集群、需要会话保持 |
+
+##### 五、切换 kube-proxy 模式操作（v1.24 集群）
+
+1. 修改 kube-proxy 配置 ConfigMap
+
+```
+kubectl edit configmap kube-proxy -n kube-system
+```
+
+找到 `mode: "iptables"`，改为 `mode: "ipvs"`
+
+2. 重启所有 kube-proxy Pod 生效
+
+```
+kubectl rollout restart daemonset kube-proxy -n kube-system
+```
+
+1. 验证当前模式
+
+```
+kubectl get configmap kube-proxy -n kube-system -o jsonpath='{.data.config}' | grep mode
+```
+
+##### 六、补充关键知识点
+
+1. Service 的 ClusterIP 只是虚拟 IP，仅存在于节点的转发规则中，没有网卡绑定该 IP，无法 ping 通 ClusterIP（只能 TCP/UDP 访问服务端口）；
+2. ipvs 模式下依然会使用少量 iptables 做端口屏蔽、流量过滤，不会完全抛弃 iptables；
+3. 会话保持场景（登录态、长连接）必须用 ipvs 的`sh`源哈希调度。
+
+
+
+```bash
+kubectl -n luffy get service eladmin-api
+#获取cluster ip
+iptables-save |grep $(kubectl -n luffy get service eladmin-api |awk 'NR==2{print $3}')
+
+$ iptables-save |grep $(kubectl -n luffy get service eladmin-api |awk 'NR==2{print $3}')
+# iptables-save |grep eladmin-api| grep $(kubectl -n luffy get service eladmin-api |awk 'NR==2{print $3}')
+-------------------------------------------------------------------------------
+-A KUBE-SERVICES -d 10.99.182.32/32 -p tcp -m comment --comment "luffy/eladmin-api cluster IP" -m tcp --dport 8000 -j KUBE-SVC-DTK5GE7MKO2S7DFZ
+-A KUBE-SVC-DTK5GE7MKO2S7DFZ ! -s 10.244.0.0/16 -d 10.99.182.32/32 -p tcp -m comment --comment "luffy/eladmin-api cluster IP" -m tcp --dport 8000 -j KUBE-MARK-MASQ
+
+$ iptables-save |grep -v MASQ |grep KUBE-SVC-DTK5GE7MKO2S7DFZ
+-A KUBE-SVC-DTK5GE7MKO2S7DFZ -m comment --comment "luffy/eladmin-api -> 10.244.0.15:8000" -m statistic --mode random --probability 0.33333333349 -j KUBE-SEP-FYSS62BM2LFBPSMX
+# --probability 0.33333333349  表示负载均衡分配概率30%
+-A KUBE-SVC-DTK5GE7MKO2S7DFZ -m comment --comment "luffy/eladmin-api -> 10.244.0.15:8000" -m statistic --mode random --probability 0.50000000000 -j KUBE-SEP-FYSS62BM2LFBPNZO
+-A KUBE-SVC-DTK5GE7MKO2S7DFZ -m comment --comment "luffy/eladmin-api -> 10.244.2.38:8000" -j KUBE-SEP-MYTXET6SGXYSFLWJ
+
+# 随机分配模式3个pod 概率：30%--》50%--》100%
+# 随机分配模式4个pod 概率：25%--》33%--》50%--》100%
+
+$  iptables-save |grep KUBE-SEP-GB5GNOM5CZH7ICXZ
+-A KUBE-SEP-GB5GNOM5CZH7ICXZ -p tcp -m tcp -j DNAT --to-destination 10.244.1.158:8002
+
+$ iptables-save |grep KUBE-SEP-7GWC3FN2JI5KLE47
+-A KUBE-SEP-7GWC3FN2JI5KLE47 -p tcp -m tcp -j DNAT --to-destination 10.244.1.159:8002
+
+```
+
+
+
+> 面试题： k8s的Service Cluster-IP能不能ping通
+
+```
+
+默认iptables模式，规则里只有tcp 协议 可以curl访问业务， ping是icmp协议 也没有虚拟网卡，所以ping不通
+
+ipvs模式 可以ping通
+通过 ip a s kube-ipvs0 #是可以查看到虚拟网卡 并且有ip地址
+
+
+变型题： k8s的service 能不能ping 通？
+
+
+```
+
+**iptables转换ipvs模式**
+
+```bash
+# 内核开启ipvs模块，集群各节点都执行
+cat > /etc/sysconfig/modules/ipvs.modules <<EOF
+#!/bin/bash
+ipvs_modules="ip_vs ip_vs_lc ip_vs_wlc ip_vs_rr ip_vs_wrr ip_vs_lblc ip_vs_lblcr ip_vs_dh ip_vs_sh ip_vs_nq ip_vs_sed ip_vs_ftp nf_conntrack_ipv4"
+for kernel_module in \${ipvs_modules}; do
+    /sbin/modinfo -F filename \${kernel_module} > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        /sbin/modprobe \${kernel_module}
+    fi
+done
+EOF
+chmod 755 /etc/sysconfig/modules/ipvs.modules && bash /etc/sysconfig/modules/ipvs.modules && lsmod | grep ip_vs
+
+# 安装ipvsadm工具
+$ yum install ipset ipvsadm -y
+
+# 修改kube-proxy 模式
+$ kubectl -n kube-system edit cm kube-proxy
+...
+    kind: KubeProxyConfiguration
+    metricsBindAddress: ""
+    mode: "ipvs"
+    nodePortAddresses: null
+    oomScoreAdj: null
+...
+
+# 重建kube-proxy
+$ kubectl -n kube-system get po |grep kube-proxy|awk '{print $1}'|xargs kubectl -n kube-system delete po
+
+# 查看日志，确认使用了ipvs模式
+$ kubectl -n kube-system logs -f 
+I0605 08:47:52.334298       1 node.go:136] Successfully retrieved node IP: 172.16.1.226
+I0605 08:47:52.334430       1 server_others.go:142] kube-proxy node IP is an IPv4 address (172.16.1.226), assume IPv4 operation
+I0605 08:47:52.766314       1 server_others.go:258] Using ipvs Proxier.
+...
+
+# 清理iptables规则
+$ iptables -F -t nat
+$ iptables -F
+
+# 查看规则生效
+$ ipvsadm -ln
+
+
+
+```
+
+
+
+#### 服务发现
+
+在k8s集群中，组件之间可以通过定义的Service名称实现通信。
+
+演示服务发现：
+
+```bash
+## 演示思路：在eladmin-api的容器中直接通过service名称访问mysql服务，观察是否可以访问通
+
+# 先查看服务
+kubectl -n luffy get svc
+
+kubectl -n luffy get po -owide
+
+# 进入eladmin-web容器
+$ kubectl -n luffy exec -ti eladmin-55bb565946-7brtq -c eladmin-web -- sh
+# curl eladmin-api:8000
+# nslookup eladmin-api
+# nslookup mysql
+# nslookup redis
+
+#为什么能ping 通 service name ；
+# k8s 中coredns组件作的解析
+
+
+组件之间调用的同时，完全可以通过service name去通信，这样避免了大量的ip维护成本，使得服务的yaml模板更加简单。因此可以对mysql和eladmin-api的部署进行优化改造：
+configMap中数据库地址可以换成Service名称，这样跨环境的时候，配置内容基本上可以保持不用变化
+修改deploy-mysql.yaml #不用修改
+
+修改configmap.yaml
+$ kubectl -n luffy edit configmaps eladmin
+--------------------------------------------
+apiVersion: v1
+data:
+  DB_HOST: mysql  
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2022-10-28T13:33:26Z"
+  name: eladmin
+  namespace: luffy
+  resourceVersion: "452964"
+  uid: 54ab5ed4-64f9-4175-aab5-0ddadeb187e0
+--------------------------------------------
+
+重建服务：
+kubectl -n luffy scale deployment eladmin --replicas=0
+
+kubectl -n luffy scale deployment eladmin --replicas=1
+
+
+```
+
+服务发现实现：
+
+`CoreDNS`是一个`Go`语言实现的链式插件`DNS服务端`，是CNCF成员，是一个高性能、易扩展的`DNS服务端`。
+
+```bash
+$ kubectl -n kube-system get po -o wide|grep dns
+coredns-d4475785-2w4hk             1/1     Running   0          4d22h   10.244.0.64       
+coredns-d4475785-s49hq             1/1     Running   0          4d22h   10.244.0.65
+
+# 查看eladmin-api的pod解析配置
+$ kubectl -n luffy exec -ti eladmin-55bb565946-vsqtr -c eladmin-api -- bash
+root@eladmin-api-5d979bb778-2g62k:/opt/eladmin# cat /etc/resolv.conf
+search luffy.svc.cluster.local svc.cluster.local cluster.local in.ctcdn.cn ss.in.ctcdn.cn
+nameserver 10.96.0.10
+options ndots:5
+/opt/eladmin# curl eladmin-api:8000
+/opt/eladmin# curl eladmin-api.luffy.svc.cluster.local:8000 #解析成
+
+
+## 10.96.0.10 从哪来
+$ kubectl -n kube-system get svc
+NAME       TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)         AGE
+kube-dns   ClusterIP   10.96.0.10   <none>        53/UDP,53/TCP   51d
+
+## 启动pod的时候，会把kube-dns服务的cluster-ip地址注入到pod的resolve解析配置中，
+# 同时添加对应的namespace的search域。 因此跨namespace通过service name访问的话，需要添加对应的namespace名称，
+service_name.namespace
+$ kubectl get svc
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   26h
+
+# kubectl -n kube-system get service kube-dns -o wide
+# kubectl -n kube-system describe service kube-dns
+# kubectl -n kube-system get pod -l k8s-app=kube-dns -owide #根据标签找到对应的pod
+
+# kubectl -n kube-system get deployment
+
+```
+
+
+
+```bash
+CoreDNS 是 K8s 集群默认的 DNS 服务组件，以 Deployment 部署在 kube-system 命名空间，负责集群内服务发现、域名解析。
+
+作用：把 服务名、Pod域名 解析为对应的 ClusterIP 或 Pod 真实 IP，让集群内应用不用写固定 IP 即可互相访问。
+
+部署形态
+资源类型：Deployment + ClusterIP Service
+默认集群 DNS 固定地址：10.96.0.10（集群 DNS 预留 IP）
+所有 Pod 创建时会自动注入 DNS 配置：/etc/resolv.conf 写入 nameserver=10.96.0.10
+
+二、集群内四种常用域名解析规则
+假设命名空间：luffy，Service 名称：eladmin
+
+1. 同命名空间：直接用服务名
+plaintext
+eladmin
+# 解析到 eladmin 的 ClusterIP
+
+2. 同命名空间：服务名.svc.cluster.local（标准完整域名）
+plaintext
+eladmin.svc.cluster.local
+
+3. 跨命名空间访问：必须带上命名空间
+plaintext
+eladmin.luffy.svc.cluster.local
+# 格式：服务名.命名空间.svc.cluster.local
+
+4. Headless Service + StatefulSet 有状态 Pod 固定域名
+mysql-0.mysql-headless.luffy.svc.cluster.local
+# Pod名称.无头服务名.命名空间.svc.cluster.local
+DNS直接解析出当前Pod真实IP
+
+三、两种 Service 的 DNS 解析差异
+普通 ClusterIP Service
+DNS 查询 → 返回 Service 的 ClusterIP，由 kube-proxy 做负载均衡转发到后端 Pod。
+
+Headless Service（clusterIP: None）
+DNS 查询 → 返回所有就绪后端 Pod 的 IP 列表，客户端自行做负载均衡。
+
+四、Pod 内 DNS 配置说明
+Pod 自动生成 /etc/resolv.conf：
+plaintext
+nameserver 10.96.0.10
+search luffy.svc.cluster.local svc.cluster.local cluster.local
+nameserver：CoreDNS 集群 DNS 地址
+search：域名搜索后缀，简写域名会自动拼接后缀解析
+
+五、CoreDNS 核心配置文件（ConfigMap）
+配置文件路径：Corefile
+kubectl get configmap coredns -n kube-system -o yaml
+
+默认核心配置片段：
+.:53 {
+    errors
+    health
+    ready
+    kubernetes cluster.local in-addr.arpa ip6.arpa {
+       pods insecure
+       fallthrough in-addr.arpa ip6.arpa
+       ttl 30
+    }
+    prometheus :9153
+    forward . /etc/resolv.conf
+    cache 30
+    loop
+    reload
+    loadbalance
+}
+关键插件解释
+kubernetes：K8s 服务发现核心插件，监听 API-Server，自动解析 Service、Pod 域名
+pods insecure：允许直接解析 Pod IP 域名
+forward：集群内解析不到的域名，转发到宿主机上游 DNS（外网域名解析）
+cache：DNS 缓存，减轻解析压力
+loadbalance：DNS 轮询，多后端 Pod 时按轮询返回 IP
+
+
+六、常用排错命令
+1. 进入 Pod 测试 DNS 解析
+# 安装解析工具
+yum install -y bind-utils
+# 解析服务域名
+nslookup eladmin.luffy.svc.cluster.local
+dig eladmin.luffy.svc.cluster.local
+
+2. 查看 CoreDNS 运行状态
+kubectl get pods -n kube-system | grep coredns
+kubectl logs -f -n kube-system coredns-xxx
+
+3. 常见 DNS 故障
+同命名空间能解析，跨命名空间失败：域名格式写错，必须带命名空间
+Service 存在但解析不到：Pod 未就绪，Endpoint 为空，不会被 DNS 收录
+外网域名解析失败：检查 CoreDNS 的 forward 上游 DNS 配置
+
+七、CoreDNS 两大解析模式
+Service 解析（最常用）
+通过服务名访问，固定 ClusterIP，四层负载均衡。
+Pod 域名解析（仅 Headless+StatefulSet）
+每个 Pod 拥有固定域名，适合 MySQL 主从、Redis 集群等有状态服务节点互相发现。
+```
+
+
+
+
+
+
+
+#### 2. NodePort（节点端口，集群外部可通过节点 IP 访问）
+
+- 在每个节点上监听一个静态端口（默认范围：30000~32767）。
+- 访问方式：`任意节点IP:NodePort端口`
+
+```yaml
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 30080 # 不写则随机分配
+    
+    
+--------------------------------------
+cat <<EOF > service-eladmin-api-nodeport.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: eladmin-api-nodeport
+  namespace: luffy
+spec:
+  ports:
+  - port: 8000
+    #nodePort：32222 #指定端口
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: eladmin-api
+  type: NodePort
+EOF
+
+
+kubectl create -f  service-eladmin-api-nodeport.yaml
+# 查看并访问服务：
+
+$ kubectl -n luffy get svc
+NAME                   TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+eladmin-api            ClusterIP   10.99.182.32     <none>        8000/TCP         5h22m
+eladmin-api-nodeport   NodePort    10.103.117.186   <none>        8000:30207/TCP   5s
+
+# curl 172.16.1.226:30207/auth/code
+#集群内每个节点的NodePort端口都会进行监听
+#noteport也会创建一个cluster-ip
+
+# nodeprot 和clusterip 都是 kube-proxy组件实现的转发
+
+    
+```
+
+#### 3. LoadBalancer（云厂商专用）
+
+- 公有云（阿里云、华为云、AWS 等）使用，自动分配公网 IP，外网直接访问。
+- 自建 VMware/KVM 集群无法使用该类型。
+
+#### 4. ExternalName（映射外部第三方服务）
+
+把集群内 Service 映射到集群外部的域名，用于访问 MySQL、Redis 等外部第三方服务，不分配 ClusterIP。
+
+
+
+*思考：推荐的集群外访问服务的方式是什么*
+
+
+
+### ingress
+
+#### 一、Ingress 是什么
+
+1. Service 只能做**四层（TCP/UDP）负载均衡**，不能基于域名、URL 路径转发；
+2. Ingress 是 K8s **七层 HTTP/HTTPS 反向代理网关**，可以通过域名、路径把外网请求转发到后端不同的 Service。
+3. Ingress 本身只是**规则配置资源**，真正干活的是 **Ingress Controller（如 nginx-ingress）**。
+
+#### 核心架构
+
+客户端请求 → 节点 IP:Ingress NodePort → Nginx-Ingress Controller → 根据 Ingress 规则转发到后端 Service → Pod
+
+#### 二、Ingress 解决了什么问题
+
+1. 不用给每个业务单独开 NodePort（端口范围 30000-32767 难管理）；
+2. 多个域名共用 80/443 标准端口；
+3. 支持路径路由、域名路由、SSL 证书、限流、重定向、白名单等 Nginx 高级功能。
+
+#### 三、Ingress 两大组成部分
+
+1. Ingress（规则）
+
+   yaml 里定义路由规则：哪个域名、哪个路径转发到哪个 Service。
+
+2. Ingress Controller（控制器）
+
+   部署在集群的 DaemonSet/Deployment，本质是 Nginx，实时监听 Ingress 规则，自动刷新 Nginx 配置。
+
+   常用：nginx-ingress-controller（最主流）。
+
+   
+
+`ingress-nginx` 属于**七层负载均衡**，统一接收集群外部请求并转发到内部 Service。
+
+`ingress-nginx-controller`：监听 Ingress 规则变化，自动更新 Nginx 配置并热重载生效。
+
+`Ingress` 资源：把 Nginx 反向代理配置抽象成 K8s 资源，用来定义域名、路径等路由转发规则。
+
+```bash
+apiVersion: networking.k8s.io/v1  # 指定Ingress所属API组与稳定版本，K8s1.19+使用该正式版本
+kind: Ingress  # 资源类型为Ingress，用于配置七层HTTP反向代理路由规则
+metadata:
+  name: ingress-wildcard-host  # 当前Ingress资源的名称，同命名空间下唯一
+spec:
+  ingressClassName: nginx  # 指定使用的Ingress控制器类型，绑定nginx-ingress控制器
+  rules:  # 路由规则列表，可配置多条域名转发规则
+  - host: "foo.bar.com"  # 匹配访问的域名，客户端通过该域名访问才会命中本条规则
+    http:
+      paths:  # 当前域名下的路径转发规则列表
+      - pathType: Prefix  # 路径匹配类型：前缀匹配，只要请求路径以/bar开头就命中
+        path: "/bar"  # 需要匹配的请求URL路径
+        backend:  # 流量转发的后端目标服务配置
+          service:
+            name: service1  # 后端目标Service名称
+            port:
+              number: 80  # 后端Service暴露的服务端口
+  - host: "bar.foo.com"  # 第二条规则的访问域名，不同域名分流至不同后端服务
+    http:
+      paths:
+      - pathType: Prefix  # 前缀匹配模式，请求路径以/foo开头即匹配
+        path: "/foo"  # 要拦截转发的请求路径
+        backend:  # 后端转发服务配置
+          service:
+            name: service2  # 第二条规则对应的后端Service名称
+            port:
+              number: 80  # 后端service2的服务端口
+              
+
+访问匹配说明
+http://foo.bar.com/bar、 http://foo.bar.com/bar/xxx → 转发到 service1:80
+http://bar.foo.com/foo、 http://bar.foo.com/foo/xxx → 转发到 service2:80
+```
+
+实现逻辑
+
+```bash
+1. ingress-controller 调用 K8s API，实时监听集群内 Ingress 路由规则变更；
+2. 获取域名、路径转发规则后，自动翻译成标准 Nginx 反向代理配置；
+3. 将生成的配置写入容器内 /etc/nginx/nginx.conf；
+4. 平滑重载 Nginx 配置，无需重启服务，实现多域名路由动态更新。
+```
+
+
+
+#### 实战安装
+
+```bash
+# wget https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.4.0/deploy/static/provider/cloud/deploy.yaml
+wget https://gitee.com/chengkanghua/script/raw/master/k8s/deploy.yaml  #备用地址
+
+## 修改部署节点
+$ vim deploy.yaml
+504         volumeMounts:
+505         - mountPath: /usr/local/certificates/
+506           name: webhook-cert
+507           readOnly: true
+508       dnsPolicy: ClusterFirst
+509       nodeSelector:
+510         ingress: "true"    #替换此处，来决定将ingress部署在哪些机器
+511       hostNetwork: true    #添加为host模式
+512       serviceAccountName: ingress-nginx
+513       terminationGracePeriodSeconds: 300
+514       volumes:
+
+
+# 替换镜像地址
+sed -i 's#registry.k8s.io/ingress-nginx/kube-webhook-certgen:v20220916-gd32f8c343@sha256:39c5b2e3310dc4264d638ad28d9d1d96c4cbb2b2dcfb52368fe4e3c63f61e10f#myifeng/registry.k8s.io_ingress-nginx_kube-webhook-certgen:v1.3.0#g' deploy.yaml
+
+sed -i 's#registry.k8s.io/ingress-nginx/controller:v1.4.0@sha256:34ee929b111ffc7aa426ffd409af44da48e5a0eea1eb2207994d9e0c0882d143#myifeng/registry.k8s.io_ingress-nginx_controller:v1.4.0#g' deploy.yaml
+
+创建ingress
+
+# 为k8s-master节点添加label
+#kubectl label node k8s-master ingress=true
+#kubectl label node k8s-master ingress-
+kubectl label node k8s-slave1 ingress=true
+kubectl apply -f deploy.yaml
+
+# kubectl -n ingress-nginx get pod
+
+kubectl -n ingress-nginx describe pod ingress-nginx-controller-9ccddfb4f-m4trc
+kubectl get node --show-labels |grep ingress
+kubectl -n ingress-nginx get pod -owide
+
+
+使用示例：
+cat <<EOF > ingress-eladmin-api.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: eladmin-api
+  namespace: luffy
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: eladmin-api.luffy.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service: 
+            name: eladmin-api
+            port:
+              number: 8000
+EOF
+
+kubectl create -f ingress-eladmin-api.yaml
+
+# kubectl -n luffy get ingress
+NAME          CLASS   HOSTS                   ADDRESS   PORTS   AGE
+eladmin-api   nginx   eladmin-api.luffy.com             80      39s
+
+ingress-nginx动态生成upstream配置：
+
+# kubectl -n ingress-nginx get po
+NAME                                       READY   STATUS      RESTARTS   AGE
+ingress-nginx-admission-create-2dqdt       0/1     Completed   0          9m20s
+ingress-nginx-admission-patch-74hm5        0/1     Completed   0          9m20s
+ingress-nginx-controller-9ccddfb4f-m4trc   1/1     Running     0          9m20s
+# kubectl -n ingress-nginx exec -ti ingress-nginx-controller-9ccddfb4f-m4trc -- bash
+
+$ kubectl -n ingress-nginx exec -ti ingress-nginx-controller-9ccddfb4f-m4trc -- bash
+# ps aux
+# cat /etc/nginx/nginx.conf|grep eladmin-api -A10 -B1
+...
+        ## start server eladmin-api.luffy.com
+        server {
+                server_name eladmin-api.luffy.com ;
+
+                listen 80  ;
+                listen [::]:80  ;
+                listen 443  ssl http2 ;
+                listen [::]:443  ssl http2 ;
+
+                set $proxy_upstream_name "-";
+
+                ssl_certificate_by_lua_block {
+                        certificate.call()
+--
+                        set $namespace      "luffy";
+                        set $ingress_name   "eladmin-api";
+                        set $service_name   "eladmin-api";
+                        set $service_port   "8000";
+                        set $location_path  "/";
+                        set $global_rate_limit_exceeding n;
+
+                        rewrite_by_lua_block {
+                                lua_ingress.rewrite({
+                                        force_ssl_redirect = false,
+                                        ssl_redirect = true,
+                                        force_no_ssl_redirect = false,
+                                        preserve_trailing_slash = false,
+--
+                        set $balancer_ewma_score -1;
+                        set $proxy_upstream_name "luffy-eladmin-api-8000";
+                        set $proxy_host          $proxy_upstream_name;
+                        set $pass_access_scheme  $scheme;
+
+                        set $pass_server_port    $server_port;
+
+                        set $best_http_host      $http_host;
+                        set $pass_port           $pass_server_port;
+
+                        set $proxy_alternative_upstream_name "";
+
+--
+        }
+        ## end server eladmin-api.luffy.com
+ ...
+ 
+域名解析服务，将 eladmin-api.luffy.com解析到ingress的地址上。ingress是支持多副本的，高可用的情况下，生产的配置是使用lb服务（内网F5设备，公网elb、slb、clb，解析到各ingress的机器，如何域名指向lb地址）
+
+本机，添加如下hosts记录来演示效果。
+10.0.0.81 eladmin-api.luffy.com
+然后，访问 http://eladmin-api.luffy.com/auth/code
+
+#服务器上测试一样的
+echo '10.0.0.81 eladmin-api.luffy.com' >> /etc/hosts
+curl -v http://eladmin-api.luffy.com/auth/code  #返回正常code信息
+
+
+
+```
+
+#### 使用ingress访问eladmin-web服务
+
+综合来看下，如何使用ingress来实现eladmin-web项目的访问，总结了三种方式：
+
+**方式一: **
+
+| 项目        | 访问地址                                                     |
+| ----------- | ------------------------------------------------------------ |
+| eladmin-web | [http://eladmin.luffy.com](http://eladmin.luffy.com/)        |
+| eladmin-api | [http://eladmin-api.luffy.com](http://eladmin-api.luffy.com/) |
+
+
+
+**方式二：**
+
+规划使用如下地址访问：
+
+| 项目        | 访问地址                                                     |
+| ----------- | ------------------------------------------------------------ |
+| eladmin-web | [http://eladmin.luffy.com](http://eladmin.luffy.com/)        |
+| eladmin-api | [http://eladmin.luffy.com:8000](http://eladmin.luffy.com:8000/) |
+
+
+
+
+
+###### 方式三：
+
+规划使用如下地址访问：
+
+| 项目        | 访问地址                                              |
+| ----------- | ----------------------------------------------------- |
+| eladmin-web | [http://eladmin.luffy.com](http://eladmin.luffy.com/) |
+| eladmin-api | http://eladmin.luffy.com/apis                         |
+
+
+
+
+
+三种方案对比
+
+| 方式   | 方案                                                         | 优点                                                         | 缺点                                                         | 生产推荐度 | 适用场景                                           |
+| ------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ---------- | -------------------------------------------------- |
+| 方式一 | 独立域名[eladmin.luffy.com](https://link.wtturl.cn/?target=https%3A%2F%2Feladmin.luffy.com&scene=im&aid=582478&lang=zh)（前端）[eladmin-api.luffy.com](https://link.wtturl.cn/?target=https%3A%2F%2Feladmin-api.luffy.com&scene=im&aid=582478&lang=zh)（后端） | 前后端网关策略可单独配置，运维隔离性强                       | 需 2 个域名、两套 SSL 证书，配置成本偏高                     | ★★★★       | 中大型项目、前后端团队分开，需精细化限流、权限管控 |
+| 方式二 | 同域名不同端口[eladmin.luffy.com](https://link.wtturl.cn/?target=https%3A%2F%2Feladmin.luffy.com&scene=im&aid=582478&lang=zh)（80 前端）[eladmin.luffy.com:8000](https://link.wtturl.cn/?target=https%3A%2F%2Feladmin.luffy.com%3A8000&scene=im&aid=582478&lang=zh)（后端） | 无需额外域名                                                 | 公网端口易拦截，跨域风险高，HTTPS 配置复杂，不符合网关收口规范 | ★          | 仅本地临时测试，禁止生产使用                       |
+| 方式三 | 单域名路径路由[eladmin.luffy.com/](https://link.wtturl.cn/?target=https%3A%2F%2Feladmin.luffy.com%2F&scene=im&aid=582478&lang=zh)（前端）[eladmin.luffy.com/apis](https://link.wtturl.cn/?target=https%3A%2F%2Feladmin.luffy.com%2Fapis&scene=im&aid=582478&lang=zh)（后端） | 仅 1 个域名 1 套证书，规避跨域，防火墙配置简单，运维成本最低 | 前后端共用网关策略，无法单独精细化管控                       | ★★★★★      | 中小型后台、内部管理系统（当前业务最优选择）       |
+
+
+
+
+
+
+
+
+
+## K8s 核心知识点架构总结（eladmin 项目实战版）
+
+该架构是典型的 K8s 前后端分离项目部署形态，完整覆盖**外网入口、服务发现、负载编排、配置管理**四大核心模块，对应前期学习的全部核心知识点。
+
+### 一、七层流量入口层：Ingress 体系
+
+#### 组成
+
+- **Ingress**：路由规则资源，定义域名、路径与后端 Service 的映射关系，本身不处理流量
+- **ingress-nginx-controller**：规则执行载体，本质是封装了 Nginx 的 Pod，监听 Ingress 资源变更，动态生成并刷新 Nginx 配置，实现七层反向代理
+
+#### 对应核心知识点
+
+1. 统一外网访问入口，复用 80/443 标准端口，替代多业务 NodePort 的端口混乱问题
+2. 支持域名路由、路径路由、HTTPS 证书绑定、限流、路径重写等七层网关能力
+3. 配套准入 Webhook 校验 Ingress 配置合法性，避免错误配置导致全局网关故障
+
+### 二、服务网络层：Service + kube-proxy + CoreDNS
+
+#### 1. Service（服务稳定访问入口）
+
+- 作用：为动态变化的 Pod 提供固定虚拟 IP（ClusterIP），通过`label/selector`标签匹配后端 Pod，自动维护就绪 Pod 的 Endpoint 列表
+- 对应知识点：解耦 Pod IP 动态变化，支持 ClusterIP、NodePort 等类型；仅就绪状态的 Pod 会被纳入负载后端
+
+#### 2. kube-proxy（节点四层转发实现）
+
+- 作用：运行在所有工作节点，监听 Service 与 Endpoint 变更，在内核配置转发规则，实现 Service 到后端 Pod 的四层负载均衡
+- 对应知识点：主流支持 iptables、ipvs 两种模式；ipvs 模式性能更优，支持轮询、最小连接、会话保持等多种调度算法
+
+#### 3. CoreDNS（集群服务发现核心）
+
+- 作用：集群内置 DNS 服务，将服务名称解析为对应 ClusterIP，集群内业务可通过「服务名」互相访问，无需硬编码 IP
+- 对应知识点：支持同命名空间简写、跨命名空间完整域名解析；配合 Headless Service 可直接解析 Pod 真实 IP
+
+### 三、工作负载编排层：Deployment + Pod + controller-manager
+
+#### 1. Deployment（应用控制器）
+
+- 作用：管理 Pod 全生命周期，维持期望副本数，支持滚动更新、版本回滚
+- 对应知识点：底层通过 ReplicaSet（RS）管理版本；滚动更新幅度由`maxSurge`、`maxUnavailable`两个参数控制
+- 架构内包含 3 个 Deployment：`eladmin-web`（前端静态服务）、`eladmin-api`（后端业务服务）、`mysql`（数据库服务）
+
+#### 2. Pod（最小调度运行单元）
+
+- 作用：K8s 最小调度单元，一个 Pod 可封装 1 个或多个协同容器，同 Pod 内容器共享网络、存储命名空间
+
+#### 3. controller-manager（控制器管理器）
+
+- 作用：集群控制平面核心组件，持续监听所有控制器资源状态，驱动集群向「用户定义的期望状态」收敛，保障副本自愈、滚动更新等逻辑生效
+
+### 四、配置管理层：ConfigMap + Secret
+
+#### 作用
+
+- **ConfigMap**：存储非敏感配置文件、环境变量，实现业务配置与容器镜像解耦
+- **Secret**：存储数据库密码、密钥等敏感信息，加密存储，避免明文泄露
+
+#### 对应知识点
+
+业务 Pod 通过挂载方式读取配置，修改配置无需重构镜像，提升运维灵活性；架构中`eladmin-api`与`mysql`均从该层加载配置与密钥。
+
+### 五、完整请求流转链路
+
+1. **外网接入**：用户通过域名发起请求 → Ingress 路由规则匹配 → ingress-nginx-controller 七层转发 → 对应业务 Service
+2. **集群内转发**：Service 通过 kube-proxy 内核转发规则 → 负载分发到后端就绪业务 Pod
+3. **内部服务调用**：eladmin-api 通过 CoreDNS 解析 MySQL 服务名 → 访问 MySQL Service → 转发到 MySQL Pod
+4. **配置加载**：业务 Pod 启动时，从 ConfigMap、Secret 中读取配置参数与敏感信息
+
+
+
+## 面试题
+
+```bash
+Pod状态
+└── Pending
+    └── ContainerCreating
+        ├── 正常状态
+        │   ├── 正常终止 —— Succeeded
+        │   ├── 正常运行 —— Running
+        │   ├── 任务完成 —— Completed
+        │   ├── 初始化中 —— init
+        │   └── 短时间 —— 创建中 —— ContainerCreating
+        └── 错误状态
+            ├── 异常终止 —— Failed
+            ├── 无法判断 —— Unknown
+            ├── 崩溃循环 —— CrashLoopBackOff
+            ├── 被驱逐 —— Evicted
+            ├── 节点丢失 —— NodeLost
+            ├── 过程错误 —— Err开头
+            └── 长时间 —— 网络问题 —— ContainerCreating
+            
+            
+一、Pending
+Pod 未调度到节点，或等待拉取镜像、分配资源。
+二、ContainerCreating
+已调度节点，kubelet 正在拉镜像、挂载存储、配置网络；短时正常，长时间则为故障。
+正常状态
+Running：所有容器启动成功，程序正常运行。
+Completed：一次性任务执行完毕，容器正常退出。
+Succeeded：任务类 Pod 正常退出（返回码 0）。
+init：正在串行执行初始化容器。
+异常状态
+Failed：容器异常退出，返回非 0 错误码。
+Unknown：节点失联，控制平面获取不到 Pod 状态。
+CrashLoopBackOff：容器反复崩溃重启，不断重试。
+Evicted：节点资源耗尽，Pod 被系统强制驱逐。
+NodeLost：节点宕机失联，集群标记节点故障。
+Err 开头：镜像、配置、权限、密钥等前置校验出错。
+```
+
+
+
+
+
+
+
+# [Kubernetes进阶实践](https://docs.chengkanghua.top/k8s-2023/4Kubernetes进阶实践?id=_4kubernetes进阶实践)
+
+
+
+## [操作etcd](https://docs.chengkanghua.top/k8s-2023/4Kubernetes进阶实践?id=操作etcd)
+
+#### ETCD常用操作]
+
+官网： https://github.com/etcd-io/etcd
+
+拷贝etcdctl命令行工具：
+
+```bash
+# 备用国内地址
+https://gitee.com/chengkanghua/script/raw/master/k8s/etcd-v3.5.31-linux-amd64.tar.gz
+
+wget https://github.com/etcd-io/etcd/releases/download/v3.5.31/etcd-v3.5.31-linux-amd64.tar.gz
+tar zxvf etcd-v3.5.31-linux-amd64.tar.gz
+cp etcd-v3.5.31-linux-amd64/etcd* /usr/bin/
+etcdctl version
+
+
+查看etcd集群的成员节点：
+
+export ETCDCTL_API=3  #早期的操作版本是2
+kubectl -n kube-system get pod -owide |grep etcd-k8s-master  # etcd容器位置
+
+
+
+# etcdctl --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt --key=/etc/kubernetes/pki/etcd/healthcheck-client.key member list -w fields
+
+--cacert #根证书
+--cert   #签发的证书
+--key    #签发的证书key
+
+"ClusterID" : 12599920945870839420,  # etcd集群全局唯一ID，集群所有节点ID一致
+"MemberID" : 3302364929709726,        # 当前etcd节点在集群内的唯一成员ID
+"Revision" : 0,                       # 节点数据版本号，新增节点默认初始为0
+"RaftTerm" : 6,                       # Raft协议任期号，每重新选举一次Leader任期+1
+"ID" : 3302364929709726,              # 同MemberID，当前节点成员唯一标识
+"Name" : "k8s-master",                # etcd节点名称，一般为主机名
+"PeerURL" : "https://10.0.0.80:2380", # 集群节点间数据同步、Leader选举通信地址
+"ClientURL" : "https://10.0.0.80:2379", # kube-apiserver、etcdctl客户端访问地址
+"IsLearner" : false                   # 是否为学习者节点，false代表可参与投票、Leader选举的正式节点
+
+
+
+
+# ll /etc/kubernetes/pki/  #证书位置
+
+$ alias etcdctl='etcdctl --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt --key=/etc/kubernetes/pki/etcd/healthcheck-client.key'
+
+$ etcdctl member list -w table
+
+
+四种常用输出格式说明
+参数	输出样式	适用场景
+-w table	表格	宽屏查看
+-w fields	竖向key=value	窄屏首选
+-w simple	逗号分隔单行	脚本过滤
+-w json	JSON 键值	程序解析
+
+
+#=====================etcdctl环境变量(免重复证书参数)=====================
+export ETCDCTL_API=3 
+alias etcdctl='etcdctl --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/healthcheck-client.crt --key=/etc/kubernetes/pki/etcd/healthcheck-client.key'
+
+
+
+#=====================1.集群信息查看=====================
+etcdctl member list -w table       #表格展示集群节点
+etcdctl member list -w fields      #竖向键值窄屏展示
+etcdctl endpoint health -w table    #集群健康检测
+etcdctl endpoint status -w table    #节点版本、任期、存储详情
+
+#=====================2.键值增删改查=====================
+etcdctl put /test/key val          #写入键值
+etcdctl get /test/key               #查询单个key
+etcdctl get /registry --prefix      #前缀批量查(K8s所有资源)
+etcdctl del /test/key               #删除单个key
+etcdctl del /test --prefix          #前缀批量删除
+etcdctl get / --prefix --keys-only  #查看所有key值：只打印前缀 key
+
+# 数据是压缩过的额, 可读性差
+etcdctl get /registry/secrets/luffy/registry-10-0-0-80  
+etcdctl get /registry/services/endpoints/luffy/mysql
+#=====================3.集群节点运维=====================
+etcdctl member add node2 --peer-urls=https://10.0.0.81:2380  #新增节点
+etcdctl member remove 节点ID                                  #移除故障节点
+etcdctl member update 节点ID --peer-urls=https://新IP:2380   #更新节点地址
+
+#=====================4.快照备份恢复(核心运维)=====================
+etcdctl snapshot save etcd_backup_$(date +%Y%m%d).db          #在线快照备份
+etcdctl snapshot status etcd_backup.db                        #查看备份文件信息
+#快照恢复(必须停etcd服务)
+etcdctl snapshot restore etcd_backup.db \
+--name=k8s-master \
+--data-dir=/var/lib/etcd \
+--initial-cluster=k8s-master=https://10.0.0.80:2380 \
+--initial-cluster-token=etcd-cluster \
+--initial-advertise-peer-urls=https://10.0.0.80:2380
+
+#=====================5.K8s常用资源查询=====================
+etcdctl get /registry/namespaces --prefix        #所有命名空间
+etcdctl get /registry/pods/default --prefix      #default下所有Pod
+etcdctl get /registry/deployments/default --prefix
+etcdctl get /registry/services/specs/default --prefix
+
+#=====================6.监听键值变化=====================
+etcdctl watch /test/key
+
+
+list-watch:
+$ etcdctl watch /luffy/ --prefix
+#再另一个窗口添加数据, 上一个窗口都能收到.
+$ etcdctl put /luffy/key1 val1
+
+
+# 添加定时任务做数据快照（重要！）
+etcdctl snapshot save `hostname`-etcd_`date +%Y%m%d%H%M`.db
+
+恢复快照：
+
+1 停止etcd和apiserver
+# kubectl -n kube-system get pod |grep apiserver
+
+#ll /etc/kubernetes/manifests/   # 资源位置
+-rw------- 1 root root 2294 Oct 17 17:14 etcd.yaml
+-rw------- 1 root root 3367 Oct 17 17:14 kube-apiserver.yaml
+-rw------- 1 root root 2878 Oct 17 17:14 kube-controller-manager.yaml
+-rw------- 1 root root 1464 Oct 17 17:14 kube-scheduler.yaml
+# mv /etc/kubernetes/manifests/kube-apiserver.yaml /opt/
+
+# kubectl get po   #上面移走了apiserver 就停止了
+The connection to the server 172.16.1.226:6443 was refused - did you specify the right host or port?
+
+# systemctl status kubelet -l
+# grep staticPodPath /var/lib/kubelet/config.yaml
+staticPodPath: /etc/kubernetes/manifests   #这个目录是一个静态pod路径
+
+
+2 移走当前数据目录
+mv /var/lib/etcd/ /tmp
+
+3 恢复快照
+etcdctl snapshot restore `hostname`-etcd_`date +%Y%m%d%H%M`.db --data-dir=/var/lib/etcd/
+
+[root@k8s-master ~]# ll k8s-master*.db  #变量名会根据时间变化改变, 先查看一下
+-rw------- 1 root root 2981920 Oct 19 17:12 k8s-master-etcd_202410191712.db
+$ etcdctl snapshot restore k8s-master-etcd_202410191712.db --data-dir=/var/lib/etcd/
+mv  /opt/kube-apiserver.yaml /etc/kubernetes/manifests/
+
+kubectl get po  #已经恢复可以查看
+kubectl -n kube-system get pods
+
+
+集群恢复
+https://github.com/etcd-io/etcd/blob/release-3.3/Documentation/op-guide/recovery.md
+
+
+namespace删除问题
+
+很多情况下，会出现namespace删除卡住的问题，此时可以通过操作etcd来删除数据：
+
+[root@k8s-master ~]# kubectl create ns test
+namespace/test created
+[root@k8s-master ~]# kubectl delete ns test
+
+#另一个窗口查看
+[root@k8s-master ~]# kubectl get ns
+NAME                   STATUS        AGE
+test                   Terminating   7s  #如果一直卡住 Terminating 的状态 删除不掉 ,怎么办?
+
+
+# 查询namespace相关的元数据
+$ etcdctl get / --prefix --keys-only|grep namespace
+/registry/clusterrolebindings/system:controller:namespace-controller
+/registry/clusterroles/system:controller:namespace-controller
+/registry/namespaces/default
+/registry/namespaces/eladmin
+/registry/namespaces/kube-flannel
+/registry/namespaces/kube-node-lease
+/registry/namespaces/kube-public
+/registry/namespaces/kube-system
+/registry/namespaces/luffy
+/registry/serviceaccounts/kube-system/namespace-controller
+
+# 比如eladmin这个名称空间无法删除，则可以通过命令删除
+$ etcdctl delete /registry/namespaces/eladmin
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+## [Kubernetes调度器](https://docs.chengkanghua.top/k8s-2023/4Kubernetes进阶实践?id=kubernetes调度器)
+
+### 一、为什么要控制 Pod 调度？
+
+不让 Pod 随机乱跑，核心目的：
+
+1. **资源匹配**：AI 任务跑 GPU 节点、数据库跑高速磁盘节点，物尽其用
+2. **负载均衡**：避免部分节点爆满、部分节点闲置，提升资源利用率
+3. **业务隔离**：生产和测试业务分开，重要业务独占节点，互不干扰
+4. **高可用**：同服务副本分散到不同节点，避免单节点故障导致服务全挂
+
+### 二、调度的完整过程
+
+kube-scheduler 是 K8s 控制平面核心组件，负责为未绑定节点的 Pod 选择最优运行节点。
+
+调度核心分为 ** 预选（Filter 过滤）**和**优选（Score 打分）** 两大阶段，
+
+基于插件化架构实现，先卡硬性门槛筛出合格节点，再综合加权选出最优节点。
+
+------
+
+#### 一、预选阶段（Filter / 过滤）
+
+##### 1. 核心作用
+
+硬性门槛校验，**一票否决制**：剔除所有不满足 Pod 运行条件的节点，只留下完全符合要求的 “合格节点列表”。
+
+如果所有节点都被过滤掉，Pod 会保持 `Pending` 状态，调度器持续重试。
+
+##### 2. 执行逻辑
+
+1. 正式过滤前先经过 **PreFilter 预处理**：提前解析 Pod 的资源需求、亲和性规则，缓存到调度周期状态中，避免每个节点重复计算，大幅提升调度效率。
+2. 并行遍历集群所有节点，对每个节点依次执行所有 Filter 插件。
+3. 只要任意一个插件校验不通过，该节点直接被淘汰，不再执行后续校验。
+
+##### 3. 核心默认过滤插件
+
+| 插件分类 | 插件名称          | 校验规则                                                     |
+| :------- | :---------------- | :----------------------------------------------------------- |
+| 节点状态 | NodeUnschedulable | 节点被 cordon 标记为不可调度 → 直接淘汰                      |
+| 节点状态 | NodeName          | Pod 显式指定了 `spec.nodeName` → 只保留对应节点，其余全过滤  |
+| 资源匹配 | NodeResourcesFit  | 节点剩余可分配资源（CPU、内存、GPU 等）≥ Pod 的 `requests` 申请量，不满足则淘汰 |
+| 标签亲和 | NodeAffinity      | 校验节点标签是否满足 Pod **硬节点亲和规则**，不匹配直接淘汰  |
+| 污点容忍 | TaintToleration   | Pod 容忍规则无法覆盖节点污点（NoSchedule/NoExecute）→ 直接淘汰 |
+| Pod 亲和 | InterPodAffinity  | 校验 Pod 亲和 / 反亲和硬规则，节点上已有 Pod 不符合约束 → 淘汰 |
+| 端口冲突 | NodePorts         | Pod 申请的 `hostPort` 在节点上已被占用 → 淘汰                |
+| 存储校验 | VolumeBinding     | Pod 关联的 PVC 无法在该节点绑定（如本地存储 PV 仅支持特定节点）→ 淘汰 |
+| 存储校验 | VolumeZone        | PV 的可用区标签与节点所在区域不匹配 → 淘汰                   |
+
+------
+
+#### 二、优选阶段（Score / 打分）
+
+##### 1. 核心作用
+
+对预选通过的合格节点，从多个维度独立打分并加权求和，选出**综合得分最高**的最优节点。
+
+##### 2. 执行逻辑
+
+1. 打分前先经过 **PreScore 预处理**：提前计算打分所需的公共数据，避免每个节点重复运算。
+2. 每个 Score 插件独立给节点打分，原始分数范围为 0~100。
+3. 每个插件配置有权重，节点最终总分 = 所有插件分数 × 对应权重 之和。
+4. 总分最高的节点胜出；若多个节点同分，随机选择一个。
+
+##### 3. 核心默认打分插件（含默认权重 1）
+
+| 维度       | 插件名称                                | 打分逻辑                                                     |
+| :--------- | :-------------------------------------- | :----------------------------------------------------------- |
+| 资源负载   | NodeResourcesFit（LeastRequested 策略） | 节点剩余空闲资源越多，得分越高。优先把 Pod 调度到更空闲的节点，避免单节点负载过载 |
+| 资源均衡   | NodeResourcesBalancedAllocation         | 节点 CPU、内存使用率越均衡，得分越高。避免出现 “CPU 跑满、内存大量闲置” 的资源倾斜 |
+| 节点亲和   | NodeAffinity                            | 匹配 Pod 软节点亲和规则，匹配条目越多，得分越高              |
+| Pod 亲和   | InterPodAffinity                        | 匹配 Pod 亲和 / 反亲和软规则，符合部署偏好的节点得分更高     |
+| 高可用分布 | PodTopologySpread                       | 按拓扑分布约束，Pod 在节点 / 可用区分布越均匀，对应节点得分越高 |
+| 镜像效率   | ImageLocality                           | 节点上已存在 Pod 需要的镜像，得分越高；镜像越大，加分越多，减少拉取耗时 |
+| 污点偏好   | TaintToleration                         | 匹配污点容忍的偏好规则，匹配度越高得分越高                   |
+
+------
+
+#### 三、完整调度全链路
+
+1. Pod 创建后进入调度队列，按优先级排序
+2. **PreFilter**：预处理 Pod 调度信息
+3. **Filter（预选）**：并行过滤所有节点，筛出合格列表
+4. **PreScore**：打分前数据预处理
+5. **Score（优选）**：多维度加权打分，选出最高分节点
+6. Reserve：预留节点对应资源
+7. Bind：将 `nodeName` 写入 Pod 配置，完成绑定
+8. 对应节点的 kubelet 接收指令，创建并启动 Pod
+
+
+
+### 三、NodeSelector（最简单：标签硬绑定）
+
+最基础的调度方式，**节点打标签，Pod 指定标签，必须精确匹配才能调度**。
+
+1. 给节点打标签
+
+```
+kubectl label node k8s-slave1 gpu=true
+```
+
+1. Pod 配置指定标签
+
+```
+spec:
+  nodeSelector:
+    gpu: "true"
+```
+
+特点：简单粗暴，只能精确匹配，灵活性差。
+
+### 四、nodeAffinity（节点亲和性：更灵活的标签匹配）
+
+比 NodeSelector 功能更强，分两种规则：
+
+- 硬亲和（required） requiredDuringSchedulingIgnoredDuringExecution 
+
+  ：必须满足条件，不满足就不调度
+
+  相当于 “我必须住阳面房间，没有就不住”
+
+- 软亲和（preferred）  preferredDuringSchedulingIgnoredDuringExecution
+
+  ：优先满足条件，不满足也能运行
+
+  相当于 “我优先选阳面，没有阴面也行”
+
+- 
+
+```yaml
+#要求 Pod 不能运行在k8s-slave1和k8s-slave2两个节点上，如果有节点满足disktype=ssd或者sas的话就优先调度到这类节点上
+...
+spec:
+      containers:
+      - name: eladmin-api
+        image: 172.16.1.226:5000/eladmin-api:v1
+        ports:
+        - containerPort: 8000
+      affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: NotIn
+                      values:
+                        - k8s-slave1
+                        - k8s-slave2
+                        
+            preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 1
+                  preference:
+                    matchExpressions:
+                    - key: disktype
+                      operator: In
+                      values:
+                        - ssd
+                        - sas
+...
+
+
+支持丰富匹配规则：
+- In：label 的值在某个列表中
+- NotIn：label 的值不在某个列表中
+- Gt：label 的值大于某个值
+- Lt：label 的值小于某个值
+- Exists：某个 label 存在
+- DoesNotExist：某个 label 不存在
+
+如果nodeSelectorTerms下面有多个选项的话，满足任何一个条件就可以了；
+如果matchExpressions有多个选项的话，则必须同时满足这些条件才能正常调度 Pod
+
+
+```
+
+
+
+
+
+### 五、Pod 亲和性与反亲和性
+
+**不看节点标签，看节点上已运行 Pod 的标签**，决定是否调度到该节点。
+
+#### 1. Pod 亲和性（podAffinity）：和同类 Pod 凑一起
+
+场景：前端和后端部署在同一节点，减少网络调用延迟
+
+规则：节点上已有`app=backend`标签的 Pod，我就调度过去
+
+#### 2. Pod 反亲和性（podAntiAffinity）：和同类 Pod 分开
+
+场景：同服务的多个副本，分散到不同节点，避免单节点故障全挂
+
+规则：节点上已有`app=nginx`标签的 Pod，我就不调度过去
+
+同样分为硬规则（必须满足）和软规则（优先满足）。
+
+
+
+```yaml
+eladmin-web启动多副本，但是期望可以尽量分散到集群的可用节点中
+
+分析：为了让eladmin-web应用的多个pod尽量分散部署在集群中，可以利用pod的反亲和性，告诉调度器，如果某个节点中存在了eladmin-web的pod，则可以根据实际情况，实现如下调度策略：
+
+不允许同一个node节点，调度两个eladmin-web的副本
+可以允许同一个node节点中调度两个eladmin-web的副本，前提是尽量把pod分散部署在集群中
+---------------------------------------------------------------------------------------
+
+# 如果某个节点中，存在了app=eladmin-web的label的pod，那么 调度器一定不要给我调度过去
+...
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - eladmin-web
+            topologyKey: kubernetes.io/hostname
+      containers:
+...
+
+
+# 如果某个节点中，存在了app=eladmin-web的label的pod，那么调度器尽量不要调度过去
+...
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - eladmin-web
+              topologyKey: kubernetes.io/hostname
+      containers:
+...
+
+
+```
+
+https://kubernetes.io/zh/docs/concepts/scheduling-eviction/assign-pod-node/
+
+
+
+
+
+
+
+### 六、污点（Taints）与容忍（Tolerations）
+
+和亲和性逻辑相反：**节点主动设 “门槛”，Pod 达标才能进入**。
+
+- 污点（Taints）：打在节点上，默认拒绝所有 Pod 调度
+- 容忍（Tolerations）：配置在 Pod 中，能匹配对应污点，就允许调度到该节点
+
+类比：节点是 “吸烟区”（打了污点），只有能容忍烟味的人（加了容忍）才能进入。
+
+#### 污点的三种效果
+
+1. `NoSchedule`：新 Pod 不调度，已运行的 Pod 不受影响
+2. `PreferNoSchedule`：尽量不调度，实在无节点可用也能调度
+3. `NoExecute`：新 Pod 不调度，已运行的 Pod 若无对应容忍，直接被驱逐
+
+#### 常用场景
+
+- GPU 专用节点：打污点，仅 GPU 任务加容忍后可使用
+- 节点维护：打`NoExecute`污点，将所有 Pod 迁移到其他节点
+- 节点资源紧张：系统自动打污点，驱逐低优先级 Pod
+
+```bash
+设置污点：
+$ kubectl taint node [node_name] key=value:[effect]   
+       其中[effect] 可取值： [ NoSchedule | PreferNoSchedule | NoExecute ]
+       NoSchedule：一定不能被调度。
+       PreferNoSchedule：尽量不要调度。
+       NoExecute：不仅不会调度，还会驱逐Node上已有的Pod。
+  示例：kubectl taint node k8s-slave1 smoke=true:NoSchedule
+
+
+
+
+去除污点：
+去除指定key及其effect：
+     kubectl taint nodes [node_name] key:[effect]-    #这里的key不用指定value
+     kubectl taint node k8s-slave1 smoke-
+ 去除指定key所有的effect: 
+     kubectl taint nodes node_name key-
+ 示例：
+     kubectl taint node k8s-master smoke=true:NoSchedule  #设置污点
+     kubectl taint node k8s-master smoke:NoExecute-       #去除污点
+     kubectl taint node k8s-master smoke-                 #去除污点
+
+污点演示：
+
+## 给k8s-slave1打上污点，smoke=true:NoSchedule
+$ kubectl taint node k8s-master gamble=true:NoSchedule
+$ kubectl taint node k8s-slave1 drunk=true:NoSchedule
+$ kubectl taint node k8s-slave2 smoke=true:NoSchedule
+
+## 扩容eladmin-web的Pod，观察新Pod的调度情况
+$ kuebctl -n luffy scale deploy eladmin-web --replicas=3
+$ kubectl -n luffy get po -w    ## pending  三个节点都有污点无法调度
+  kubectl -n luffy describe pod pending的pod的name  #查看对应warning的信息,
+
+
+Pod容忍污点示例：
+
+...
+spec:
+      containers:
+      - name: eladmin-web
+        image: 10.0.0.80:5000/eladmin/eladmin-web:v2
+      tolerations: #设置容忍性
+      - key: "smoke" 
+        operator: "Equal"  #不指定operator，默认为Equal
+        value: "true"
+        effect: "NoSchedule"
+      - key: "drunk" 
+        operator: "Exists"  #如果操作符为Exists，那么value属性可省略,不指定operator，默认为Equal
+      #意思是这个Pod要容忍的有污点的Node的key是smoke Equal true,效果是NoSchedule，
+      #tolerations属性下各值必须使用引号，容忍的值都是设置Node的taints时给的值。
+
+# 效果: k8s-slave1和k8s-slave2都可能会被调度过去,他们两个node的污点是 drunk smoke, 不会调度到k8s-master
+
+
+spec:
+      containers:
+      - name: eladmin-web
+        image: 172.16.1.226:5000/eladmin/eladmin-web:v2
+      tolerations:
+        - operator: "Exists"
+#效果: 所有污点都可以容忍,所有node都可能会调度过去
+
+```
+
+
+
+
+
+
+
+### 七、Pod 驱逐策略
+
+节点异常或资源不足时，系统主动将 Pod 迁移到其他健康节点，分两类：
+
+#### 1. 资源不足驱逐（kubelet 主动）
+
+节点内存、磁盘、PID 即将耗尽时，kubelet 按优先级驱逐 Pod：
+
+- 优先驱逐优先级低、占用资源多的 Pod
+- 保障节点本身稳定，避免整个节点崩溃
+
+#### 2. 节点故障驱逐（控制器主动）
+
+节点失联 / 宕机，状态变为`NotReady`：
+
+- 默认等待 5 分钟，确认节点确实故障
+- 将该节点上的 Pod 标记为删除，在其他健康节点重建
+
+#### 补充：优雅驱逐
+
+正常维护节点时，执行`kubectl drain 节点名`，会先优雅迁移 Pod，再排空节点，不中断业务。
+
+```bash
+
+# 停止调度  # 单词cordon 警戒线 ;旧有的pod不会受到影响，仍正常对外提供服务
+# 影响最小，只会将node调为SchedulingDisabled
+# 之后再发创建pod，不会被调度到该节点
+$ kubectl cordon k8s-slave2 
+# kubectl describe node k8s-slave2|grep -i taint #可以查看到添加了一个不可调度的污点
+# 恢复调度
+$ kubectl uncordon k8s-slave2 
+
+
+# drain 驱逐节点
+# 首先，驱逐node上的pod，其他节点重新创建
+# 接着，将节点调为** SchedulingDisabled**
+$ kubectl drain k8s-slave2   
+
+drain的参数
+--force
+当一些pod不是经 ReplicationController, ReplicaSet, Job, DaemonSet 或者 StatefulSet 管理的时候,
+就需要用--force来强制执行 (例如:kube-proxy)
+ 
+--ignore-daemonsets
+忽略DaemonSet管理下的Pod
+# 若node节点上存在daemonsets控制器创建的pod,则需要使用--ignore-daemonsets忽略错误错误警告
+# kubectl drain k8s-slave2 --ignore-daemonsets
+
+--delete-local-data
+如果有mount local volumn的pod，会强制杀掉该pod并把料清除掉
+另外如果跟本身的配置讯息有冲突时，drain就不会执行
+
+```
+
+
+
+
+
+
+
+## [Kubernetes认证与授权](https://docs.chengkanghua.top/k8s-2023/4Kubernetes进阶实践?id=kubernetes认证与授权)
+
+所有对 `kube-apiserver` 的请求，必须依次通过 **认证 → 授权 → 准入控制** 三道关卡，任一环节失败都会被拒绝。可以类比为进公司大楼：
+
+- 认证 = 查工牌，确认你是不是内部人员（你是谁）
+- 授权 = 查部门权限，确认你能不能进对应办公室（你能做什么）
+- 准入控制 = 前台额外安检，校验操作是否符合规范
+
+------
+
+### 一、认证（Authentication）：验证身份
+
+#### 核心逻辑
+
+K8s **没有内置用户数据库**，所有用户身份都由外部认证体系提供。认证通过后，系统会提取出「用户名、用户组」信息传给后续授权阶段；认证失败直接返回 `401 Unauthorized`。
+
+#### 4 种主流认证方式
+
+| 认证方式             | 适用场景             | 原理说明                                                     |
+| :------------------- | :------------------- | :----------------------------------------------------------- |
+| **X.509 客户端证书** | 管理员、集群组件访问 | 客户端携带证书发起请求，API Server 用集群 CA 证书验签；证书 `CN` 字段是用户名，`O` 字段是用户组。kubeadm 部署的集群默认使用该方式。 |
+| **ServiceAccount**   | Pod 内部程序访问 API | 集群内置资源，专门给 Pod 里的进程用；每个命名空间默认有一个 `default` 账号，自动挂载 Token + CA 证书到 Pod 内，程序可直接调用 API。 |
+| **Bearer Token**     | 脚本、自动化工具访问 | 请求头携带 `Authorization: Bearer <token>` 校验身份，包含 ServiceAccount Token、节点加入集群用的引导 Token 等。 |
+| **OIDC/Webhook**     | 企业级统一身份       | 对接企业账号体系（Keycloak、钉钉、企业微信），调用外部服务完成身份校验。 |
+
+------
+
+### 二、授权（Authorization）：校验权限
+
+#### 核心逻辑
+
+认证通过后，根据用户的身份，判断其对目标资源是否有对应操作权限；权限不足直接返回 `403 Forbidden`。
+
+#### 4 种授权模式
+
+| 模式                           | 说明                                                         | 生产推荐度 |
+| :----------------------------- | :----------------------------------------------------------- | :--------- |
+| **RBAC（基于角色的访问控制）** | 官方默认、主流方案，通过角色绑定实现权限复用，动态配置无需重启 | ★★★★★      |
+| Node                           | 专门给 kubelet 使用，限制节点只能访问自身相关的 Pod、Node 资源 | 系统内置   |
+| ABAC                           | 基于属性的静态规则，配置繁琐，修改需重启 API Server          | 已淘汰     |
+| Webhook                        | 调用外部服务做自定义权限判断                                 | 定制化场景 |
+
+#### RBAC 核心四要素（重中之重）
+
+RBAC 的核心思想：**权限封装到角色，用户绑定角色获得权限**，权限只累加、不支持拒绝规则。
+
+| 资源类型           | 作用范围     | 核心作用                                                     |
+| :----------------- | :----------- | :----------------------------------------------------------- |
+| Role               | 单个命名空间 | 定义该命名空间内，对哪些资源（Pod/Deployment/Service）能做哪些操作（get/list/create/delete） |
+| ClusterRole        | 整个集群     | 定义集群级资源（Node/Namespace/PV）的权限，或所有命名空间的通用权限 |
+| RoleBinding        | 单个命名空间 | 将 Role/ClusterRole 绑定给用户、用户组或 ServiceAccount，仅在当前命名空间生效 |
+| ClusterRoleBinding | 整个集群     | 将 ClusterRole 绑定给主体，获得全集群范围的权限              |
+
+#### 最简示例：授予只读 Pod 权限
+
+```
+# 1. 定义角色：default 命名空间内可查看 Pod
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: pod-reader
+rules:
+- apiGroups: [""]   # core 核心资源组
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+# 2. 绑定角色：给用户 zhangsan 绑定上面的角色
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods
+  namespace: default
+subjects:
+- kind: User
+  name: zhangsan
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+```
+
+------
+
+### 三、准入控制（Admission Control）：最终校验
+
+#### 核心逻辑
+
+位于授权通过之后、数据写入 etcd 之前，是请求的最后一道关卡，分为两类：
+
+1. **修改型（Mutating）**：自动修改请求内容，比如给 Pod 自动注入 Sidecar、补全默认资源限制
+2. **验证型（Validating）**：校验请求是否合规，不符合直接拒绝，比如限制容器不能用 root 用户、校验资源配额是否超限
+
+#### 常见内置插件
+
+- `NamespaceLifecycle`：禁止删除系统命名空间、禁止在不存在的命名空间创建资源
+- `LimitRanger`：自动给 Pod 补全默认 CPU / 内存限制
+- `ResourceQuota`：校验命名空间资源总量是否超限
+- 扩展插件：MutatingWebhook、ValidatingWebhook，比如 Ingress 的配置合法性校验就是通过 ValidatingWebhook 实现的。
+
+
+
+
+
+### 这张图完整解析：K8s API Server 请求全链路
+
+这张图的核心逻辑：**所有读写 etcd 的操作，必须唯一经由 API Server，并且依次通过「认证→鉴权→准入控制」三道安全关卡，最终才能持久化到数据库**，是 K8s 集群安全体系的完整全景图。
+
+------
+
+#### 一、左侧：请求发起方（谁在调用 API Server）
+
+##### 核心前提（左上角黄色标注）
+
+K8s 中所有涉及读写 etcd 数据库的请求，都必须调用 apiserver 完成。
+
+API Server 是集群唯一的数据入口，禁止任何组件直接操作 etcd，以此保障数据一致性、统一收口安全校验。
+
+##### 两类调用方，对应两种认证方式
+
+##### 1. 证书认证（橙色箭头）
+
+- 调用主体：`controller-manager`、`scheduler`、`kube-proxy`、`kubelet`、`kubectl`，以及用户的`kubeconfig`文件
+- 认证方式：X.509 客户端证书认证
+- 原理：API Server 用集群 CA 证书验签，证书的`CN`字段为用户名，`O`字段为用户组。集群核心组件与管理员工具均采用这种高安全级别的认证方式。
+
+##### 2. Token 认证（绿色箭头）
+
+- 调用主体：`coredns`、`flannel`、`ingress-controller`、`k8s-dashboard`、`nfs-provisioner`、基于 K8s 的 PaaS 云平台
+- 认证方式：Bearer Token（ServiceAccount）
+- 原理：运行在 Pod 内的应用，通过挂载的 ServiceAccount Token 发起请求，API Server 校验 Token 合法性，识别出对应的服务账号身份。
+
+------
+
+#### 二、第一阶段：API Server 认证（Authentication）
+
+对应图中「Apiserver 认证」模块，是请求的第一道关卡。
+
+- 作用：验证请求方的身份是否合法，**认证失败直接返回 401 拒绝，请求终止**。
+- 输出：认证通过后，从凭证中提取身份信息（`User`用户、`Group`用户组、`ServiceAccount`服务账号），传递给下一阶段的鉴权模块。
+
+------
+
+#### 三、第二阶段：API Server 鉴权（Authorization）
+
+##### 对应图中「Apiserver 鉴权」模块，是请求的第二道关卡。
+
+##### 核心逻辑（左下角黄色标注）
+
+鉴权的本质是检查 User、Group、ServiceAccount 是否具有访问当前请求资源的权限，权限不足直接返回 403 Forbidden。
+
+##### 图中两种鉴权模式
+
+###### 1. RBAC 模式（生产主流，默认启用）
+
+基于角色的访问控制，核心思想：**权限封装到角色，主体绑定角色获得权限**，权限为纯累加制，没有拒绝规则Kubernetes。
+
+- **Role**：命名空间级角色，定义单个命名空间内的资源操作权限（比如 default 命名空间下查看 Pod）
+- **ClusterRole**：集群级角色，定义全集群资源（Node、Namespace、PV 等）的操作权限
+- **RoleBinding**：命名空间级绑定，将 Role/ClusterRole 与主体绑定，权限仅在当前命名空间生效
+- **ClusterRoleBinding**：集群级绑定，将 ClusterRole 与主体绑定，权限在全集群生效
+
+###### 2. Node 模式
+
+专门给`kubelet`使用的专用鉴权规则，限制 kubelet 只能访问自身节点相关的 Pod、Node、存储资源，遵循最小权限原则。
+
+------
+
+#### 四、第三阶段：准入控制器（Admission Controller）
+
+对应图中`Admission Controller`模块，是写入 etcd 前的最后一道关卡。
+
+- 作用：鉴权通过后，对请求做最终的**内容修改 + 合规校验**，不通过则直接拒绝。
+- 分为两类：
+  1. **修改型（Mutating）**：自动补全请求内容，比如给 Pod 自动注入 Sidecar、补全默认 CPU / 内存限制
+  2. **验证型（Validating）**：校验请求是否符合集群规则，比如校验命名空间资源配额、容器安全规范、Ingress 配置合法性等
+
+------
+
+#### 五、最终落地：ETCD
+
+所有通过三道关卡的请求，最终由 API Server 将资源状态写入 etcd 数据库，完成持久化。etcd 是 K8s 集群的唯一状态存储，保存所有资源的配置与运行数据。
+
+------
+
+#### 完整请求链路总结
+
+请求发起 → 携带证书 / Token → API Server 认证（验明身份）→ API Server 鉴权（校验权限）→ 准入控制（合规校验 / 修改）→ 写入 etcd 持久化
+
+
+
+
+
+## [通过HPA实现业务应用的动态扩缩容](https://docs.chengkanghua.top/k8s-2023/4Kubernetes进阶实践?id=通过hpa实现业务应用的动态扩缩容)
+
+当系统资源过高的时候，我们可以使用如下命令来实现 Pod 的扩缩容功能
+
+```bash
+$ kubectl -n luffy scale deployment eladmin-web --replicas=2
+```
+
+HPA（Horizontal Pod Autoscaler）是 K8s 内置的水平弹性伸缩组件，**根据业务负载指标自动增减 Pod 副本数**：流量高峰自动扩容保障稳定性，低峰自动缩容节省资源，适配无状态业务的弹性需求。
+
+------
+
+### 一、核心工作原理
+
+HPA 控制器运行在控制平面，默认每 15 秒轮询一次，通过修改 Deployment/StatefulSet 的 `replicas` 字段实现扩缩容，实际 Pod 的创建删除由工作负载控制器接管Kubernetes。
+
+#### 完整执行流程
+
+1. **指标采集**：metrics-server 持续采集所有 Pod 的 CPU、内存等资源指标
+2. **指标拉取**：HPA 控制器从 Metrics API 获取目标 Pod 的实时平均指标
+3. **副本计算**：通过核心公式计算期望副本数，多指标取最大值
+4. **策略校验**：经过容忍度、稳定窗口、步长限制等防抖规则校验
+5. **执行扩缩**：修改目标工作负载的 replicas，触发 Pod 创建 / 删除
+
+#### 支持的指标类型
+
+
+
+| 指标类型   | 说明                            | 数据源               |
+| :--------- | :------------------------------ | :------------------- |
+| 资源指标   | CPU、内存使用率（最常用）       | metrics-server       |
+| 自定义指标 | QPS、并发数、队列长度等业务指标 | Prometheus + adapter |
+| 外部指标   | 集群外系统指标，如 MQ 堆积数    | 外部监控系统         |
+
+------
+
+### 二、前置依赖：metrics-server
+
+HPA 依赖 metrics-server 提供 Pod 资源指标，kubeadm 默认未部署，需先验证：
+
+
+
+```bash
+官方代码仓库地址：https://github.com/kubernetes-sigs/metrics-server
+$ wget https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.6.1/components.yaml
+# https://gitee.com/chengkanghua/script/raw/master/k8s/components.yaml   #备用地址
+
+修改args参数：
+
+# 添加- --kubelet-insecure-tls
+...
+133       containers:
+134       - args:
+135         - --cert-dir=/tmp
+136         - --secure-port=4443
+            - --kubelet-insecure-tls   # 增加
+137         - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+138         - --kubelet-use-node-status-port
+139         - --metric-resolution=15s
+140         image: registry.cn-hangzhou.aliyuncs.com/google_containers/metrics-server:v0.6.1  # 修改成国内地址
+141         imagePullPolicy: IfNotPresent
+...
+
+sed -i.bak '136a\        - --kubelet-insecure-tls' components.yaml
+sed -i '141s#k8s.gcr.io/metrics-server/metrics-server:v0.6.1#registry.cn-hangzhou.aliyuncs.com/google_containers/metrics-server:v0.6.1#' components.yaml
+
+# 执行安装
+kubectl apply -f components.yaml
+## 验证组件是否存在
+kubectl -n kube-system get pods| grep metrics-server
+
+# # 验证指标API正常（能输出则说明可用）
+kubectl top pods
+kubectl top nodes
+
+
+```
+
+
+
+------
+
+### 三、实战配置（CPU + 内存双指标）
+
+#### 必踩前置坑
+
+**Pod 必须配置 `resources.requests`**。HPA 的使用率 = 实际使用量 /requests 申请量，未配置 requests 则无法计算使用率，HPA 会直接失效。
+
+#### 1. 示例 Deployment（带资源申请）
+
+
+
+```yaml
+
+cat <<EOF > deploy-eladmin-web.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eladmin-web
+  namespace: luffy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eladmin-web
+  template:
+    metadata:
+      labels:
+        app: eladmin-web
+    spec:
+      imagePullSecrets:
+      - name: registry-10-0-0-80
+      containers:
+      - name: eladmin-web
+        image: 10.0.0.80:5000/eladmin/eladmin-web:v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        # 资源配额，和后端保持对齐
+        resources:
+          requests:
+            memory: 200Mi
+            cpu: 50m
+          limits:
+            memory: 1Gi
+            cpu: 2
+        # 存活探针：检测80端口是否监听
+        livenessProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          timeoutSeconds: 3
+        # 就绪探针：HTTP检测首页
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 20
+          timeoutSeconds: 3
+          periodSeconds: 15
+EOF
+
+kubectl create -f deploy-eladmin-web.yaml
+
+cat <<EOF > svc-eladmin-web.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: eladmin-web-svc
+  namespace: luffy
+spec:
+  selector:
+    app: eladmin-web  # 必须和Deployment中Pod标签保持一致
+  ports:
+  - port: 80         # Service集群内部访问端口
+    targetPort: 80   # 后端容器暴露的端口
+  type: ClusterIP
+EOF
+
+# 创建service
+kubectl apply -f svc-eladmin-web.yaml
+
+# 查看
+kubectl get svc -n luffy      
+          
+```
+
+#### 2. HPA 配置（autoscaling/v2 稳定版）
+
+```yaml
+# 方式一
+cat <<EOF > hpa-eladmin-web.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-eladmin-web
+  namespace: luffy
+spec:
+  maxReplicas: 3  # 最大副本数为 3
+  minReplicas: 1
+  scaleTargetRef:  #定义自动扩缩容的目标资源
+    apiVersion: apps/v1
+    kind: Deployment
+    name: eladmin-web
+  metrics:  #触发自动扩缩容的指标
+    - type: Resource #基于资源使用情况的指标
+      resource:
+        name: memory  #内存使用情况
+        target:
+          type: Utilization  #扩缩容的目标类型是资源利用率
+          averageUtilization: 80 # 当内存平均利用率达到 80% 时触发扩缩容操作
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+EOF
+kubectl create -f hpa-eladmin-web.yaml
+
+# 方式二
+$ kubectl -n luffy autoscale deployment eladmin-web --cpu-percent=80 --min=1 --max=3
+
+Deployment对象必须配置requests的参数，不然无法获取监控数据，也无法通过HPA进行动态伸缩
+
+验证：
+
+$ yum -y install httpd-tools
+$ kubectl -n luffy get svc eladmin-web
+
+# 取cluster ip
+IP=$(kubectl -n luffy get svc eladmin-web-svc |awk 'NR==2{print $3}')
+# 为了更快看到效果，先调整副本数为1
+kubectl -n luffy scale deploy eladmin-web --replicas=1
+# 模拟1000个用户并发访问页面10万次
+$ ab -n 100000 -c 1000 http://$IP/
+
+
+
+#另一个窗口观察
+kubectl -n luffy get hpa -w
+
+
+# 查看pod数量
+kubectl -n luffy get pods
+
+压力降下来后，会有默认5分钟的scaledown的时间
+```
+
+------
+
+### 四、核心计算逻辑
+
+#### 1. 基础公式
+
+```
+期望副本数 = 向上取整( 当前副本数 × ( 当前平均指标值 / 目标指标值 ) )
+```
+
+**示例**：当前 2 个 Pod，CPU 平均使用率 90%，目标 50%
+
+```
+期望副本数 = ceil( 2 × (90% / 50%) ) = ceil(3.6) = 4
+```
+
+#### 2. 防抖机制（避免频繁抖动）
+
+1. 容忍度
+
+   ：默认 10%，指标比率在 0.9~1.1 之间时，不触发扩缩容
+
+   例：目标 50%，CPU 在 45%~55% 波动时，HPA 不做调整
+
+2. 稳定窗口
+
+   - 扩容：默认 0 秒，检测到负载升高立即扩容
+   - 缩容：默认 300 秒（5 分钟），取 5 分钟内最大的推荐副本数，避免瞬时低载导致误缩容
+
+3. **步长限制**：可配置单次扩缩容的最大数量 / 百分比，避免副本数骤变
+
+------
+
+### 五、常用操作命令
+
+
+
+```bash
+# 查看HPA列表与实时状态
+kubectl get hpa
+
+# 查看HPA详情、事件与报错（排查必备）
+kubectl describe hpa nginx-demo-hpa
+
+# 修改HPA配置
+kubectl edit hpa nginx-demo-hpa
+
+# 压测验证扩容
+kubectl run -i --tty load-test --rm --image=busybox --restart=Never -- /bin/sh -c "while true; do wget -q -O- http://nginx-demo; done"
+
+# 删除HPA
+kubectl delete hpa nginx-demo-hpa
+```
+
+------
+
+### 六、常见失效原因与排查
+
+1. **Pod 未配置 resources.requests**：最常见，HPA 无法计算使用率，显示`<unknown>`
+2. **metrics-server 异常**：指标采集失败，HPA 无法获取数据
+3. **工作负载类型不支持**：DaemonSet 不可伸缩，无法绑定 HPA
+4. **阈值设置过高**：指标永远达不到阈值，不会触发扩容
+
+
+
+
+
+
+
+
+
+
+
+## 对接分布式存储 + PV/PVC 完整讲解
+
+### 三种简单存储方式
+
+```bash
+# ============== 1. emptyDir 临时共享目录 ==============
+# 特性：同Pod内多容器共享，生命周期与Pod完全一致，Pod删除数据同步清除
+cat <<EOF > demo-emptydir.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo-emptydir
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    volumeMounts:
+    - name: temp-data
+      mountPath: /tmp/cache   # 容器内挂载路径
+  volumes:
+  - name: temp-data
+    emptyDir: {}              # 零配置，自动生成临时目录
+EOF
+# 部署命令：kubectl apply -f demo-emptydir.yaml
+# 典型场景：临时缓存、同Pod多容器间传递文件
+
+
+# ============== 2. hostPath 节点本地挂载 ==============
+# 特性：挂载节点宿主机本地目录，Pod删除后数据保留，漂移到其他节点则丢失原数据
+cat <<EOF > demo-hostpath.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo-hostpath
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    volumeMounts:
+    - name: local-log
+      mountPath: /var/log/nginx
+  volumes:
+  - name: local-log
+    hostPath:
+      path: /data/nginx-logs       # 宿主机绝对路径
+      type: DirectoryOrCreate      # 目录不存在则自动创建
+EOF
+# 部署命令：kubectl apply -f demo-hostpath.yaml
+# 典型场景：节点本地日志采集、单节点固定部署的应用  通常配合nodeSelector使用
+
+
+# ============== 3. NFS 网络持久化存储 ==============
+# 前置条件：所有节点安装nfs客户端，NFS服务器已配置共享目录
+# 特性：真正持久化，跨节点访问，支持多Pod同时读写
+cat <<EOF > demo-nfs.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo-nfs
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    volumeMounts:
+    - name: upload-data
+      mountPath: /usr/share/nginx/html/upload
+  volumes:
+  - name: upload-data
+    nfs:
+      server: 10.0.0.80            # NFS服务器IP地址
+      path: /data/k8s-share        # NFS共享目录路径
+EOF
+# 部署命令：kubectl apply -f demo-nfs.yaml
+# 典型场景：业务持久化数据、多副本共享静态资源
+```
+
+三者对比总结
+
+| 维度        | emptyDir                | hostPath                 | NFS                      |
+| ----------- | ----------------------- | ------------------------ | ------------------------ |
+| 持久化能力  | ❌ 随 Pod 销毁           | ⚠️ 随节点保留             | ✅ 永久保留               |
+| 跨节点访问  | ❌                       | ❌                        | ✅                        |
+| 多 Pod 共享 | ❌                       | ❌（仅同节点）            | ✅                        |
+| 读写性能    | 本地磁盘，好            | 本地磁盘，最好           | 网络传输，一般           |
+| 配置难度    | 极低                    | 低                       | 中（需搭建 NFS 服务）    |
+| 生命周期    | 和 Pod 一致             | 和节点磁盘一致           | 独立生命周期             |
+| 典型场景    | 临时缓存、同 Pod 传文件 | 节点本地日志、固定单实例 | 业务持久数据、多副本共享 |
+
+### 为什么引入 PV/PVC（精简版）
+
+核心是**存储层抽象解耦**，把「业务使用存储」和「底层存储实现」彻底拆分：
+
+- **职责分离**：管理员负责对接底层存储、维护 PV；开发仅通过 PVC 申请容量与读写模式，无需感知存储细节
+- **环境解耦**：业务配置不绑定具体存储地址 / 类型，更换存储方案、跨环境迁移时，业务 YAML 无需改动
+- **统一管控**：存储参数、凭证统一配置在 PV 中，一处修改全量生效，避免重复硬编码与配置不一致
+- **自动交付**：配合 StorageClass 实现存储动态供应，按需自动创建 PV，支撑大规模集群的弹性扩容需求
+
+
+
+### 一、为什么要对接分布式存储？
+
+K8s 中 Pod 是临时生命周期的，容器销毁后本地数据会全部丢失，且 Pod 会在节点间漂移调度。分布式存储解决了三个核心痛点：
+
+1. **数据持久化**：Pod 销毁重建，数据不丢失
+2. **跨节点挂载**：Pod 漂移到任意节点，都能挂载同一份数据
+3. **多实例共享**：支持多个 Pod 同时读写同一份数据（RWX 模式），本地存储无法实现
+
+K8s 本身不直接管理底层存储，而是通过 **PV/PVC** 这套抽象层对接各类分布式存储（NFS、Ceph、Longhorn 等），业务 Pod 只需声明存储需求，完全不用感知底层存储细节。
+
+------
+
+### 二、核心概念通俗理解
+
+| 资源         | 全称                  | 角色定位     | 通俗类比                                          | 作用范围                         |
+| :----------- | :-------------------- | :----------- | :------------------------------------------------ | :------------------------------- |
+| PV           | PersistentVolume      | 持久化卷     | 分布式存储里提前划分好的一块独立存储空间          | 集群级（全集群可见）             |
+| PVC          | PersistentVolumeClaim | 持久化卷声明 | 用户的「存储申请单」，写明容量、访问模式等要求    | 命名空间级（仅当前命名空间可用） |
+| StorageClass | 存储类                | 存储模板     | 定义存储类型、供应插件、参数，用来自动批量生成 PV | 集群级                           |
+
+#### 核心绑定逻辑
+
+PVC 和 PV 是**一对一绑定**关系：
+
+1. 用户创建 PVC，声明存储需求
+2. 系统在集群中自动匹配符合要求的 PV，完成绑定
+3. Pod 通过挂载 PVC 来使用存储
+4. 绑定后 PV 被该 PVC 独占，直到 PVC 被删除才会释放
+
+------
+
+### 三、核心属性与绑定规则
+
+#### 1. 关键属性
+
+##### （1）容量 `capacity`
+
+指定存储空间大小，单位为 Gi/Mi，是 PVC 匹配 PV 的核心条件之一。
+
+##### （2）访问模式 `accessModes`
+
+分布式存储的核心优势就体现在这里：
+
+- `ReadWriteOnce（RWO）`：仅能被**一个节点**挂载读写，适合单实例有状态应用
+- `ReadOnlyMany（ROX）`：可被**多个节点**同时只读挂载，适合共享静态资源
+- `ReadWriteMany（RWX）`：可被**多个节点**同时读写，多 Pod 共享数据专用，仅分布式存储支持
+
+##### （3）回收策略 `persistentVolumeReclaimPolicy`
+
+PVC 删除后，PV 和数据的处理规则：
+
+- `Retain`：保留模式。PVC 删除后 PV 和数据全部保留，需管理员手动清理，生产数据安全首选
+- `Delete`：删除模式。PVC 删除后 PV 和数据自动同步删除，动态供应默认，适合临时数据
+- `Recycle`：已废弃，不再使用
+
+##### （4）存储类 `storageClassName`
+
+存储分类标签，PVC 和 PV 必须同名才能匹配；动态供应必须指定，用来调用对应存储插件自动创建 PV。
+
+#### 2. 绑定规则（需同时满足）
+
+1. `storageClassName` 完全一致（都为空也视为一致）
+2. PVC 申请的容量 ≤ PV 的总容量
+3. PVC 要求的访问模式，PV 必须支持
+4. 绑定后一对一独占，不可重复绑定
+5. 没有匹配的 PV 时，PVC 会一直处于 `Pending` 状态
+
+------
+
+### 四、两种存储供应模式
+
+#### 1. 静态供应（Static Provisioning）
+
+- **流程**：管理员提前手动创建一批 PV → 用户创建 PVC → 系统自动匹配绑定
+- **优点**：逻辑简单，无需额外插件
+- **缺点**：需要提前规划，容量不匹配容易造成资源浪费，无法按需分配
+- **适用场景**：小规模集群、固定业务存储
+
+#### 2. 动态供应（Dynamic Provisioning）
+
+- **流程**：管理员部署存储驱动插件 + 创建 StorageClass → 用户创建 PVC → 系统自动调用存储接口创建对应大小的 PV 并绑定
+- **优点**：按需分配，无浪费，自动化程度高，支持大规模集群
+- **生产环境主流方案**，绝大多数分布式存储都支持动态供应
+
+------
+
+### 五、分布式存储对接实操（NFS 为例，内网最常用）
+
+NFS 是最简单的分布式文件存储，原生支持 RWX 多节点共享，内网部署成本极低，是入门分布式存储的首选。
+
+#### 前置条件
+
+- 已部署 NFS 服务器（示例 IP：`10.0.0.80`，共享目录：`/data/k8s-nfs`）
+- 所有 K8s 节点都安装了 `nfs-utils` 客户端，可正常挂载 NFS
+
+------
+
+#### 方案 1：静态 PV 对接（入门首选）
+
+##### 1. 创建 PV（nfs-pv.yaml）
+
+
+
+```bash
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv   # PV名称，集群内唯一
+spec:
+  capacity: 
+    storage: 5Gi   # PV总容量
+  accessModes:
+  - ReadWriteMany   # 支持多节点读写，分布式存储核心能力
+  persistentVolumeReclaimPolicy: Retain  # 回收策略：保留数据
+  storageClassName: nfs-static           # 存储类名，PVC必须和该值一致
+  nfs:					   # 底层存储类型为NFS
+    server: 10.0.0.80      # NFS服务器地址              
+    path: /data/k8s        # NFS上的共享目录（需提前手动创建）    
+    
+
+```
+
+执行创建：
+
+
+
+```bash
+kubectl apply -f nfs-pv.yaml
+kubectl get pv
+```
+
+##### 2. 创建 PVC（nfs-pvc.yaml）
+
+
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eladmin-web-pvc
+  namespace: luffy         # 和业务Pod同命名空间
+spec:
+  accessModes:
+    - ReadWriteMany        # 和PV访问模式匹配
+  storageClassName: nfs-static  # 和PV存储类名完全一致
+  resources:
+    requests:
+      storage: 5Gi         # 申请5G容量，≤PV容量即可匹配
+      
+
+```
+
+执行创建
+
+```bash
+kubectl apply -f nfs-pvc.yaml
+kubectl get pvc -n luffy
+# 状态变为 Bound 即为绑定成功
+```
+
+##### 3. Deployment 挂载 PVC 使用
+
+修改 eladmin-web 部署配置，将业务目录挂载到分布式存储：
+
+
+
+```yaml
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+      - name: registry-10-0-0-80
+      # 定义卷，关联PVC
+      volumes:
+      - name: web-data
+        persistentVolumeClaim:
+          claimName: eladmin-web-pvc  # 绑定上面创建的PVC
+      containers:
+      - name: eladmin-web
+        image: 10.0.0.80:5000/eladmin/eladmin-web:v1
+        # 容器内挂载路径
+        volumeMounts:
+        - name: web-data
+          mountPath: /usr/share/nginx/html/upload
+          
+ 
+```
+
+
+
+#### [PV与PVC管理NFS存储卷实践](http://49.7.203.222:2023/#/kubernetes-advanced/pv?id=pv与pvc管理nfs存储卷实践)
+
+
+
+```bash
+
+# 服务端：10.0.0.80
+-------------------------------------
+yum -y install nfs-utils rpcbind
+
+# 共享目录
+mkdir -p /data/k8s && chmod 755 /data/k8s
+
+echo '/data/k8s  *(insecure,rw,sync,no_root_squash)'>>/etc/exports
+
+systemctl enable --now rpcbind 
+systemctl enable --now nfs 
+
+# 客户端：k8s集群slave节点
+---------------------------------------------------
+yum -y install nfs-utils rpcbind
+mkdir /nfsdata
+mount -t nfs 10.0.0.80:/data/k8s /nfsdata #这里挂载是测试, 可以不挂载
+umount /nfsdata
+
+
+PV与PVC演示
+# 在nfs-server机器中创建
+mkdir -p /data/k8s/nginx
+
+# 把/data/k8s/nginx 目录作为数据卷给k8s集群中的Pod使用
+cat <<EOF > pv-nfs.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv
+spec:
+  capacity: 
+    storage: 1Gi
+  accessModes:
+  - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: /data/k8s/nginx
+    server: 10.0.0.80
+EOF
+
+kubectl create -f pv-nfs.yaml
+
+$ kubectl get pv
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS  
+nfs-pv   1Gi        RWO            Retain           Available
+
+一个 PV 的生命周期中，可能会处于4中不同的阶段：
+Available（可用）：表示可用状态，还未被任何 PVC 绑定
+Bound（已绑定）：表示 PV 已经被 PVC 绑定
+Released（已释放）：PVC 被删除，但是资源还未被集群重新声明
+Failed（失败）： 表示该 PV 的自动回收失败
+
+cat <<EOF > pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-nfs
+  namespace: luffy     # 和业务Pod同命名空间
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+EOF
+
+kubectl create -f pvc.yaml
+
+$ kubectl get pvc
+NAME      STATUS   VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+pvc-nfs   Bound    nfs-pv   1Gi        RWX                          5s
+$ kubectl get pv
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM             
+nfs-pv   1Gi        RWX            Retain           Bound    default/pvc-nfs             
+
+#访问模式，storage大小（pvc大小需要小于pv大小），以及 PV 和 PVC 的 storageClassName 字段必须一样，这样才能够进行绑定。
+
+#PersistentVolumeController会不断地循环去查看每一个 PVC，是不是已经处于 Bound（已绑定）状态。如果不是，那它就会遍历所有的、可用的 PV，并尝试将其与未绑定的 PVC 进行绑定，这样，Kubernetes 就可以保证用户提交的每一个 PVC，只要有合适的 PV 出现，它就能够很快进入绑定状态。而所谓将一个 PV 与 PVC 进行“绑定”，其实就是将这个 PV 对象的名字，填在了 PVC 对象的 spec.volumeName 字段上。
+
+# 查看nfs数据目录
+$ ls /nfsdata
+
+
+创建Pod挂载pvc
+----------------------------------------------------------
+cat <<EOF > deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-nfs-pvc
+  namespace: luffy
+spec:
+  replicas: 1
+  selector:        #指定Pod的选择器
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: web
+        volumeMounts:                        #挂载容器中的目录到pvc nfs中的目录
+        - name: www
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: www
+        persistentVolumeClaim:              #指定pvc
+          claimName: pvc-nfs
+EOF
+
+kubectl create -f deployment.yaml
+
+# 查看容器/usr/share/nginx/html目录
+
+kubectl -n luffy get pvc
+kubectl get pv
+
+
+kubectl -n luffy get po
+
+kubectl -n luffy exec -ti nfs-pvc-79f876c88d-cd4dc -- sh
+/ # ls /usr/share/nginx/html #这个目录就是挂载的nfs
+
+# 删除pvc
+kubectl -n luffy delete deploy nginx-nfs-pvc
+kubectl -n luffy delete pvc pvc-nfs
+kubectl delete pv nfs-pv
+
+```
+
+
+
+
+
+#### 方案 2：动态供应对接（生产推荐）
+
+无需提前创建 PV，用户申请 PVC 时系统自动在 NFS 上创建目录并生成对应 PV。
+
+##### 核心步骤
+
+1. 部署 `nfs-subdir-external-provisioner` 插件，负责对接 NFS 服务器、自动创建 PV
+2. 创建 StorageClass 存储类，关联插件
+3. 用户创建 PVC 时指定该 StorageClass，自动完成 PV 创建 + 绑定
+
+部署： https://github.com/kubernetes-retired/external-storage
+
+```bash
+
+cat <<EOF >provisioner.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-client-provisioner
+  labels:
+    app: nfs-client-provisioner
+  # replace with namespace where provisioner is deployed
+  namespace: nfs-provisioner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nfs-client-provisioner
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nfs-client-provisioner
+  template:
+    metadata:
+      labels:
+        app: nfs-client-provisioner
+    spec:
+      serviceAccountName: nfs-client-provisioner
+      containers:
+        - name: nfs-client-provisioner
+          image: registry.cn-beijing.aliyuncs.com/mydlq/nfs-subdir-external-provisioner:v4.0.0
+          volumeMounts:
+            - name: nfs-client-root
+              mountPath: /persistentvolumes
+          env:
+            - name: PROVISIONER_NAME
+              value: luffy.com/nfs
+            - name: NFS_SERVER
+              value: 10.0.0.80
+            - name: NFS_PATH  
+              value: /data/k8s
+      volumes:
+        - name: nfs-client-root
+          nfs:
+            server: 10.0.0.80
+            path: /data/k8s
+EOF
+
+cat <<EOF > rbac.yaml
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: nfs-client-provisioner
+  namespace: nfs-provisioner
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: nfs-client-provisioner-runner
+  namespace: nfs-provisioner
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "update", "patch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: run-nfs-client-provisioner
+  namespace: nfs-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: nfs-client-provisioner
+    namespace: nfs-provisioner
+roleRef:
+  kind: ClusterRole
+  name: nfs-client-provisioner-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: leader-locking-nfs-client-provisioner
+  namespace: nfs-provisioner
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: leader-locking-nfs-client-provisioner
+  namespace: nfs-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: nfs-client-provisioner
+    # replace with namespace where provisioner is deployed
+    namespace: nfs-provisioner
+roleRef:
+  kind: Role
+  name: leader-locking-nfs-client-provisioner
+  apiGroup: rbac.authorization.k8s.io
+EOF
+
+cat <<EOF >storage-class.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"   # 设置为default StorageClass
+  name: nfs
+provisioner: luffy.com/nfs  #和驱动器名字一样
+parameters:
+  archiveOnDelete: "true"    # 删除PVC时是否归档数据，false直接删除
+EOF
+
+kubectl create namespace nfs-provisioner
+kubectl create -f provisioner.yaml
+kubectl create -f rbac.yaml
+kubectl create -f storage-class.yaml
+
+# 等待pod启动成功
+$ kubectl -n nfs-provisioner get pod 
+NAME                                      READY   STATUS    RESTARTS   AGE
+nfs-client-provisioner-6c86fc96fc-hbf87   1/1     Running   0          11s
+
+# kubectl get storageclass
+NAME            PROVISIONER     RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+nfs (default)   luffy.com/nfs   Delete          Immediate           false                  21s
+
+
+验证使用storageclass自动创建并绑定pv
+
+cat <<EOF >pvc.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: test-claim
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Mi
+  storageClassName: nfs
+EOF
+
+kubectl apply -f pvc.yaml
+
+kubectl -n nfs-provisioner get po
+kubectl get pvc
+kubectl get pv
+
+[存储服务器 ~]# ll /data/k8s/
+drwxrwxrwx 2 root root 6 Oct 23 09:50 default-test-claim-pvc-1dc41736-9197-422c-a99a-6fbb2389123d
+
+kubectl -n nfs-provisioner logs -f nfs-client-provisioner-647dd55455-wzdd2
+
+
+# 把之前mysql的数据改成pvc方式
+cat <<EOF >mysql-pvc.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: mysql
+  namespace: luffy
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: nfs
+EOF
+
+kubectl create -f mysql-pvc.yaml
+
+kubectl -n luffy get pvc
+
+#打包mysql数据
+# cd /opt/mysql/ ; tar zcf mysql.tar *
+#启动一个简单http
+# python -m SimpleHTTPServer 9099
+
+[存储服务器 ~]# wget k8s-master:9099/mysql.tar
+# tar zxvf mysql.tar
+# tar zxvf mysql.tar -C /data/k8s/luffy-mysql-pvc-02ec7c1b-b3fc-412b-a58f-5dd1d3e2820c/
+
+#修改deployment-mysql.yaml 文件
+cat <<EOF > deployment-mysql.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: luffy
+spec:
+  replicas: 1    #指定Pod副本数
+  selector:        #这个选择器可以去掉了 因为用了共享的pvc存储
+    matchLabels:
+      app: mysql
+  strategy:
+      type: Recreate
+  template:
+    metadata:
+      labels:    #给Pod打label,必须和上方的matchLabels匹配
+        app: mysql
+        from: luffy
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:5.7
+        args:
+        - --character-set-server=utf8mb4
+        - --collation-server=utf8mb4_unicode_ci
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: eladmin-secret
+              key: DB_PWD
+        - name: MYSQL_DATABASE
+          value: "eladmin"
+        resources:
+          requests:
+            memory: 200Mi
+            cpu: 50m
+          limits:
+            memory: 1Gi
+            cpu: 500m
+        readinessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mysql-data   #新增加的
+        persistentVolumeClaim:
+          claimName: mysql
+      nodeSelector:   # 使用节点选择器将Pod调度到指定label的节点
+        mysql: "true"
+EOF
+kubectl apply -f deployment-mysql.yaml
+
+[root@k8s-master ~]# kubectl -n luffy exec -ti mysql-85ff4769c9-csd9x -- sh
+sh-4.2# mysql -uroot -pluffyAdmin!
+mysql> show databases;
+mysql> use eladmin;
+mysql> show tables;
+
+
+```
+
+
+
+### 六、主流分布式存储方案对比
+
+| 存储方案 | 存储类型     | 支持访问模式 | 适用场景                          | 部署难度 |
+| :------- | :----------- | :----------- | :-------------------------------- | :------- |
+| NFS      | 文件存储     | RWX/ROX      | 中小规模、静态资源共享、日志存储  | 极低     |
+| Ceph RBD | 块存储       | RWO          | 数据库、高性能有状态应用          | 高       |
+| CephFS   | 文件存储     | RWX/ROX      | 大规模多 Pod 共享文件、大数据场景 | 高       |
+| Longhorn | 云原生块存储 | RWO          | K8s 原生轻量方案、多副本高可用    | 中       |
+
+------
+
+### 七、常见注意事项
+
+1. **RWX 依赖底层存储**：本地盘、云硬盘都不支持多节点读写，只有分布式文件存储可实现
+2. **删除顺序**：先删 Pod/Deployment → 再删 PVC → 最后删 PV，避免 PV 卡住变为 Terminating
+3. **资源范围**：PV 是集群级资源，PVC 是命名空间级资源；不同命名空间不能共用同一个 PVC
+4. **数据备份**：分布式存储不等于绝对安全，核心业务数据仍需定期备份
+
+
+
+## [安装容器管理平台](http://49.7.203.222:2023/#/kubernetes-advanced/pv?id=安装容器管理平台)
+
+市面上存在很多开源的容器管理平台，可以帮助用户快速管理k8s平台中的业务服务，今天学习下`kubesphere`的使用。
+
+###### [安装](http://49.7.203.222:2023/#/kubernetes-advanced/pv?id=安装)
+
+安装的版本为`v3.3.1`
+
+- 前置要求
+
+  - 要求集群中存在默认的`StorageClass`，上篇中我们把nfs设置为了集群默认的存储类，因此满足要求。
+  - 集群安装metrics-server
+
+  https://kubesphere.com.cn/docs/v3.3/installing-on-kubernetes/introduction/prerequisites/
+
+- 下载初始化安装文件
+
+```bash
+
+mkdir kubesphere ;cd kubesphere
+wget https://github.com/kubesphere/ks-installer/releases/download/v3.3.1/kubesphere-installer.yaml
+wget https://github.com/kubesphere/ks-installer/releases/download/v3.3.1/cluster-configuration.yaml
+wget https://raw.githubusercontent.com/kubesphere/notification-manager/master/config/bundle.yaml
+
+#备用地址
+wget https://gitee.com/chengkanghua/script/raw/master/k8s/bundle.yaml
+wget https://gitee.com/chengkanghua/script/raw/master/k8s/cluster-configuration.yaml
+wget https://gitee.com/chengkanghua/script/raw/master/k8s/kubesphere-installer.yaml
+
+sed -i.bak '290s#kubesphere/ks-installer:v3.3.1#registry.cn-beijing.aliyuncs.com/kubesphereio/ks-installer:v3.3.1#g' kubesphere-installer.yaml
+
+# 修改配置为外部监控,  如果是干净的K8S(没有安装其他的监控,可以不用修改)
+# vim cluster-configuration.yaml
+42     monitoring:
+43       type: external  
+44       endpoint: http://prometheus.monitor:9090 
+
+
+安装
+kubectl create ns kubesphere-monitoring-system
+kubectl create -f kubesphere-installer.yaml
+kubectl create -f cluster-configuration.yaml
+kubectl create -f bundle.yaml
+# 查看安装器日志
+# kubectl -n kubesphere-system get pod
+ks-installer-746f68548d-mcgvh   1/1     Running   0          2m4s
+# 查看日志,显示安装整个过程
+# kubectl -n  kubesphere-system logs -f ks-installer-746f68548d-mcgvh
+
+
+卸载
+# 如果想卸载kubesphere
+https://github.com/kubesphere/ks-installer/blob/release-3.3/scripts/kubesphere-delete.sh
+wget https://gitee.com/chengkanghua/script/raw/master/k8s/kubesphere-delete.sh
+
+kubectl delete -f kubesphere-installer.yaml
+kubectl delete -f cluster-configuration.yaml
+kubectl delete -f bundle.yaml
+
+
+# sh kubesphere-delete.sh
+
+```
+
+
+
+## [Kubernetes 集群网络实现完整解析](https://docs.chengkanghua.top/k8s-2023/4Kubernetes进阶实践?id=集群网络)
+
+容器网络核心回顾
+
+```bash
+# Docker 容器网络创建流程（精简版）
+# 1. 新建独立网络命名空间，隔离IP/路由/端口栈，启用lo回环接口
+# 2. 生成veth pair虚拟网卡对，两端天然直通，作为虚拟网线
+# 3. 宿主机端接入docker0网桥，加入宿主机二层虚拟交换网络
+# 4. 对端移入容器命名空间，重命名为eth0作为容器主网卡
+# 5. IPAM从网桥子网分配空闲IP，配置eth0地址与子网掩码
+# 6. 写入容器路由表，默认网关指向网桥IP，打通跨网段转发路径
+
+# 额外：配置-p端口映射时，宿主机iptables添加DNAT规则
+# 实现外部流量通过宿主机端口转发至容器内部服务端口
+```
+
+
+
+Kubernetes 本身不直接实现网络，而是通过 **CNI（容器网络接口）标准** 对接第三方网络插件，整个网络体系围绕「IP-per-Pod 扁平化模型」构建，所有 Pod 在逻辑上处于同一个可直接互通的局域网。
+
+------
+
+### 一、核心网络模型与基础原则
+
+#### 1. 核心原则：IP-per-Pod
+
+- 每个 Pod 拥有**集群内唯一的 IP 地址**，Pod 内所有容器共享该 IP 与端口空间
+- 所有 Pod 处于一个扁平的三层网络中，互相之间可直接通信，默认无需 NAT 地址转换
+- Pod IP 是虚拟网络地址，由 CNI 插件统一分配管理
+
+#### 2. 网络三大平面
+
+
+
+| 平面         | 作用                                | 地址示例                 |
+| :----------- | :---------------------------------- | :----------------------- |
+| 节点网络     | 节点物理 / 虚拟机通信，集群底层基础 | 物理网段 `10.0.0.0/24`   |
+| Pod 网络     | Pod 之间业务通信的虚拟网络          | CNI 分配 `10.244.0.0/16` |
+| Service 网络 | 服务发现的虚拟 IP 网络，无实体接口  | 集群指定 `10.96.0.0/12`  |
+
+#### 3. CNI 的角色
+
+CNI 是 K8s 定义的容器网络标准接口，kubelet 创建 Pod 时会调用 CNI 插件完成：
+
+- 为 Pod 分配 IP 地址
+- 创建虚拟网卡、配置网桥 / 路由规则
+- 打通 Pod 与集群网络的连通性
+
+主流 CNI 插件：Flannel、Calico、Cilium 等。
+
+------
+
+### 二、五大通信场景的实现原理
+
+#### 场景 1：同一 Pod 内容器通信
+
+**实现方式：共享网络命名空间**
+
+- Pod 内有一个 `pause` 基础设施容器，负责持有独立的 Network Namespace
+- 所有业务容器加入该命名空间，共享同一个 IP、端口、路由表
+- 容器之间通过 `lo` 回环接口通信，等价于本机进程通过 [localhost](https://link.wtturl.cn/?target=https%3A%2F%2Flocalhost&scene=im&aid=582478&lang=zh) 互访，无性能损耗
+
+#### 场景 2：同一节点 Pod 之间通信
+
+**实现方式：虚拟网桥 + veth 虚拟网卡对**
+
+1. 每个 Pod 创建时生成一对 `veth pair` 虚拟网卡：一端留在 Pod 内作为 `eth0`，另一端接入节点上的虚拟网桥（如 `cni0`）
+2. 同节点 Pod 互访时，数据包经 veth 到达网桥，网桥通过 ARP 表匹配目标 Pod 对应的 veth 口，直接二层转发
+3. 全程不出节点，无额外封装，性能接近原生
+
+#### 场景 3：跨节点 Pod 之间通信（核心）
+
+跨节点通信是 K8s 网络的核心难点，主流分为两种技术路线：
+
+##### 方案 A：Overlay 覆盖网络（封装模式）
+
+代表：Flannel VXLAN、Calico IPIP
+
+**原理**：在节点物理网络之上封装一层虚拟隧道，将 Pod IP 数据包封装在节点物理 IP 包中传输，不依赖底层网络路由。
+
+**转发流程**：
+
+1. 源 Pod 发出数据包，经 veth 到节点网桥
+2. 节点网络栈识别目标 Pod 网段属于其他节点，执行隧道封装（添加外层节点 IP 头）
+3. 封装后的数据包通过物理网络送达目标节点
+4. 目标节点解封装还原 Pod 原始数据包，经网桥转发到目标 Pod
+
+- 优点：适配所有底层网络，公有云、复杂机房均可使用
+- 缺点：封装 / 解封装有 10%~20% 左右的性能损耗
+
+##### 方案 B：Underlay 路由模式（无封装）
+
+代表：Flannel host-gw、Calico BGP
+
+**原理**：不做隧道封装，直接在节点路由表中写入全集群 Pod 网段的路由规则，下一跳为对应节点的物理 IP，通过底层三层网络直接转发。
+
+**转发流程**：
+
+1. 节点维护全集群 Pod 网段路由表，目标 Pod 网段的下一跳为对应节点物理 IP
+2. 数据包直接按路由转发到目标节点，无额外封装
+3. 目标节点匹配本地路由，转发到对应 Pod
+
+- 优点：无封装损耗，性能接近物理网络
+- 缺点：依赖底层网络支持，需同二层环境或支持 BGP 路由，公有云通常受限
+
+#### 场景 4：Pod 访问 Service（ClusterIP）
+
+Service 是**虚拟 IP**，无实体网络接口，由 `kube-proxy` 组件实现转发：
+
+1. kube-proxy 监听 APIServer，实时同步 Service 与 Endpoint（Pod 地址）信息
+2. 在每个节点上生成 `iptables` 或 `ipvs` 转发规则
+3. Pod 访问 ClusterIP 时，数据包在节点网络栈被 DNAT 转换，目标地址替换为真实 Pod IP
+4. 后续流量走 Pod 网络正常转发到目标 Pod
+
+- 负载均衡由节点本地的 iptables/ipvs 实现，默认轮询策略
+- 常见误区：ClusterIP 无法 ping 通是正常的，只有端口流量才会触发 DNAT 转发
+
+#### 场景 5：集群外部访问（南北向流量）
+
+1. **NodePort**：在所有节点上开放一个固定端口（范围 30000-32767），外部通过 `节点IP:NodePort` 访问，流量经 kube-proxy 转发到 Pod
+2. **LoadBalancer**：公有云负载均衡服务，绑定公网 IP，后端转发到各节点的 NodePort，是 NodePort 的上层封装
+3. **Ingress**：七层统一入口，按域名、路径转发到不同 Service；由 Ingress Controller（如 Nginx Ingress）以 Pod 形式运行，本身通过 NodePort/LoadBalancer 对外暴露
+
+------
+
+### 三、配套核心组件
+
+#### 1. CoreDNS（服务发现）
+
+集群默认部署的 DNS 服务，属于网络体系的核心配套：
+
+- 负责将 Service 名称解析为 ClusterIP
+- Pod 默认自动配置 CoreDNS 为 DNS 服务器，实现通过服务名互访，无需硬编码 IP
+
+#### 2. 网络策略 NetworkPolicy
+
+由支持网络策略的 CNI 插件（如 Calico、Cilium）实现，用于管控 Pod 之间的访问规则，实现细粒度的网络隔离。
+
+------
+
+### 四、主流 CNI 插件对比
+
+| 插件    | 技术路线        | 网络策略   | 性能 | 适用场景                             |
+| :------ | :-------------- | :--------- | :--- | :----------------------------------- |
+| Flannel | VXLAN / host-gw | ❌ 不支持   | 一般 | 入门、小规模集群、功能要求简单       |
+| Calico  | BGP / IPIP      | ✅ 支持     | 较好 | 生产环境、需要网络隔离、中大规模     |
+| Cilium  | eBPF            | ✅ 高级策略 | 优秀 | 高性能、可观测性要求高、超大规模集群 |
+
+------
+
+### 五、核心组件角色总结
+
+- `pause` 容器：持有 Pod 的网络命名空间，是 Pod 网络的载体
+- **CNI 插件**：分配 Pod IP、配置虚拟网卡与路由，打通 Pod 网络
+- `kube-proxy`：实现 Service 转发、负载均衡，维护节点转发规则
+- `CoreDNS`：集群内部 DNS 服务发现
+- **Ingress Controller**：集群七层流量入口，统一对外暴露服务
+
+
+
+
+
+
+
+
+
+## [Helm部署应用](https://docs.chengkanghua.top/k8s-2023/4Kubernetes进阶实践?id=helm部署应用)
+
+### 一、Helm 是什么
+
+Helm 是 Kubernetes 的**包管理工具**，等价于 Linux 系统的 yum/apt。它将一个应用所需的全部 K8s 资源（Deployment、Service、ConfigMap、PVC 等）封装为一个 **Chart 包**，实现应用一键部署、版本管控、升级回滚，解决原生 YAML 零散冗余、复用性差、运维成本高的问题。
+
+------
+
+### 二、核心概念
+
+1. **Chart**：应用安装包，包含所有 K8s 资源模板、默认配置、依赖关系，可复用、可分享，类比软件安装包。
+2. **Release**：Chart 在集群中部署后的运行实例，同一个 Chart 可在不同命名空间部署多个独立 Release。
+3. **Repository（Repo）**：Chart 仓库，集中存放分发 Chart 的服务端，类比软件源。
+
+------
+
+### 三、安装 Helm + 配置国内源
+
+#### 1. 二进制安装（稳定版 v3.14.0，兼容 K8s 1.20+）
+
+```
+wget https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz
+tar zxf helm-v3.14.0-linux-amd64.tar.gz
+mv linux-amd64/helm /usr/local/bin/
+helm version
+```
+
+#### 2. 配置国内 Chart 仓库（解决海外源访问失败）
+
+
+
+```
+# 添加阿里云同步的官方稳定仓库
+helm repo add aliyun https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
+# 添加 Bitnami 国内镜像（最全应用库）
+helm repo add bitnami https://mirrors.aliyun.com/bitnami/charts/bitnami/
+# 更新仓库索引
+helm repo update
+# 查看已添加仓库
+helm repo list
+```
+
+------
+
+### 四、核心部署全流程
+
+#### 1. 搜索可用 Chart
+
+
+
+```
+# 搜索 nginx 相关包
+helm search repo nginx
+# 搜索 metrics-server
+helm search repo metrics-server
+```
+
+#### 2. 安装部署（创建 Release）
+
+语法：`helm install [Release名称] [Chart名] -n [命名空间]`
+
+
+
+```
+# 示例：在 default 命名空间部署 nginx，Release 名为 my-nginx
+helm install my-nginx bitnami/nginx -n default
+
+# 常用附加参数
+# --create-namespace   命名空间不存在则自动创建
+# --version 15.3.0     指定 Chart 版本
+# -f values.yaml       加载自定义配置文件
+```
+
+#### 3. 查看 Release 状态
+
+
+
+```
+# 列出当前命名空间所有 Release
+helm list
+# 查看指定命名空间
+helm list -n kube-system
+# 查看运行详情与资源
+helm status my-nginx -n default
+# 查看渲染后的完整 YAML
+helm get manifest my-nginx -n default
+```
+
+#### 4. 升级配置 / 版本
+
+
+
+```
+# 临时升级副本数
+helm upgrade my-nginx bitnami/nginx --set replicaCount=3 -n default
+# 基于配置文件升级（生产推荐）
+helm upgrade my-nginx bitnami/nginx -f values.yaml -n default
+```
+
+#### 5. 版本回滚
+
+
+
+```
+# 查看发布历史版本
+helm history my-nginx -n default
+# 回滚到第 2 个版本
+helm rollback my-nginx 2 -n default
+```
+
+#### 6. 卸载 Release
+
+
+
+```
+helm uninstall my-nginx -n default
+```
+
+------
+
+### 五、自定义配置（适配国内环境核心操作）
+
+默认 Chart 多为海外配置，需修改镜像地址、运行参数，两种常用方式：
+
+#### 方式 1：`--set` 临时参数（少量修改）
+
+
+
+```
+# 示例：部署 nginx，指定国内镜像、修改副本数
+helm install my-nginx bitnami/nginx \
+  --set replicaCount=2 \
+  --set image.registry=docker.m.daocloud.io \
+  --set image.repository=bitnami/nginx \
+  -n default
+```
+
+#### 方式 2：`values.yaml` 配置文件（生产推荐）
+
+1. 导出默认配置模板
+
+
+
+```
+helm show values bitnami/nginx > values.yaml
+```
+
+1. 编辑 `values.yaml`，修改镜像、端口、资源限制、副本数等参数
+2. 基于配置文件部署
+
+
+
+
+
+```
+helm install my-nginx bitnami/nginx -f values.yaml -n default
+```
+
+------
+
+### 六、实操案例：Helm 部署 metrics-server（国内可用版）
+
+对应你之前手动部署的场景，一键解决镜像与参数问题：
+
+
+
+
+
+```
+helm install metrics-server bitnami/metrics-server \
+  -n kube-system \
+  --set image.registry=docker.m.daocloud.io \
+  --set image.repository=bitnami/metrics-server \
+  --set image.tag=0.7.2 \
+  --set extraArgs.kubelet-insecure-tls=true \
+  --set extraArgs.kubelet-preferred-address-types=InternalIP
+```
+
+------
+
+### 七、注意事项
+
+1. Release 是**命名空间级资源**，不同命名空间下同名 Release 相互独立。
+2. Chart 版本 ≠ 应用版本：前者是包的版本，后者是镜像内软件的版本。
+3. 生产环境推荐用 `values.yaml` 管理配置，便于版本化留存，避免大量 `--set` 零散参数。
+4. `helm uninstall` 默认删除该 Release 关联的所有 K8s 资源，PVC 是否保留取决于 Chart 配置。
+
+
+
+
+
+## [课程小结](https://docs.chengkanghua.top/k8s-2023/4Kubernetes进阶实践?id=课程小结)
 
 
 

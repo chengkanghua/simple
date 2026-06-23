@@ -419,6 +419,811 @@ strace`、`ltrace`、`lsmod`、`modprobe
 
 
 
+# Linux 底层核心基础知识（运维 / SRE 面试高频体系）
+
+## 一、计算机硬件基础（冯・诺依曼体系）
+
+1. 五大组成：运算器、控制器（CPU）、存储器（内存 / 磁盘）、输入设备、输出设备
+2. 总线架构：地址总线、数据总线、控制总线
+3. 内存、CPU 缓存（L1/L2/L3）、磁盘、网卡硬件原理
+4. 字节、位、大小端、进制、二进制原理
+
+## 二、操作系统基础原理
+
+1. 操作系统作用：管理硬件、向上提供系统调用、隔离软硬件
+2. 内核态 & 用户态区别、系统调用工作流程、上下文切换
+3. 内核分类：宏内核（Linux）、微内核、混合内核
+4. 操作系统启动流程：BIOS/UEFI → GRUB → 内核加载 → systemd 初始化
+
+## 三、进程管理（重中之重）
+
+1. 进程定义：资源分配最小单位；线程：调度最小单位（轻量级进程 LWP）
+2. PCB 进程控制块 `task_struct` 存储的所有信息
+3. 7 大内核进程状态 + ps 展示 R/S/D/Z/T/X/I 含义
+4. 进程创建：`fork`、`exec`、COW 写时复制原理
+5. 僵尸进程、孤儿进程产生原因、危害、解决方案
+6. 进程调度：CFS 完全公平调度、nice、优先级、时间片、负载均衡、平均负载
+7. 守护进程、会话、进程组、前台 / 后台进程、nohup/setsid 原理
+8. 信号机制：常见信号、信号三处理方式、信号屏蔽、不可杀死信号 9/19
+9. 资源限制 `ulimit`、/proc 伪文件系统
+
+## 四、内存管理子系统
+
+1. 虚拟内存、物理内存、MMU 内存管理单元、页表
+2. 页式内存管理、缺页异常、请求调页
+3. VMA 虚拟内存区域：代码段、数据段、堆、栈、共享库
+4. 伙伴系统物理内存分配、slab 分配器
+5. Swap 交换分区、kswapd 内存回收、swappiness 参数
+6. OOM Killer 触发条件、打分机制、内存泄漏、缓冲区溢出
+7. 内存常用排查命令：free、vmstat、sar、pmap、perf
+
+## 五、文件系统与 IO 子系统
+
+1. VFS 虚拟文件系统作用、统一接口屏蔽不同文件系统差异
+2. inode、block、superblock、硬链接、软链接原理
+3. Ext 文件系统、日志文件系统、块设备、字符设备区别
+4. Buffer Cache、Page Cache 缓存机制、脏页刷盘
+5. IO 分类：随机 IO / 顺序 IO、阻塞 IO、直接 IO
+6. IO 调度算法、iowait 高的原因、磁盘坏道排查
+7. 软硬链接区别、文件删除原理、lsof 找回误删文件
+8. 常用 IO 排查：iostat、iotop、dmesg、strace
+
+## 六、进程间通信 IPC
+
+1. IPC 全称：Inter-Process Communication
+2. 管道（匿名、命名管道）、信号
+3. System V IPC：消息队列、信号量（互斥同步）、共享内存（最快 IPC）
+4. Unix 域套接字
+
+## 七、Linux 网络协议栈（重中之重）
+
+1. TCP/IP 五层模型：物理层→数据链路层→网络层→传输层→应用层
+2. 以太网、ARP 协议、MAC 地址、MTU
+3. IP 协议、路由原理、子网掩码、网关、NAT
+4. TCP 协议：三次握手、四次挥手、11 种状态、滑动窗口、拥塞控制、超时重传、粘包
+5. UDP 特性、DNS、HTTP/HTTPS 原理
+6. 内核网络参数：tcp_tw_reuse、tcp_keepalive、epoll 多路复用
+7. 常用网络排查：ss、netstat、tcpdump、wireshark、mtr、route
+
+## 八、设备驱动子系统
+
+1. 三大设备：字符设备、块设备、网络设备
+2. 设备号（主设备号、次设备号）、mknod 创建设备文件
+3. 文件操作结构体、驱动注册原理
+4. 中断、软中断、硬中断原理
+
+## 九、权限与用户体系
+
+1. 用户、用户组、UID/GID、超级用户、普通用户
+2. 文件 rwx 权限、ugo、数字权限、特殊权限（SUID/SGID/Sticky）
+3. ACL 访问控制列表、umask、sudo 权限原理
+4. 进程权限：uid/euid/suid/gid
+
+## 十、Shell、软件包、系统服务
+
+1. Shell 运行原理、环境变量、父子 Shell
+2. yum/rpm、编译安装原理、动态链接库 ldd
+3. systemd 管理服务、单元、依赖、开机自启
+4. 定时任务 crontab 原理
+
+## 十一、内核相关
+
+1. 内核参数 `/proc`、`/sys`、`sysctl` 调优
+2. 内核模块加载卸载（insmod/rmmod）
+3. 内核日志 dmesg、rsyslog 日志系统
+4. 内核崩溃、core 文件、perf 性能分析
+
+
+
+```bash
+Linux 底层核心面试精简背诵版（SRE / 运维高频考点）
+一、计算机硬件 & 操作系统基础
+1. 冯・诺依曼体系
+五大部件：运算器、控制器、存储器、输入设备、输出设备
+核心三点：二进制存储、存储程序原理、五大硬件协同
+现代 CPU 属于改良哈佛架构（指令缓存、数据缓存分离）
+2. 用户态 & 内核态
+用户态：应用程序运行空间，权限受限，不能直接操作硬件
+内核态：内核运行空间，拥有最高硬件操作权限
+切换方式：系统调用、硬件中断、异常；频繁上下文切换会消耗 CPU
+内核类型：Linux 是宏内核，驱动、文件系统、网络全部在内核态运行
+3. Linux 系统启动流程
+BIOS/UEFI → GRUB 引导程序 → 加载内核 → 挂载根文件系统 → systemd (PID=1) 初始化 → 启动系统服务
+二、进程管理（高频重点）
+进程：资源分配最小单位；线程：CPU 调度最小单位（Linux 下线程是轻量级进程 LWP，共享进程资源，仅私有栈）
+PCB：task_struct，内核用来管理进程的结构体，存放 PID、内存、文件、信号、调度、权限等所有资源信息
+进程 7 种内核状态
+R 运行就绪、S 可中断睡眠、D 不可中断睡眠（磁盘 IO 阻塞，kill -9 杀不掉）
+T 暂停、t 被调试、Z 僵尸、X 消亡
+进程创建：fork()复制父进程资源，采用写时复制 COW，不立刻复制物理内存，修改时才分配；execve()加载新程序，清空用户地址空间
+僵尸进程：子进程先退出，父进程未调用wait/waitpid回收 PCB；危害：占用 PID 资源；解决：父进程捕获SIGCHLD信号回收、fork 两次、托管给 systemd
+孤儿进程：父进程先退出，子进程被 PID=1 的 systemd 收养，不会成为僵尸
+平均负载：单位时间内，处于可运行态 + 不可中断睡眠态的进程总数
+CFS 完全公平调度：根据 nice 值 (-20~19) 分配时间片，保证公平调度
+信号：常用 SIGINT (2)、SIGKILL (9 不可屏蔽)、SIGTERM (15 优雅退出)、SIGCHLD；三种处理方式：默认、忽略、自定义捕获
+守护进程：fork 两次 + setsid 创建新会话、重定向标准输入输出错误、修改工作目录、设置文件权限掩码
+三、内存管理
+虚拟内存：隔离进程地址空间，每个进程拥有独立 0~4G 虚拟地址，通过 MMU + 页表映射到物理内存
+缺页异常：进程访问未映射物理内存的虚拟页，内核触发请求调页，从磁盘加载数据到内存
+进程五大虚拟内存区域 VMA：代码段、只读常量段、全局数据段、堆（向上增长）、栈（向下增长）
+物理内存分配：伙伴系统（管理连续内存块，解决外部碎片）、slab 分配器（分配小内存对象，内核结构体）
+内存回收：kswapd 后台线程，回收页缓存、匿名页；swappiness 控制使用 swap 的倾向
+OOM Killer：物理内存耗尽触发，根据 oom_score 打分，杀死占用内存高的进程释放资源
+内存泄漏：进程申请堆内存未释放，内存持续上涨，最终触发 OOM
+四、文件系统与 IO 子系统
+VFS 虚拟文件系统：内核抽象层，向上提供统一文件操作接口，屏蔽 ext4、xfs、nfs 等不同文件系统差异
+inode：存储文件元数据（权限、大小、时间、数据块指针），不存文件名；文件名存在目录块中
+硬链接：同一 inode 多个目录项，不能跨分区、不能链接目录；软链接是独立文件，存放文件路径，可跨分区、链接目录
+Buffer Cache 块缓存：缓存磁盘块；Page Cache 页缓存：文件读写页缓存；脏页：内存修改未刷入磁盘，定时 pdflush 刷盘
+IO 类型：顺序 IO、随机 IO；iowait 高：CPU 空闲，进程等待磁盘 IO 完成
+误删文件恢复：只要文件被进程占用，通过lsof找到临时句柄恢复；无进程占用无法恢复
+设备分类：字符设备（字节流：键盘、串口）、块设备（块缓存：磁盘）、网络设备
+五、进程间通信 IPC
+IPC 全称：Inter-Process Communication 进程间通信
+管道：匿名管道（仅父子进程单向通信）、命名管道 FIFO（任意进程）
+信号：异步简短通知
+System V IPC（集群常用）
+消息队列：结构化消息异步通信
+信号量：计数器，用于进程互斥、同步
+共享内存：最快 IPC，无数据拷贝，必须配合信号量做互斥保护
+Unix 域 Socket：本机高性能进程通信
+六、网络协议栈（必考）
+1. TCP/IP 五层模型
+物理层→数据链路层 (以太网、ARP)→网络层 (IP)→传输层 (TCP/UDP)→应用层
+2. 链路层
+ARP：IP 解析 MAC；MTU 最大传输单元默认 1500 字节
+3. 网络层
+IP 寻址、路由转发、NAT、子网划分
+4. 传输层 TCP 核心
+三次握手：建立可靠连接，协商初始序列号、窗口大小、MSS
+四次挥手：双向断开连接，主动关闭方 FIN、被动回复 ACK，被动发 FIN、主动最后 ACK
+TIME_WAIT：主动关闭方停留 2MSL，确保对方收到最后 ACK、防止旧报文干扰新连接
+可靠机制：序号确认、超时重传、滑动窗口、拥塞控制、流量控制
+UDP：无连接、不可靠、开销小，适合直播、DNS
+5. 高频网络故障
+TIME_WAIT 过多优化、端口复用、半连接队列溢出、丢包、软中断过高
+七、设备驱动子系统
+设备三大类：字符设备、块设备、网络设备
+设备号 = 主设备号（定位驱动）+ 次设备号（定位设备实例）
+/dev下设备文件通过mknod创建，VFS 通过设备号绑定驱动的file_operations操作函数集
+中断：硬中断（硬件通知内核，快速处理）、软中断（内核延时处理复杂逻辑，网络收发包）
+八、用户权限 & 系统基础
+UID/GID：用户、用户组唯一标识，root UID=0
+文件 rwx 权限：ugo（用户、同组、其他），数字权限 4/2/1
+特殊权限：SUID (4)、SGID (2)、Sticky (1)
+sudo：临时借用管理员权限，配置文件/etc/sudoers
+ulimit：进程资源限制，常见 nofile 最大文件句柄数、nproc 最大进程数
+九、内核与系统运维工具
+/proc：伪文件系统，实时查看内核、进程、硬件运行信息
+sysctl：修改内核运行参数，永久配置/etc/sysctl.conf
+性能工具
+CPU：top、vmstat、sar、perf
+内存：free、vmstat、pmap
+IO：iostat、iotop、strace
+网络：ss、tcpdump、mtr
+系统日志：rsyslog、dmesg 查看内核日志
+```
+
+
+
+# Linux 底层高频面试一问一答精简版（运维 / SRE 必背）
+
+```bash
+
+一、操作系统基础
+1. 什么是冯・诺依曼体系结构？
+答：①采用二进制表示数据和指令；②存储程序原理，程序和数据放在同一存储器；③计算机由运算器、控制器、存储器、输入、输出五大部件组成。
+2. 用户态和内核态区别？为什么需要两种状态？
+答：
+用户态：普通应用运行空间，权限受限，不能直接操作硬件、访问内核资源；
+内核态：内核运行空间，拥有最高权限，可以操作硬件、管理进程内存网络等。
+切换方式：系统调用、硬件中断、程序异常。
+目的：保护硬件安全，防止应用随意篡改系统资源，保证系统稳定。
+3. Linux 属于什么内核？有什么特点？
+答：宏内核。文件系统、进程调度、网络协议栈、设备驱动全部运行在内核态，执行效率高，但某个模块崩溃可能导致整个内核宕机。
+4. Linux 开机启动流程？
+答：BIOS/UEFI 自检 → GRUB 引导加载内核 → 内核解压挂载根文件系统 → PID=1 进程 systemd 启动 → 依次启动系统运行级别服务、网络、定时任务等。
+二、进程管理（最高频）
+1. 进程和线程区别？
+答：
+进程：资源分配的最小单位，拥有独立虚拟地址空间、文件描述符、信号资源；
+线程：CPU 调度最小单位，Linux 是轻量级进程 LWP，同进程内线程共享内存、fd，仅拥有独立栈、寄存器，切换开销小。
+2. task_struct 是什么？存放哪些内容？
+答：PCB 进程控制块，内核用来管理进程的结构体。存放 PID、PPID、进程状态、优先级、内存地址指针、文件描述符、信号、CPU 耗时、资源限制等所有进程信息。
+3. ps 里 R、S、D、Z、T 分别什么含义？
+答：
+R：运行 / 就绪态；
+S：可中断睡眠，可被信号唤醒；
+D：不可中断睡眠，一般等待磁盘 IO，kill -9 无法杀死；
+Z：僵尸进程，子进程退出父进程未回收 PCB；
+T：进程暂停（SIGSTOP/gdb 调试）。
+4. 什么是 COW 写时复制？
+答：fork 创建子进程时，不会立刻复制父进程物理内存，父子共享同一块物理页；只有任意一方修改内存数据时，才会分配新物理内存拷贝数据，减少 fork 开销。
+5. 僵尸进程怎么产生？危害？如何解决？
+答：产生：子进程先退出，父进程没有调用 wait/waitpid 回收子进程退出状态，PCB 残留在系统。
+危害：占用 PID 号，大量僵尸会导致无法新建进程。
+解决：1. 父进程捕获 SIGCHLD 信号异步回收；2.fork 两次让孙子进程被 systemd 收养；3. 父进程主动 wait 回收。
+6. 孤儿进程是什么？有危害吗？
+答：父进程先退出，子进程被 PID=1 的 systemd 进程收养，孤儿进程退出后会被 1 号进程自动回收，不会变成僵尸进程，无危害。
+7. 平均负载 Load Average 含义？
+答：单位时间内，系统中处于运行态 + 不可中断睡眠态的进程平均数量。超过 CPU 核心数代表 CPU 繁忙。
+8. nice 值范围、作用？
+答：范围 - 20~19，数值越小优先级越高，CFS 调度器根据 nice 分配时间片。
+9. 常用信号 SIGINT、SIGKILL、SIGTERM、SIGCHLD 区别？
+答：
+SIGINT (2)：Ctrl+C 终止前台进程；
+SIGTERM (15)：默认 kill 发送，优雅退出，程序可捕获做清理；
+SIGKILL (9)：强制杀死，不可捕获、屏蔽、忽略；
+SIGCHLD：子进程退出时发给父进程，用来回收僵尸进程。
+10. 守护进程怎么创建？
+答：fork 两次、setsid 创建新会话、重定向标准输入输出错误、修改工作目录、设置 umask 权限掩码。
+三、内存管理
+1. 虚拟内存作用？
+答：①隔离进程地址空间，进程之间互不干扰；②内存抽象，进程可以使用远超物理内存大小的地址；③利用 MMU + 页表完成虚拟地址到物理内存映射，实现内存权限控制。
+2. 进程虚拟内存分为哪几段？
+答：代码段、只读数据段、全局数据段、堆（向上增长）、栈（向下增长）、共享库区域。
+3. 什么是缺页异常？
+答：进程访问虚拟内存地址没有映射物理内存，触发缺页中断，内核执行请求调页，从磁盘把数据加载进物理内存，建立页表映射。
+4. 伙伴系统、slab 分配器作用？
+答：伙伴系统：分配连续物理内存，解决外部内存碎片；
+slab：分配内核小对象（task_struct 等结构体），减少频繁创建销毁的性能损耗。
+5. swappiness 参数作用？
+答：取值 0~100，数值越大，内核越倾向使用 Swap 交换分区，一般线上调小减少 swap 频繁换入换出。
+6. OOM Killer 触发条件？怎么打分？
+答：物理内存 + Swap 耗尽触发。内核根据 oom_score 打分，分值越高越优先被杀死释放内存。
+7. 内存泄漏是什么？
+答：进程堆内存申请后没有释放，内存占用持续上涨，最终耗尽系统内存触发 OOM。
+四、文件系统与 IO
+1. VFS 作用？
+答：虚拟文件系统，内核抽象层，向上给应用提供 open/read/write 统一调用接口，向下屏蔽 ext4、xfs、nfs 等不同文件系统差异。
+2. inode 存放什么？为什么文件名不在 inode 里？
+答：inode 存放文件元数据：权限、大小、时间、数据块指针、硬链接数。文件名存放在目录的 block 中，目录本质也是文件，记录文件名与 inode 映射。
+3. 硬链接和软链接区别？
+答：
+硬链接：多个文件名指向同一个 inode，不能跨分区、不能链接目录，删除一个硬链接只是目录项删除，inode 不回收；
+软链接：独立文件，存放目标路径，可以跨分区、链接目录，源文件删除后软链接失效。
+4. Page Cache、Buffer Cache 作用？脏页是什么？
+答：Page Cache 缓存文件页，Buffer Cache 缓存磁盘块；脏页是内存中修改过但还未同步到磁盘的数据，由内核线程定时刷盘。
+5. iowait 高一定是 CPU 忙吗？原因是什么？
+答：不是，CPU 空闲，大量进程阻塞等待磁盘 IO 完成导致。常见：随机 IO 多、磁盘故障、大量刷脏页、存储性能差。
+6. 误删文件怎么恢复？
+答：文件被进程占用时，可以通过 lsof 找到进程打开的临时文件句柄恢复；如果没有进程占用，无法恢复。
+7. 字符设备和块设备区别？
+答：字符设备：字节流式访问，无缓存，键盘、串口、终端；
+块设备：按固定块访问，自带缓存，磁盘、SSD。
+五、进程间通信 IPC
+1. IPC 英文全称？Linux 有哪些 IPC 方式？
+答：Inter-Process Communication 进程间通信。
+管道、命名管道、信号、System V IPC（消息队列、信号量、共享内存）、Unix 域套接字。
+2. 匿名管道特点？
+答：只能用于有亲缘关系进程间通信，单向半双工，基于内核缓冲区。
+3. 共享内存为什么是最快的 IPC？需要注意什么？
+答：多个进程直接映射同一块物理内存，没有数据拷贝。本身无同步机制，必须搭配信号量、互斥锁做进程互斥，防止并发读写错乱。
+4. 信号量作用？
+答：计数器，实现进程、线程之间的互斥访问与同步等待。
+六、网络协议栈
+1. TCP 三次握手过程，为什么三次？
+答：客户端发 SYN；服务端回 SYN+ACK；客户端回 ACK。
+目的：双向确认收发能力、协商初始序列号、窗口大小，防止历史无效连接报文建立连接。
+2. TCP 四次挥手过程，为什么四次？
+答：客户端发 FIN；服务端 ACK；服务端 FIN；客户端 ACK。
+因为 TCP 全双工，关闭需要分别关闭两个方向数据流，服务端收到 FIN 可能还有剩余数据要发送。
+3. TIME_WAIT 作用？为什么等待 2MSL？
+答：1. 确保对方收到最后一次 ACK，避免丢包导致对方重传 FIN；2. 防止老旧连接报文干扰新连接。主动关闭方停留 2 倍报文最大生存时间。
+4. TCP 可靠传输靠哪些机制？
+答：序号与确认应答、超时重传、流量控制（滑动窗口）、拥塞控制、差错校验。
+5. TCP 和 UDP 区别？
+答：TCP 面向连接、可靠、有序、流量拥塞控制，适合文件传输；
+UDP 无连接、不可靠、开销小、实时性高，适合直播、DNS、语音视频。
+6. ARP 协议作用？MTU 是什么？
+答：ARP 根据 IP 地址解析 MAC 地址；MTU 链路层最大传输单元，以太网默认 1500 字节。
+七、设备驱动
+1. 设备号组成？作用？
+答：主设备号：绑定对应驱动；次设备号：区分同一驱动下不同硬件实例。系统通过设备号找到对应的驱动操作函数。
+2. 硬中断、软中断区别？
+答：硬中断：硬件触发，处理要快，只做简单工作；软中断：内核延迟处理复杂业务，比如网卡大量收包解析。
+八、权限与系统基础
+1. rwx 权限数字表示？ugo 含义？
+答：r=4 w=2 x=1；ugo 分别代表文件所属用户、同组用户、其他用户。
+2. 三个特殊权限 SUID、SGID、Sticky 作用？
+答：SUID：程序临时以文件属主权限运行；
+SGID：目录下新建文件继承目录所属组；
+Sticky：目录内文件只能所有者删除，典型 /tmp 目录。
+3. ulimit 作用？线上最常调哪个参数？
+答：限制单个进程资源上限，最常调 nofile 最大打开文件句柄数，防止 too many open files 报错。
+```
+
+
+
+# Linux 高频线上报错 + 排查思路（面试问答版）
+
+```bash
+一、CPU 类故障
+1. 现象：服务器 load average 很高，但 CPU 使用率很低
+原因：大量进程处于不可中断睡眠 D 状态，等待磁盘 IO、存储挂载卡死、NFS 挂载故障。
+排查：
+ps -ef | awk '$8 ~ /D/' 查看 D 状态进程
+iostat -x 1 看 % iowait 占比
+检查 NFS、SAN 存储是否掉线，磁盘硬件故障
+解决：修复存储；D 进程无法 kill，只能重启进程或服务器。
+2. CPU 使用率 100%，负载很高
+排查步骤：
+top 按 P 排序，定位占用 CPU 最高 PID
+ps -H -p PID 看是哪个线程占用高
+perf top -p PID 查看内核 / 用户态哪个函数耗 CPU
+strace -p PID 跟踪系统调用定位死循环、频繁调用
+3. 上下文切换过高（cs 列频繁上涨）
+原因：多线程锁竞争、大量短进程频繁创建销毁、频繁 IO、调度频繁。
+排查：vmstat 1 观察 cs 数值；perf trace 分析频繁系统调用。
+二、内存类故障
+1. 进程莫名被杀死，系统日志 OOM killer
+现象：dmesg -T 可以看到 Out of memory: Kill process xxx
+原因：物理内存耗尽，内核触发 OOM，按 oom_score 杀掉高内存进程释放内存。
+排查：
+free -h 查看内存、swap 使用
+cat /proc/xxx/oom_score 看进程打分
+优化方案：
+优化程序内存泄漏；调整 swapiness；限制容器内存；业务扩容分散压力。
+2. 可用物理内存很少，buff/cache 占用很高
+原因：Linux 会尽量利用空闲内存做文件页缓存，提升读写性能，不是内存泄漏。
+手动释放缓存：
+bash
+运行
+echo 3 > /proc/sys/vm/drop_caches
+业务高峰期不建议频繁清理，会导致 IO 飙升。
+3. 内存泄漏如何定位？
+top 观察进程 RSS 持续上涨
+pmap -x PID 查看各段虚拟内存占用
+valgrind 线下检测 C/C++ 堆泄漏；Java 用 jmap、jstack 分析堆。
+三、磁盘 & IO 故障
+1. iowait 很高，业务响应慢
+原因：随机 IO 多、磁盘性能差、大量刷脏页、raid 故障、NFS 卡顿。
+排查：
+iostat -x 1 查看 % util 是否接近 100%
+iotop 定位哪个进程大量读写磁盘
+检查磁盘坏道、RAID 状态、存储链路
+2. 磁盘空间 df -h 显示满了，但找不到大文件
+原因：文件被进程删除，但进程还持有文件句柄，空间不会释放。
+排查：lsof | grep deleted
+解决：重启持有文件的进程释放空间。
+3. 磁盘 inode 耗尽（df 正常，touch 文件提示空间不足）
+原因：大量小文件占用 inode（日志、临时文件），block 没满但 inode 用尽。
+排查：df -i 查看 inode 使用率；find / -type f | wc -l 统计小文件数量。
+四、进程类故障
+1. 大量僵尸进程 Z
+原因：父进程没有捕获 SIGCHLD，没有调用 wait 回收子进程 PCB。
+危害：PID 资源耗尽，无法新建进程。
+排查：ps -ef | grep defunct
+解决：重启父进程；代码捕获 SIGCHLD 回收；fork 两次。
+2. 进程 D 状态无法 kill -9 杀掉
+原因：进程正在等待硬件 IO、NFS、锁资源，处于不可中断睡眠，信号无法递达。
+解决：修复底层存储故障；重启服务器。
+3. 报错：too many open files
+原因：进程打开文件、socket 句柄超出 ulimit 的 nofile 限制，发生句柄泄漏。
+排查：
+lsof -p PID | wc -l 统计进程打开句柄数
+解决：
+临时：ulimit -n 65535
+永久修改 /etc/security/limits.conf
+代码关闭不用的文件、socket。
+五、网络类高频故障
+1. 大量 TIME_WAIT 连接，端口耗尽，新建连接失败
+原因：短连接频繁创建关闭，主动关闭方大量 TIME_WAIT 占用端口。
+优化内核参数：
+plaintext
+net.ipv4.tcp_tw_reuse = 1
+net.ipv4.tcp_timestamps = 1
+net.ipv4.ip_local_port_range = 1024 65535
+2. 大量 ESTABLISHED 连接不释放，服务卡死
+排查：ss -ant | grep ESTAB；检查是否没有心跳保活、客户端异常断网。
+优化 tcp_keepalive 相关内核参数。
+3. 服务能 ping 通，但是端口 telnet 不通
+排查顺序：
+服务是否正常监听 ss -lntp | grep 端口
+监听 IP 是否为 0.0.0.0，而非 127.0.0.1
+防火墙 firewalld/iptables 是否放行端口
+云服务器安全组是否放通出入规则
+4. 网络丢包，业务超时
+排查：
+mtr 目标IP 逐跳定位丢包节点
+tcpdump 抓包看是否重传、乱序
+查看网卡是否有错包、丢包：ethtool eth0、ifconfig
+检查网卡软中断是否均衡，多队列网卡 irq 绑定 CPU。
+5. 连接出现 Connection refused
+三种原因：
+服务没启动；
+服务只监听 127.0.0.1；
+防火墙拦截。
+六、系统服务类报错
+1. E325:ATTENTION vim 报错
+原因：上次异常退出，产生.swp交换文件。
+解决：rm -rf .xxx.swp
+2. rpcbind.socket 启动失败日志报错
+原因：未安装 rpcbind，用于 NFS 服务。
+不用 NFS：systemctl mask rpcbind.socket 屏蔽即可；
+需要 NFS：yum install -y rpcbind 安装启动。
+3. 命令报错：cannot create regular file: Permission denied
+原因：文件 / 目录权限不足、SELinux 拦截、文件系统只读挂载。
+排查：
+查看 rwx 权限；
+getenforce 临时关闭 setenforce 0 测试；
+检查文件系统是否只读 mount。
+七、K8s 常见故障（SRE 高频）
+1. Pod 状态 Pending
+常见原因：
+节点资源不足（CPU / 内存）；
+没有匹配的污点容忍、节点亲和策略；
+PVC 没有绑定 PV；
+镜像拉取失败、私有仓库认证失败。
+排查：kubectl describe pod xxx 看事件。
+2. Pod CrashLoopBackOff 反复重启
+原因：启动命令错误、配置文件错误、权限不足、健康检查失败、内存 OOM。
+排查：kubectl logs podname -p 查看上一次崩溃日志。
+3. Service 无法访问 Pod
+排查：
+查看 Endpoints 是否有后端 PodIP；
+检查 kube-proxy 正常运行；
+容器内端口和 service 端口是否一致；
+容器防火墙是否拦截。
+```
+
+
+
+# 线上故障标准排查固定流程（通用万能模板，SRE / 运维必背）
+
+```bash
+整体排查顺序：先系统 → 再硬件 IO → 网络 → 进程 / 容器 → 应用日志
+第一步：先看系统全局状态（5 秒定位大方向）
+查看负载、CPU、运行时间
+bash
+运行
+uptime
+top
+重点观察：
+Load Average 是否远大于 CPU 核心数
+us、sy、id、wa 四个 CPU 占比
+有没有 D、Z 状态异常进程
+查看内存、Swap 使用
+bash
+运行
+free -h
+vmstat 1
+重点：Swap 是否频繁升高，dmesg 查看是否触发 OOM 杀死进程。
+查看磁盘整体使用率
+bash
+运行
+df -h
+df -i  # 检查inode是否耗尽
+第二步：CPU 异常专项排查
+CPU 使用率高（us/sy 高）
+top 按 P，定位高 CPU PID
+H 显示线程，定位耗 CPU 线程
+perf top -p PID 定位耗 CPU 函数
+strace -p PID 跟踪频繁系统调用（死循环、频繁文件 / 网络操作）
+% iowait 很高、空闲 CPU 多
+属于 IO 阻塞，不是 CPU 繁忙，进入磁盘 IO 排查环节
+上下文切换 cs 暴涨
+多线程锁竞争、大量短进程、频繁系统调用
+vmstat 1 持续观察 cs、in 数值
+第三步：内存异常专项排查
+进程莫名消失、被杀死
+bash
+运行
+dmesg -T | grep -i oom
+出现 OOM 日志：内存不足，程序内存泄漏、容器配额太小。
+buff/cache 占用极高
+Linux 机制，空闲内存用作缓存提升 IO 性能，业务平稳时可清理：
+bash
+运行
+echo 3 > /proc/sys/vm/drop_caches
+单个进程内存持续上涨
+pmap -x PID 查看虚拟内存各段占用
+业务侧排查内存泄漏
+第四步：磁盘 & IO 专项排查（iowait 高必查）
+全局磁盘 IO 负载
+bash
+运行
+iostat -x 1
+重点：% util 接近 100%、% iowait 很高 = 磁盘瓶颈
+定位哪个进程在疯狂读写
+bash
+运行
+iotop
+磁盘满但找不到大文件
+bash
+运行
+lsof | grep deleted
+文件已删除但进程持有句柄，重启进程释放空间。
+inode 耗尽（df 正常，无法新建文件）
+bash
+运行
+df -i
+find / -type f | wc -l
+大量小日志 / 临时文件占用 inode，清理无用小文件。
+D 状态进程无法 kill
+多为 NFS/SAN 存储掉线、磁盘硬件故障，修复存储或重启服务器。
+第五步：网络专项排查（超时、连接失败、丢包）
+基础连通性
+bash
+运行
+ping 目标IP
+mtr 目标IP  # 逐跳定位丢包节点
+查看连接状态
+bash
+运行
+ss -ant | sort
+重点观察：TIME_WAIT、ESTABLISHED、LISTEN 数量
+TIME_WAIT 过多：开启端口复用内核参数优化
+LISTEN 为空：服务未启动、监听 127.0.0.1
+端口访问失败排查顺序
+1）服务是否正常监听 ss -lntp | grep 端口
+2）监听地址是否是 0.0.0.0
+3）防火墙 / 安全组是否放行端口
+4）抓包验证报文是否到达本机 tcpdump -i 网卡 port 端口
+网卡异常
+bash
+运行
+ifconfig / ethtool 网卡名
+查看 error、dropped、overrun 是否持续增长，网卡软中断是否均衡。
+
+第六步：进程 / 容器资源限制排查
+打开文件句柄超限 too many open files
+bash
+运行
+lsof -p PID | wc -l
+ulimit -n
+临时调大 + 修改 limits.conf 永久生效。
+僵尸进程堆积
+bash
+运行
+ps -ef | grep defunct
+父进程未回收子进程，优化业务代码或重启父进程。
+K8s 容器故障固定排查
+1）Pod 状态 Pending：kubectl describe pod xxx 看事件（资源不足、PVC 未绑定、污点、镜像拉取失败）
+2）CrashLoopBackOff：kubectl logs pod -p 查上一轮崩溃日志（启动命令错、权限、OOM、健康检查失败）
+3）Service 无法访问：检查 Endpoints、kube-proxy、容器监听端口
+
+第七步：系统日志 + 应用日志定位根因
+系统内核日志
+bash
+运行
+dmesg -T
+tail -f /var/log/messages
+查看硬件报错、OOM、磁盘异常、内核崩溃。
+应用日志
+优先看：错误堆栈、超时、数据库连接耗尽、文件权限拒绝、配置错误。
+
+第八步：故障临时恢复 → 根因分析 RCA
+先快速恢复业务：扩容、重启服务、切换节点、清理磁盘、临时放开限制；
+再做根因定位：不能只重启了事；
+输出 RCA：现象→时间线→直接原因→根本原因→优化方案 + 预防手段。
+
+极简背诵版排查口诀
+先看负载 CPU 内存，再查磁盘 IO 高不高；
+连通丢包 mtr 查，连接状态 ss 抓；
+句柄僵尸进程查，系统应用日志扒；
+容器先看 describe，崩溃必查历史 log；
+业务优先先恢复，事后复盘防复发。
+
+
+
+
+
+```
+
+# 线上故障一键排查命令脚本清单（直接复制执行）
+
+```bash
+一、系统全局概览（第一步必执行）
+
+uptime
+top
+free -h
+vmstat 1 3
+df -h
+df -i
+dmesg -T | grep -i oom
+
+二、CPU 高负载专项排查
+bash
+运行
+# 1. 定位CPU最高进程
+top -b -n 1 | head -30
+# 2. 查看进程内耗CPU的线程
+ps -H -p 进程PID
+# 3. 查看CPU占用函数
+perf top -p 进程PID
+# 4. 跟踪系统调用
+strace -p 进程PID
+# 5. 查看上下文切换
+vmstat 1
+
+三、内存异常排查
+bash
+运行
+# 查看内存、swap
+free -h
+vmstat 1
+# 查看进程内存占用排序
+ps aux --sort=-%mem | head -20
+# 查看进程虚拟内存分布
+pmap -x 进程PID
+# 查看OOM日志
+dmesg -T | grep -i kill
+# 清理缓存（业务低峰执行）
+echo 3 > /proc/sys/vm/drop_caches
+
+四、磁盘 IO 高、磁盘满排查
+bash
+运行
+# 1. 磁盘IO整体负载
+iostat -x 1 3
+# 2. 定位IO高的进程
+iotop
+# 3. 查找被删除但未释放的大文件
+lsof | grep deleted
+# 4. 查找大文件
+find / -type f -size +100M 2>/dev/null
+# 5. 统计inode占用
+df -i
+
+五、网络故障排查（超时、连不通、丢包、大量连接）
+bash
+运行
+# 1. 连通性+丢包定位
+ping 目标IP
+mtr -r 目标IP
+# 2. 查看端口监听
+ss -lntp | grep 端口
+# 3. 统计各类连接状态
+ss -ant | awk '{print $1}' | sort | uniq -c
+# 4. 抓包分析
+tcpdump -i any port 端口 -nn
+# 5. 查看网卡错包丢包
+ifconfig
+ethtool 网卡名
+
+六、进程异常：僵尸、D 状态、句柄超限
+bash
+运行
+# 查找僵尸进程
+ps -ef | grep defunct
+# 查找D状态进程
+ps aux | awk '$8 ~ /D/'
+# 统计进程打开文件句柄
+lsof -p 进程PID | wc -l
+# 查看进程资源限制
+ulimit -n
+cat /proc/进程PID/limits
+
+七、系统日志排查
+bash
+运行
+# 内核硬件、OOM、驱动报错
+dmesg -T
+# 系统全量日志
+tail -1000 /var/log/messages
+# 安全认证日志
+tail -1000 /var/log/secure
+
+八、K8s 容器故障专用命令
+bash
+运行
+# 1. Pending/异常Pod先看事件
+kubectl describe pod Pod名称 -n 命名空间
+# 2. 查看当前运行日志
+kubectl logs Pod名称 -n 命名空间
+# 3. 查看上一次崩溃日志（CrashLoopBackOff必用）
+kubectl logs Pod名称 -p -n 命名空间
+# 4. 检查后端服务端点
+kubectl get endpoints Service名 -n 命名空间
+# 5. 进入容器内部排查网络
+kubectl exec -it Pod名 -n 命名空间 -- /bin/bash
+九、内核参数临时查看（网络优化类）
+bash
+运行
+sysctl net.ipv4.tcp_tw_reuse
+sysctl net.ipv4.tcp_timestamps
+sysctl net.ipv4.ip_local_port_range
+
+--------------------------------------------------------------------
+线上排查命令 + 重点观察要点（一页速查）
+一、系统全局概览
+1. uptime
+看：1 分钟、5 分钟、15 分钟负载
+判断：负载＞CPU 核心数 → CPU 繁忙；负载高但 id 空闲 → 大概率 IO 阻塞（D 进程 /iowait 高）
+2. top
+%Cpu(s)
+us 高：用户程序代码耗 CPU；sy 高：内核 / 锁 / 系统调用频繁；
+wa 高：等待磁盘 IO；id 接近 0：CPU 跑满。
+进程列：看 STAT 有没有 D、Z 异常状态。
+RES：进程物理内存占用，持续上涨怀疑内存泄漏。
+3. free -h
+total/used/available：可用内存是否持续走低
+Swap used 持续上涨：内存不足，频繁换页，性能暴跌
+buff/cache 大属于正常，空闲内存内核做文件缓存
+4. vmstat 1 3
+si、so 频繁不为 0：Swap 频繁换入换出，内存紧张
+cs 上下文切换数值很高：多线程锁竞争、频繁系统调用
+b 阻塞进程多：IO 瓶颈
+5. df -h / df -i
+df：任一分区 Use% 接近 100% → 磁盘满
+df -i：Inodes Use% 100%：大量小文件，无法新建文件
+6. dmesg -T | grep -i oom
+有 Out of memory: Kill process 关键字：OOM 触发，进程被内核杀掉。
+二、CPU 高负载排查
+1. top -b -n 1 | head -30
+定位 PID，记录高占用进程。
+2. ps -H -p PID
+看哪个线程占用 CPU 高，Java/C++ 高频死循环场景。
+3. perf top -p PID
+用户态函数高：业务代码问题；内核态函数高：锁、IO、内核 BUG。
+4. strace -p PID
+同一系统调用反复执行：死循环、频繁文件 / 网络请求。
+三、内存异常排查
+1. ps aux --sort=-%mem | head -20
+找出内存占用 TOP 进程，观察 RES 是否持续增长。
+2. pmap -x PID
+重点看：anon 匿名堆内存持续飙升 → 内存泄漏。
+四、磁盘 IO 排查
+1. iostat -x 1 3
+%util 接近 100%：磁盘打满；
+%iowait 高，id 空闲：大量进程阻塞等 IO。
+2. iotop
+看哪个进程 DISK WRITE/READ 很高，定位 IO 大户。
+3. lsof | grep deleted
+找到已删除但句柄未释放的文件，磁盘满却找不到大文件的根因。
+五、网络故障排查
+1. mtr -r 目标 IP
+某一跳 Loss%＞0：中间链路丢包；最后一跳丢包：目标服务器问题。
+2. ss -lntp | grep 端口
+无结果：服务未启动；
+监听地址是127.0.0.1：只能本机访问，外部不通；
+0.0.0.0：全网段可访问。
+3. ss -ant | awk '{print $1}' | sort | uniq -c
+TIME_WAIT 数量巨大：短连接频繁创建，需要内核参数调优；
+ESTABLISHED 堆积不释放：无保活机制、连接泄漏。
+4. tcpdump -i any port xxx -nn
+只有 SYN 没有 SYN+ACK：防火墙拦截 / 服务没监听；
+大量重传包：网络丢包。
+5. ifconfig /ethtool 网卡名
+errors、dropped、overrun 持续上涨：网卡硬件 / 队列问题，需要调网卡队列、绑定 CPU。
+六、进程异常排查
+1. ps -ef | grep defunct
+出现大量 defunct：僵尸进程，父进程未回收子进程。
+2. ps aux | awk '$8 ~ /D/'
+存在 D 状态进程：不可中断 IO 阻塞，无法 kill，排查存储 / NFS。
+3. lsof -p PID | wc -l
+数值接近 ulimit -n 限制：句柄泄漏，会触发too many open files。
+七、系统日志排查
+1. dmesg -T
+查看：硬件报错、磁盘异常、OOM、内核崩溃、驱动错误。
+2. /var/log/messages
+系统服务异常、挂载失败、内核警告。
+3. /var/log/secure
+频繁认证失败：暴力破解、密钥 / 密码错误。
+八、K8s 容器故障排查要点
+1. kubectl describe pod xxx
+重点看 Events 事件：
+Insufficient cpu/memory：节点资源不足
+ErrImagePull：镜像拉取失败
+PVC not bound：PVC 未绑定 PV
+污点容忍、节点亲和策略不匹配。
+2. kubectl logs xxx -p
+上一次容器崩溃日志：权限拒绝、配置错误、OOM、启动命令异常。
+3. kubectl get svc + kubectl get ep
+Endpoints 为空：Service 没有后端可用 Pod；
+有 IP：检查 kube-proxy、防火墙、容器监听端口是否一致。
+九、内核网络参数查看
+net.ipv4.tcp_tw_reuse=1：开启 TIME_WAIT 端口复用
+net.ipv4.tcp_timestamps 必须开启，tw_reuse 才能生效
+ip_local_port_range：可用端口范围，端口耗尽可以适当扩容区间。
+
+
+```
+
+
+
 
 
 

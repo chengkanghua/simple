@@ -5,7 +5,7 @@
 https://mirrors.huaweicloud.com/python/
 https://www.python.org/downloads/release/python-390/
 
-                        
+
 ## 推荐教程地址
 
 [官方教程](https://docs.python.org/zh-cn/3/tutorial/index.html)

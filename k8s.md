@@ -6412,113 +6412,561 @@ Helm 是 Kubernetes 的**包管理工具**，等价于 Linux 系统的 yum/apt�
 
 #### 1. 二进制安装（稳定版 v3.14.0，兼容 K8s 1.20+）
 
-```
-wget https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz
-tar zxf helm-v3.14.0-linux-amd64.tar.gz
-mv linux-amd64/helm /usr/local/bin/
+```bash
+# k8s-master节点
+wget https://get.helm.sh/helm-v3.2.4-linux-amd64.tar.gz
+tar -zxf helm-v3.2.4-linux-amd64.tar.gz
+cp linux-amd64/helm /usr/sbin/
 helm version
+helm env
+
+
+
 ```
 
 #### 2. 配置国内 Chart 仓库（解决海外源访问失败）
 
 
 
-```
-# 添加阿里云同步的官方稳定仓库
+```bash
+# 查看仓库
+helm repo ls
+# 添加仓库
+helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo add aliyun https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
-# 添加 Bitnami 国内镜像（最全应用库）
-helm repo add bitnami https://mirrors.aliyun.com/bitnami/charts/bitnami/
-# 更新仓库索引
+# 同步最新charts信息到本地
 helm repo update
-# 查看已添加仓库
-helm repo list
+
+
+
+helm -n wordpress install wordpress stable/wordpress \
+--set mariadb.primary.persistence.enabled=false \
+--set service.type=ClusterIP \
+--set ingress.enabled=true \
+--set persistence.enabled=false \
+--set ingress.hostname=wordpress.luffy.com
 ```
 
 ------
 
 ### 四、核心部署全流程
 
-#### 1. 搜索可用 Chart
+```bash
+
+
+# helm 搜索chart包
+helm search repo wordpress
+
+kubectl create namespace wordpress
+# 从仓库安装
+$ helm -n wordpress install wordpress stable/wordpress --set mariadb.primary.persistence.enabled=false --set service.type=ClusterIP --set ingress.enabled=true --set persistence.enabled=false --set ingress.hostname=wordpress.luffy.com
+# 参数详细说明
+# 1. -n wordpress：指定部署到wordpress命名空间
+# 2. install wordpress：创建一个名为wordpress的Release实例
+# 3. stable/wordpress：使用stable仓库下的wordpress Chart包
+# 4. --set mariadb.primary.persistence.enabled=false：关闭MariaDB数据库的数据持久化（不创建PVC，Pod删除数据丢失）
+# 5. --set service.type=ClusterIP：Service类型设置为ClusterIP，仅集群内部可访问，不暴露节点端口
+# 6. --set ingress.enabled=true：开启Ingress七层反向代理，用于域名方式对外访问
+# 7. --set persistence.enabled=false：关闭wordpress网站目录持久化，不挂载存储卷
+# 8. --set ingress.hostname=wordpress.luffy.com：配置Ingress访问域名为wordpress.luffy.com
+
+
+# 查看release
+$ helm -n wordpress ls
+$ kubectl -n wordpress get all 
+
+# chart不适配k8s的ingress，需要添加上ingressClassName: nginx
+$ kubectl -n wordpress edit ing wordpress
+...
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: wordpress.luffy.com
+...
+
+# 从chart仓库中把chart包下载到本地
+helm pull stable/wordpress
+
+
+# 卸载
+helm -n wordpress uninstall wordpress
+
+
+```
+
+
+
+示例2
+
+```bash
+$ helm create nginx
+#快速生成名为 nginx 的自定义 Chart 模板目录，用来封装自己的 K8s 部署模板。
+#核心目录作用
+#Chart.yaml：Chart 描述文件，记录名称、版本、类型等元数据
+#values.yaml：全局配置文件，存放镜像、副本数、端口等可修改参数
+#templates/：存放 Deployment、Service 等 K8s 资源 yaml 模板，支持变量渲染
+#charts/：存放当前 Chart 依赖的其他 Chart 包
+
+
+# 从本地 安装到别的命名空间demo
+$ kubectl create namespace demo
+# Helm本地Chart部署命令
+helm -n demo install nginx ./nginx --set replicaCount=2 --set image.tag=alpine
+# 参数说明
+# -n demo：指定部署到demo命名空间
+# install nginx：设置本次Release名称为nginx
+# ./nginx：使用当前目录下自定义的nginx Chart模板
+# --set replicaCount=2：设置Pod副本数为2
+# --set image.tag=alpine：指定镜像标签为alpine版本
+
+# 查看
+$ helm ls
+$ helm -n demo ls
+
+# 含义：查看demo命名空间下常用基础K8s资源
+$ kubectl -n demo get all
+
+# 等价多条命令：
+kubectl -n demo get pods
+kubectl -n demo get service
+kubectl -n demo get deployment
+kubectl -n demo get replicaset
+
+# 补充：get all不会查询configmap、secret、ingress、pvc、pv、hpa等资源
+
+
+
+
 
 
 
 ```
-# 搜索 nginx 相关包
-helm search repo nginx
-# 搜索 metrics-server
-helm search repo metrics-server
+
+
+
+### char包 文件解析
+
+```bash
+$ tree nginx/
+nginx/
+├── charts                        # 存放子chart
+├── Chart.yaml                    # 记录 Chart 名称、版本、应用版本、描述、依赖等。
+├── templates                     # chart运行所需的资源清单模板，用于和values做渲染
+│   ├── deployment.yaml
+│   ├── _helpers.tpl              # 定义全局的命名模板，方便在其他模板中引入使用
+│   ├── hpa.yaml
+│   ├── ingress.yaml
+│   ├── NOTES.txt                # helm安装完成后终端的提示信息
+│   ├── serviceaccount.yaml
+│   ├── service.yaml
+│   └── tests
+│       └── test-connection.yaml
+└── values.yaml                    # 模板变量配置文件，YAML 语法
+
+资源清单都在templates中，数据来源于values.yaml，
+安装的过程将模板与数据融合成k8s可识别的资源清单，然后部署到k8s环境中。
+
+各模板文件作用
+deployment.yaml：工作负载模板
+service.yaml：Service 资源模板
+ingress.yaml：Ingress 路由模板
+hpa.yaml：自动扩缩容模板
+serviceaccount.yaml：服务账号模板
+_helpers.tpl：公共命名模板，统一拼接名称、标签，避免重复代码
+NOTES.txt：安装成功后命令行输出的提示文本，支持模板语法
+tests/ 下：Chart 安装后的连通性测试模板
+
+
+helm install --dry-run --debug debug-nginx ./nginx --set replicaCount=2 
+helm install --dry-run nginx ./nginx -n demo
+#--dry-run：只渲染模板、校验语法，不真正部署资源，日常改配置必用，属于常规预检查参数。
+#--debug：打印详细调试日志（变量渲染全过程、所有模板详情）
+# templates/ 目录（Go Template 模板语法 + YAML）
+helm 核心，将 values 变量渲染成标准 K8s YAML 资源。
+
+语法查看 & 调试命令（最常用）
+# 1. 本地渲染模板，输出最终yaml（检查语法错误最常用）
+helm template ./nginx
+# 2. 带命名空间+自定义参数渲染
+helm template ./nginx -n demo --set replicaCount=2
+# 3. 安装试运行，只校验不真正部署
+helm install --dry-run nginx ./nginx -n demo
+
+
+[root@k8s-master ~]# egrep -v '^#|^$' nginx/Chart.yaml
+apiVersion: v2   #Chart API 版本，固定 v2
+name: nginx
+description: A Helm chart for Kubernetes
+type: application
+version: 0.1.0
+appVersion: "1.16.0"
+------------------------------------------------------------------
+[root@k8s-master ~]# egrep -v "^ *#|^$" nginx/values.yaml
+replicaCount: 1  # Pod副本数量
+
+image:
+  repository: nginx  # 镜像名称
+  pullPolicy: IfNotPresent  # 镜像拉取策略，本地不存在才拉取
+  tag: ""  # 镜像标签，为空则默认使用Chart中appVersion
+
+imagePullSecrets: []  # 私有镜像仓库拉取凭证
+nameOverride: ""  # 自定义短名称，用于覆盖默认Chart名称
+fullnameOverride: ""  # 自定义资源完整名称
+
+serviceAccount:
+  create: true  # 是否自动创建ServiceAccount
+  automount: true  # 是否自动挂载ServiceAccount密钥到Pod
+  annotations: {}  # ServiceAccount注解
+  name: ""  # 自定义ServiceAccount名称
+
+podAnnotations: {}  # Pod维度注解
+podLabels: {}  # Pod自定义标签
+
+podSecurityContext: {}  # Pod安全上下文配置
+securityContext: {}  # 容器安全上下文配置
+
+service:
+  type: ClusterIP  # Service类型，默认集群内部访问
+  port: 80  # Service监听端口
+
+ingress:
+  enabled: false  # 是否开启Ingress网关
+  className: ""  # 指定IngressClass资源名称
+  annotations: {}  # Ingress注解配置
+  hosts:
+    - host: chart-example.local  # 访问域名
+      paths:
+        - path: /  # 路由访问路径
+          pathType: ImplementationSpecific  # 路径匹配策略
+  tls: []  # HTTPS证书配置
+
+httpRoute:
+  enabled: false  # 是否开启Gateway API的HTTPRoute
+  annotations: {}  # HTTPRoute注解
+  parentRefs:
+  - name: gateway
+    sectionName: http
+  hostnames:
+  - chart-example.local  # 访问域名
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /headers
+
+resources: {}  # Pod CPU、内存资源请求与限制
+
+livenessProbe:  # 存活探针，判断容器是否正常运行
+  httpGet:
+    path: /
+    port: http
+
+readinessProbe:  # 就绪探针，判断Pod是否可接收业务流量
+  httpGet:
+    path: /
+    port: http
+
+autoscaling:
+  enabled: false  # 是否开启HPA水平自动扩缩容
+  minReplicas: 1  # 最小副本数
+  maxReplicas: 100  # 最大副本数
+  targetCPUUtilizationPercentage: 80  # CPU使用率扩容阈值
+
+volumes: []  # 定义需要挂载的存储卷
+volumeMounts: []  # 容器内存储挂载配置
+
+nodeSelector: {}  # 节点选择器，指定Pod调度带对应标签的节点
+tolerations: []  # 污点容忍策略，可调度到带污点节点
+affinity: {}  # 节点/ Pod亲和、反亲和调度策略
+
+-------------------------------------------------------------------------
+
+[root@k8s-master ~]# cat nginx/templates/_helpers.tpl
+{{/*
+Expand the name of the chart.
+展开当前Chart的名称
+*/}}
+{{- define "nginx.name" -}}          // 定义一个名为 nginx.name 的可复用模板
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+// default函数：如果Values中配置了nameOverride就用它，否则使用Chart.yaml里定义的Chart名称
+// trunc 63：将最终字符串截断最多63个字符（K8s资源名称DNS规范限制）
+// trimSuffix "-"：去除字符串末尾多余的横杠，防止命名末尾带-非法字符
+{{- end }}
+
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name it will be used as a full name.
+生成应用完整名称，遵循K8s DNS 63字符限制；如果Release名称已经包含Chart名则直接用Release名
+*/}}
+{{- define "nginx.fullname" -}}      // 定义模板：生成应用完整名称
+{{- if .Values.fullnameOverride }}   // 判断：如果values里配置了完整名称覆盖
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }} // 直接使用配置的名称，做长度和末尾横杠处理
+{{- else }}                           // 没有配置名称覆盖，走默认拼接逻辑
+{{- $name := default .Chart.Name .Values.nameOverride }} // 先拿到基础应用名，赋值给局部变量$name
+{{- if contains $name .Release.Name }} // 判断Release名称中是否已经包含应用基础名
+{{- .Release.Name | trunc 63 | trimSuffix "-" }} // 包含则直接使用Release名称作为完整名称
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+// 不包含则拼接格式：Release名称-应用名，同时做长度、末尾横杠处理
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create chart name and version as used by the chart label.
+生成Chart名称+版本号，用于资源标签
+*/}}
+{{- define "nginx.chart" -}}         // 定义模板：生成Chart标识标签内容
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+// 拼接格式：Chart名-Chart版本号
+// replace "+" "_"：把版本号里的+替换成下划线，因为标签不允许+特殊字符
+// trunc 63 截断63字符、trimSuffix "-" 去除末尾横杠
+{{- end }}
+
+{{/*
+Common labels
+公共通用标签模板，所有资源统一引用这套标签
+*/}}
+{{- define "nginx.labels" -}}         // 定义全局公共标签模板
+helm.sh/chart: {{ include "nginx.chart" . }} // 引用上面nginx.chart模板，记录当前chart名称版本
+{{ include "nginx.selectorLabels" . }}        // 引入选择器标签模板
+{{- if .Chart.AppVersion }}                 // 如果Chart.yaml中配置了应用镜像版本
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }} // 打上应用版本标签，quote给值加双引号
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }} // 标记资源由helm管理
+{{- end }}
+
+{{/*
+Selector labels
+标签选择器专用标签，用于Service绑定Pod、控制器筛选Pod
+*/}}
+{{- define "nginx.selectorLabels" -}} // 定义Pod选择器标签模板
+app.kubernetes.io/name: {{ include "nginx.name" . }} // 应用基础名称标签
+app.kubernetes.io/instance: {{ .Release.Name }}     // helm发布实例名称标签
+{{- end }}
+
+{{/*
+Create the name of the service account to use
+生成serviceAccount服务账号名称
+*/}}
+{{- define "nginx.serviceAccountName" -}} // 定义服务账号名称模板
+{{- if .Values.serviceAccount.create }}   // 判断是否需要自动创建serviceAccount
+{{- default (include "nginx.fullname" .) .Values.serviceAccount.name }}
+// 需要创建：优先使用values自定义的账号名，没有则用应用完整名称
+{{- else }}                               // 不创建自定义账号
+{{- default "default" .Values.serviceAccount.name }}
+// 优先用自定义账号名，没配置就使用集群默认default服务账号
+{{- end }}
+{{- end }}
+
+补充常用函数精简说明
+default(默认值, 变量)：变量为空则使用默认值
+trunc 63：字符串最大截取 63 位，符合 K8s DNS 命名规范
+trimSuffix "-"：清理末尾多余横杠，避免非法名称
+contains(子串, 字符串)：判断字符串是否包含指定子串
+printf：格式化字符串拼接
+replace(旧字符,新字符)：替换字符串中指定字符
+quote：给字符串加上双引号，符合 yaml 语法规范
+include "模板名" .：调用 define 定义的公共模板，.向下传递全局上下文
+{{-：消除模板左右多余空格换行，防止 yaml 空行报错
+------------------------------------------------------------------------------
+[root@k8s-master ~]# cat nginx/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # 调用_helpers.tpl中定义的nginx.fullname模板，生成规范的Deployment资源名称
+  name: {{ include "nginx.fullname" . }}
+  labels:
+    # 调用公共标签模板，管道函数nindent 4让所有标签整体缩进4个空格，保证YAML格式正确
+    {{- include "nginx.labels" . | nindent 4 }}
+spec:
+  # 判断：如果没有开启HPA自动扩缩容，才使用values中配置的固定副本数
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      # 引入Pod选择器标签，缩进6个空格，用于Deployment匹配管理下方模板创建的Pod
+      {{- include "nginx.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      # with：如果values中配置了podAnnotations Pod注解，则渲染注解片段
+      {{- with .Values.podAnnotations }}
+      annotations:
+        # toYaml将values里的字典数据转为标准YAML格式，整体缩进8空格
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        # 给Pod打上全局公共标签，缩进8个空格
+        {{- include "nginx.labels" . | nindent 8 }}
+        # 如果用户自定义了Pod标签，则追加自定义标签
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      # 如果配置了镜像拉取密钥（私有仓库凭证），则渲染该配置
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # 调用模板获取要使用的ServiceAccount名称
+      serviceAccountName: {{ include "nginx.serviceAccountName" . }}
+      # 如果配置了Pod级别的安全上下文，渲染对应配置
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }} # 容器名称使用Chart的名称
+          # 容器级别的安全上下文，有配置则渲染
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          # 镜像地址：仓库地址:镜像标签；如果没配置image.tag就默认使用Chart.yaml里的appVersion
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          # 镜像拉取策略（Always/IfNotPresent/Never），从values读取配置
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }} # 容器暴露端口，取自values
+              protocol: TCP
+          # 如果配置了存活探针，则渲染探针配置，用于检测容器是否正常运行
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          # 如果配置了就绪探针，用于检测容器是否可以接收流量
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          # 容器资源限制、请求配额（CPU、内存），有配置则渲染
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          # 容器内数据挂载配置，有配置则渲染挂载信息
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      # 全局存储卷配置，对应上面容器的volumeMounts挂载
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # 节点选择器，指定Pod只能调度到带对应标签的节点上
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # 亲和性调度策略（节点亲和、Pod亲和/反亲和）
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # 容忍度，允许Pod调度到带有污点的节点
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+核心模板函数精简说明
+{{- }}：去除首尾多余空格换行，避免 YAML 空行语法错误
+include "模板名" .：调用_helpers.tpl中预定义的公共模板，.传递全局上下文
+nindent N：将输出内容整体缩进 N 个空格，适配 YAML 层级格式
+{{- with 变量 }}：变量非空时才渲染内部代码块，为空则直接忽略这段配置
+toYaml：把 values 中字典、数组格式的数据转换成标准 YAML 文本
+default(A,B)：B 为空时使用 A 作为默认值
+| 管道符：对模板输出结果做格式化处理（缩进、截取、替换等）
+
+
 ```
 
+
+
+
+
+
+
+常用命令
+
+```bash
 #### 2. 安装部署（创建 Release）
 
 语法：`helm install [Release名称] [Chart名] -n [命名空间]`
-
-
-
-```
 # 示例：在 default 命名空间部署 nginx，Release 名为 my-nginx
 helm install my-nginx bitnami/nginx -n default
-
 # 常用附加参数
 # --create-namespace   命名空间不存在则自动创建
 # --version 15.3.0     指定 Chart 版本
 # -f values.yaml       加载自定义配置文件
-```
 
 #### 3. 查看 Release 状态
-
-
-
-```
 # 列出当前命名空间所有 Release
 helm list
 # 查看指定命名空间
 helm list -n kube-system
+helm list -n demo
 # 查看运行详情与资源
-helm status my-nginx -n default
+helm status nginx -n demo
 # 查看渲染后的完整 YAML
-helm get manifest my-nginx -n default
-```
+helm get manifest nginx -n demo
 
-#### 4. 升级配置 / 版本
-
-
-
-```
-# 临时升级副本数
-helm upgrade my-nginx bitnami/nginx --set replicaCount=3 -n default
+ 4. 升级配置 / 版本
+ # 临时升级副本数
+helm upgrade nginx bitnami/nginx --set replicaCount=3 -n default
 # 基于配置文件升级（生产推荐）
 helm upgrade my-nginx bitnami/nginx -f values.yaml -n default
-```
 
-#### 5. 版本回滚
-
-
-
-```
+5. 版本回滚
 # 查看发布历史版本
-helm history my-nginx -n default
+helm history nginx -n demo
 # 回滚到第 2 个版本
-helm rollback my-nginx 2 -n default
+helm rollback nginx 2 -n demo
+
+6. 卸载 Release
+helm uninstall nginx -n demo
+----------------------------------------------------------------------------
+#会删除当前 demo 命名空间下，该 Release（nginx）通过 Helm 创建的所有 K8s 资源：
+Deployment
+Service
+ServiceAccount
+HPA（如果开启）
+Ingress（如果开启）
+对应 Release 的 helm 部署记录（helm history 不再能查到该发布记录）
+模板里自定义创建的 ConfigMap、Secret、PV/PVC 等所有由本次 helm install 生成的资源
+注意：不会删除命名空间 demo 本身。
+
+等价手动逐条删除命令
+# 1. 删除deployment
+kubectl delete deployment nginx -n demo
+# 2. 删除service
+kubectl delete service nginx -n demo
+# 3. 删除serviceaccount
+kubectl delete serviceaccount nginx -n demo
+# 4. 删除hpa（如有）
+kubectl delete hpa nginx -n demo
+# 5. 删除ingress（如有）
+kubectl delete ingress nginx -n demo
+
+补充原理
+Helm 会给所有资源打上统一标签：app.kubernetes.io/instance=nginx，卸载时本质是根据标签批量删除所有带该 Release 标签的资源，等价：
+kubectl delete all,ingress,sa,hpa -l app.kubernetes.io/instance=nginx -n demo
+--------------------------------------------------------------------------------------
 ```
 
-#### 6. 卸载 Release
 
 
 
-```
-helm uninstall my-nginx -n default
-```
-
-------
 
 ### 五、自定义配置（适配国内环境核心操作）
 
 默认 Chart 多为海外配置，需修改镜像地址、运行参数，两种常用方式：
 
-#### 方式 1：`--set` 临时参数（少量修改）
-
-
+#### 方式 1：--set 临时参数（少量修改）
 
 ```
 # 示例：部署 nginx，指定国内镜像、修改副本数
@@ -6529,11 +6977,9 @@ helm install my-nginx bitnami/nginx \
   -n default
 ```
 
-#### 方式 2：`values.yaml` 配置文件（生产推荐）
+#### 方式 2：values.yaml 配置文件（生产推荐）
 
 1. 导出默认配置模板
-
-
 
 ```
 helm show values bitnami/nginx > values.yaml
@@ -6542,12 +6988,9 @@ helm show values bitnami/nginx > values.yaml
 1. 编辑 `values.yaml`，修改镜像、端口、资源限制、副本数等参数
 2. 基于配置文件部署
 
-
-
-
-
 ```
 helm install my-nginx bitnami/nginx -f values.yaml -n default
+
 ```
 
 ------
@@ -6555,10 +6998,6 @@ helm install my-nginx bitnami/nginx -f values.yaml -n default
 ### 六、实操案例：Helm 部署 metrics-server（国内可用版）
 
 对应你之前手动部署的场景，一键解决镜像与参数问题：
-
-
-
-
 
 ```
 helm install metrics-server bitnami/metrics-server \
@@ -6581,15 +7020,166 @@ helm install metrics-server bitnami/metrics-server \
 
 
 
+## harbor
+
+Harbor 是 CNCF 毕业的企业级私有容器镜像仓库，基于 Docker Registry 二次开发，提供镜像存储、权限管理、安全扫描、镜像复制、Helm Chart 管理等企业级能力，用来搭建内网私有镜像仓库。
+
+### 二、核心五大功能
+
+1. RBAC 权限控制
+
+   按项目隔离资源，分配管理员、开发、访客角色；区分公有 / 私有项目，支持 LDAP 统一认证。
+
+2. 镜像安全防护
+
+   内置 Trivy 漏洞扫描，可拦截高危漏洞镜像；支持 Notary 镜像签名防篡改，全链路操作审计日志。
+
+3. 跨仓库镜像复制
+
+   支持推拉两种同步策略，多机房、多集群镜像异地同步，就近拉取、灾备。
+
+4. 可视化 Web 管理
+
+   中文 UI 界面，镜像、Chart、用户、项目可视化管理，降低运维成本。
+
+5. OCI 制品兼容
+
+   不仅存储容器镜像，还可存放 Helm Chart，统一管理云原生各类制品。
+
+### 三、六大核心组件
+
+1. **Proxy(Nginx)**：统一反向代理入口，SSL 证书解密、请求转发。
+2. **Registry**：原生镜像存储，处理 docker push/pull，保存镜像分层数据。
+3. **Core**：核心服务（UI、权限 Token、WebHook），做权限校验、业务逻辑处理。
+4. **PostgreSQL**：元数据数据库，存储账号、项目、权限、扫描、日志信息。
+5. **Job Service**：异步任务，负责镜像同步、漏洞扫描等后台任务。
+6. **Log Collector**：集中收集所有组件日志，用于排查与安全审计。
+
+### 四、Docker Registry 和 Harbor 区别
+
+1. Docker Registry：官方轻量镜像仓库，仅实现镜像推拉存储，无权限、UI、安全、同步能力，适合测试环境。
+2. Harbor：企业级增强版，补齐权限、安全、可视化、同步、Chart 管理，适合生产环境。
+
+| 功能                | Docker Registry（原生轻量仓库） | Harbor（企业级仓库） |
+| ------------------- | ------------------------------- | -------------------- |
+| Web 可视化界面      | ❌ 无                            | ✅ 支持               |
+| RBAC 权限、用户管理 | ❌ 需自己开发                    | ✅ 内置               |
+| 镜像漏洞扫描        | ❌ 不支持                        | ✅ Trivy 自动扫描     |
+| 跨机房镜像复制      | ❌ 不支持                        | ✅ 内置复制策略       |
+| 审计日志、LDAP 集成 | ❌ 无                            | ✅ 支持               |
+| Helm Chart 管理     | ❌ 不支持                        | ✅ OCI 制品仓库       |
+
+### 五、Harbor 部署 & 使用流程
+
+1. Helm 方式下载 Harbor Chart，配置域名、存储、密码、镜像加速器部署；
+2. 客户端配置域名解析 / 证书，`docker login` 登录私有仓库；
+3. 镜像打仓库标签 `docker tag`，push 推送到 Harbor 项目；
+4. K8s 创建 ImagePullSecret，集群从 Harbor 拉取镜像部署业务。
+
+### 六、高频问题简答
+
+1. 为什么要用 Harbor 不用 Docker Hub？
+
+   内网环境无法访问外网、需要权限管控、镜像安全扫描、内网拉取速度快、数据不泄露。
+
+2. 镜像复制两种模式？
+
+- 推模式：当前仓库主动推镜像到远端仓库；
+- 拉模式：远端仓库主动拉取当前仓库镜像。
+
+1. 漏洞扫描组件是什么？
+
+   Trivy，可手动 / 自动扫描，支持配置策略禁止高危镜像部署。
+
+
+
 
 
 ## [课程小结](https://docs.chengkanghua.top/k8s-2023/4Kubernetes进阶实践?id=课程小结)
 
+1. 学习k8s在etcd中数据的存储，掌握etcd的基本操作命令
+2. 理解k8s调度的过程，预选及优先。影响调度策略的设置
+
+3. Flannel网络的原理学习，了解网络的流向，帮助定位问题
+
+4. 认证与授权，掌握kubectl、kubelet、rbac及二次开发如何调度API
+
+5. 利用HPA进行业务动态扩缩容，通过metrics-server了解整个k8s的监控体系
+
+6. PV + PVC
+
+7. Helm
 
 
 
+# k8s日志收集架构
 
 
+
+## K8s 日志收集三大主流架构（面试必背精简版）
+
+## 一、架构 1：Node 宿主机部署方式（DaemonSet）【企业最常用】
+
+### 架构流程
+
+1. 每个节点用 **DaemonSet** 部署一个日志采集器（Filebeat / Fluentd）
+2. 采集器读取节点 `/var/log/containers/` 下容器标准输出日志（容器日志默认输出到宿主机 json 日志文件）
+3. 过滤、格式化日志 → 发送到中间件（Kafka）
+4. 消费端：Logstash 做日志清洗转换 → 存入 Elasticsearch
+5. Kibana 可视化检索、展示日志
+
+### 优点
+
+1. 每个节点只部署 1 个采集组件，资源开销小；
+2. 只采集宿主机容器日志，不用侵入业务 Pod，无需修改业务代码；
+3. 扩展性强，新增节点自动部署采集器。
+
+### 缺点
+
+只能采集容器标准输出日志，无法直接采集容器内日志文件（需要挂载宿主机目录）。
+
+### 二、架构 2：Sidecar 边车模式
+
+### 架构流程
+
+1. 业务 Pod 内同时运行两个容器：业务容器 + 日志采集 Sidecar 容器（Filebeat）
+2. 业务容器把日志输出到**emptyDir 临时共享卷**
+3. Sidecar 读取共享卷里的日志文件，发送到 Elasticsearch/Kafka
+
+### 优点
+
+1. 精准采集当前业务 Pod 内部日志文件；
+2. 不同业务可单独配置日志采集规则，隔离性强。
+
+### 缺点
+
+每个业务 Pod 都跑一个采集容器，资源开销大，集群 Pod 多的时候性能损耗严重。
+
+### 三、架构 3：集中式日志采集（应用内直接推送）
+
+### 架构流程
+
+业务代码内部直接集成 SDK，日志不输出控制台，直接通过网络发送到 Kafka/ES。
+
+### 优点：采集链路最短，不需要部署采集组件。
+
+### 缺点：强侵入业务代码，业务和日志系统耦合，更换存储需要改代码，极少用在 K8s。
+
+### 企业主流标准架构：EFK+Kafka
+
+Filebeat（DaemonSet）→ Kafka → Logstash → Elasticsearch ← Kibana
+
+1. Filebeat：轻量采集，不占用节点资源，防止日志丢失；
+2. Kafka：削峰填谷，应对日志瞬间爆发，解耦采集与消费；
+3. Logstash：日志过滤、格式化、字段清洗；
+4. ES：日志存储、全文检索；
+5. Kibana：可视化查询、报表、告警。
+
+### 补充关键知识点
+
+1. K8s 容器日志默认是 **stdout/stderr 标准输出**，由容器运行时（containerd/CRI-O）输出到宿主机`/var/log/containers/*.log` json 格式文件；
+2. 禁止把日志挂载到宿主机固定目录，避免多 Pod 日志冲突，推荐 emptyDir+Sidecar；
+3. Filebeat 部署为 DaemonSet 保证每个节点唯一采集实例。
 
 
 

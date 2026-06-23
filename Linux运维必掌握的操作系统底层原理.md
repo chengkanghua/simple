@@ -27,7 +27,7 @@
 ### 运维关联工具
 
 ```
-ps`、`top/htop`、`pstree`、`kill`、`nice/renice`、`strace`、`lsof
+ps、top/htop、pstree、kill、nice/renice、strace、lsof
 ```
 
 ### 进程状态详解

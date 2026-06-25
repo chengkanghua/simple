@@ -1138,7 +1138,7 @@ https://github.com/containerd/nerdctl#container-management
 
 Kubernetes 采用**控制平面（Control Plane）+ 工作节点（Worker Node）** 的分布式主从架构，是官方定义的标准拓扑结构Kubernetes。
 
-![img](data:image/svg+xml,%3csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20version=%271.1%27%20width=%27256%27%20height=%27192%27/%3e)![image](./k8s.assets/7e883a3f9d3bb6cfc68841c255af384ftplv-a9rns2rl98-pc_smart_face_crop-v1512384.png)
+![img](data:image/svg+xml,%3csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20version=%271.1%27%20width=%27256%27%20height=%27192%27/%3e)![image](./k8s%E6%9E%B6%E6%9E%84%E5%B8%88.assets/7e883a3f9d3bb6cfc68841c255af384ftplv-a9rns2rl98-pc_smart_face_crop-v1512384.png)
 
 #### 1. 控制平面组件（集群大脑，全局决策）
 
@@ -7114,8 +7114,6 @@ Harbor 是 CNCF 毕业的企业级私有容器镜像仓库，基于 Docker Regis
 
 # k8s日志收集架构
 
-
-
 ## K8s 日志收集三大主流架构（面试必背精简版）
 
 ## 一、架构 1：Node 宿主机部署方式（DaemonSet）【企业最常用】
@@ -7138,7 +7136,7 @@ Harbor 是 CNCF 毕业的企业级私有容器镜像仓库，基于 Docker Regis
 
 只能采集容器标准输出日志，无法直接采集容器内日志文件（需要挂载宿主机目录）。
 
-### 二、架构 2：Sidecar 边车模式
+## 二、架构 2：Sidecar 边车模式
 
 ### 架构流程
 
@@ -7155,15 +7153,15 @@ Harbor 是 CNCF 毕业的企业级私有容器镜像仓库，基于 Docker Regis
 
 每个业务 Pod 都跑一个采集容器，资源开销大，集群 Pod 多的时候性能损耗严重。
 
-### 三、架构 3：集中式日志采集（应用内直接推送）
+## 三、架构 3：集中式日志采集（应用内直接推送）
 
-### 架构流程
+ 架构流程
 
 业务代码内部直接集成 SDK，日志不输出控制台，直接通过网络发送到 Kafka/ES。
 
-### 优点：采集链路最短，不需要部署采集组件。
+优点：采集链路最短，不需要部署采集组件。
 
-### 缺点：强侵入业务代码，业务和日志系统耦合，更换存储需要改代码，极少用在 K8s。
+缺点：强侵入业务代码，业务和日志系统耦合，更换存储需要改代码，极少用在 K8s。
 
 ### 企业主流标准架构：EFK+Kafka
 
@@ -7180,6 +7178,224 @@ Filebeat（DaemonSet）→ Kafka → Logstash → Elasticsearch ← Kibana
 1. K8s 容器日志默认是 **stdout/stderr 标准输出**，由容器运行时（containerd/CRI-O）输出到宿主机`/var/log/containers/*.log` json 格式文件；
 2. 禁止把日志挂载到宿主机固定目录，避免多 Pod 日志冲突，推荐 emptyDir+Sidecar；
 3. Filebeat 部署为 DaemonSet 保证每个节点唯一采集实例。
+
+
+
+## [ConfigMap的配置文件挂载使用场景](http://49.7.203.222:2023/#/logging/using-configmap?id=configmap的配置文件挂载使用场景)
+
+### 前置准备：统一创建测试 ConfigMap
+
+先创建包含 2 个配置文件的 ConfigMap，后续三个场景共用
+
+
+
+```yaml
+# nginx-cm.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-cm
+data:
+  # nginx 站点配置文件
+  default.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+        }
+    }
+  # 自定义首页文件
+  index.html: |
+    <h1>Hello ConfigMap Nginx</h1>
+    <p>this file from configmap</p>
+```
+
+
+
+```
+# 执行创建
+kubectl apply -f nginx-cm.yaml
+```
+
+------
+
+
+
+
+
+### 场景一：全量挂载到目录（所有文件整体挂载）
+
+### 特点
+
+ConfigMap 中**所有 key 都会以独立文件形式**挂载到目标目录；
+
+如果目标目录原本有文件，会被**全部覆盖**；支持 ConfigMap 热更新。
+
+### Deployment 完整示例
+
+
+
+```yaml
+# deploy-cm-1.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-cm-full
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-cm-full
+  template:
+    metadata:
+      labels:
+        app: nginx-cm-full
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        volumeMounts:
+        - name: cm-volume
+          mountPath: /etc/nginx/conf.d  # 挂载到nginx配置目录，原目录内容会被覆盖
+      volumes:
+      - name: cm-volume
+        configMap:
+          name: nginx-cm  # 绑定上面创建的ConfigMap
+```
+
+
+
+```
+# 部署 + 验证
+kubectl apply -f deploy-cm-1.yaml
+kubectl exec -it deploy/nginx-cm-full -- ls /etc/nginx/conf.d
+# 输出：default.conf  index.html  两个文件全部挂载进去
+```
+
+------
+
+### 场景二：筛选多文件挂载（items 指定部分文件）
+
+### 特点
+
+通过 `items` 只挂载 ConfigMap 中**指定的部分 key**，其余文件不挂载；
+
+目标目录原有内容会被覆盖；支持热更新。
+
+### Deployment 完整示例
+
+
+
+```yaml
+# deploy-cm-2.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-cm-items
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-cm-items
+  template:
+    metadata:
+      labels:
+        app: nginx-cm-items
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        volumeMounts:
+        - name: cm-volume
+          mountPath: /etc/nginx/conf.d
+      volumes:
+      - name: cm-volume
+        configMap:
+          name: nginx-cm
+          items:          # 只选择需要挂载的文件
+          - key: default.conf
+            path: default.conf  # 挂载后的文件名
+          # index.html 不会被挂载进去
+```
+
+
+
+```
+# 部署 + 验证
+kubectl apply -f deploy-cm-2.yaml
+kubectl exec -it deploy/nginx-cm-items -- ls /etc/nginx/conf.d
+# 输出：default.conf  只有指定文件
+```
+
+------
+
+### 场景三：subPath 单文件挂载（子路径挂载）
+
+### 特点
+
+只挂载**单个指定文件**到目标路径，**不会清空目标目录原有文件**；
+
+**核心缺点**：subPath 挂载的文件，ConfigMap 更新后容器内不会自动热更新。
+
+### Deployment 完整示例
+
+只替换 nginx 默认首页，不影响 html 目录下其他原生文件
+
+
+
+```yaml
+# deploy-cm-3.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-cm-subpath
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-cm-subpath
+  template:
+    metadata:
+      labels:
+        app: nginx-cm-subpath
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        volumeMounts:
+        - name: cm-volume
+          mountPath: /usr/share/nginx/html/index.html  # 精确到单个文件路径
+          subPath: index.html                          # 对应ConfigMap中的key
+      volumes:
+      - name: cm-volume
+        configMap:
+          name: nginx-cm
+```
+
+
+
+```
+# 部署 + 验证
+kubectl apply -f deploy-cm-3.yaml
+kubectl exec -it deploy/nginx-cm-subpath -- ls /usr/share/nginx/html
+# 输出：50x.html  index.html  原有文件保留，只替换了index.html
+```
+
+------
+
+### 三种场景核心区别总结
+
+
+
+| 挂载方式           | 挂载范围          | 是否覆盖目录原有文件 | 支持 ConfigMap 热更新 | 适用场景                             |
+| :----------------- | :---------------- | :------------------- | :-------------------- | :----------------------------------- |
+| 全量目录挂载       | 所有 key 全部挂载 | 是                   | 支持                  | 配置目录完全由 CM 统一管理           |
+| items 筛选挂载     | 只挂载指定 key    | 是                   | 支持                  | CM 文件多，当前业务只用其中几个      |
+| subPath 子路径挂载 | 仅单个文件        | 否（只替换目标文件） | 不支持                | 不能清空业务目录，只替换单个配置文件 |
+
+
 
 
 

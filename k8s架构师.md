@@ -7401,6 +7401,938 @@ kubectl exec -it deploy/nginx-cm-subpath -- ls /usr/share/nginx/html
 
 
 
+# [基于Kubernetes的DevOps平台实践](https://docs.chengkanghua.top/k8s-2023/7基于Kubernetes的DevOps平台实践?id=_7基于kubernetes的devops平台实践)
+
+
+
+## DevOps CI CD 介绍
+
+### 一、DevOps 是什么
+
+#### 1. 定义
+
+DevOps 是**开发（Development）+ 运维（Operations）\**的组合，不是某一款工具，而是一套\**理念、流程、文化 + 工具链**。
+
+目标：打破开发、测试、运维部门壁垒，让软件从**代码提交 → 构建 → 测试 → 部署 → 运维**全流程自动化、高频稳定发布。
+
+#### 解决的痛点
+
+- 开发写完代码丢给运维，环境不一致、上线频繁出事故；
+- 每次上线需要人工操作，效率低、容易误操作；
+- 迭代慢、上线周期长、回滚麻烦、故障排查权责不清。
+
+#### DevOps 三大核心目标
+
+1. **持续交付**：任何时刻都能快速、安全发布版本；
+2. **自动化**：构建、测试、部署、监控尽量少人工干预；
+3. **快速反馈**：代码提交就能自动跑测试、出报告，尽早发现 BUG。
+
+#### 2. DevOps 经典工作流程
+
+1. 产品需求 → 开发拉分支写代码
+2. 代码提交 Git 仓库 → 触发 CI 流水线
+3. 自动：代码检查→单元测试→打包→构建镜像→推私有仓库
+4. 自动部署到测试环境，自动化测试验证
+5. 测试通过后，手动 / 自动发布预发、生产环境
+6. 上线后监控告警、日志排查，快速迭代优化
+
+### 二、CI 持续集成（Continuous Integration）
+
+#### 1. 含义
+
+**持续集成：开发者频繁（每天多次）把本地代码合并到代码主干仓库，每次提交都自动执行构建 + 测试。**
+
+#### 核心目的
+
+- 尽早发现代码冲突、语法错误、单元测试 BUG；
+- 避免多人长期各自开发，最后合并时出现大量冲突；
+- 保证主干代码永远处于可构建、可测试的稳定状态。
+
+#### CI 典型流程（每次 git push 触发）
+
+1. 拉取最新代码
+2. 代码静态检查（SonarQube）：漏洞、规范、坏味道
+3. 单元测试、覆盖率统计
+4. Maven/Gradle/NPM 项目打包（jar/war/ 前端 dist 包）
+5. 构建 Docker 镜像，推送到 Harbor 私有镜像仓库
+6. 生成制品版本归档
+
+#### CI 常用工具
+
+Git、GitLab/GitHub/Gitee、Jenkins、GitLab CI、SonarQube、Maven、Gradle、Docker、Harbor
+
+1. gitlab，代码仓库，企业内部使用最多的代码版本管理工具。
+2. Jenkins， 一个可扩展的持续集成引擎，用于自动化各种任务，包括构建、测试和部署软件。
+3. robotFramework， 基于Python的自动化测试框架
+4. sonarqube，代码质量管理平台
+5. maven，java包构建管理工具
+6. Kubernetes
+7. Docker
+
+
+
+### 三、CD 两种含义（面试高频必区分）
+
+#### 1. CD1：持续交付 Continuous Delivery
+
+- 代码经过 CI 流水线后，**自动打包、镜像上传到仓库**，可以随时一键部署到任意环境（测试、预发、生产）；
+- 生产环境发布需要**人工确认触发**，不会自动上线；
+- 企业最常用模式，兼顾效率与线上安全。
+
+#### 2. CD2：持续部署 Continuous Deployment
+
+- 在持续交付基础上，**测试环境验证通过后自动部署到生产环境，无需人工审批**；
+- 适合小团队、互联网敏捷业务、灰度发布成熟场景；
+- 传统政企、金融很少直接用持续部署，风险太高。
+
+#### CD 核心流程
+
+1. 从 Harbor 拉取指定版本镜像
+2. 通过 K8s API/helm 部署到目标命名空间
+3. 等待 Pod 就绪、健康检查通过
+4. 发送上线通知（钉钉 / 企业微信）
+5. 支持一键版本回滚
+
+### 四、标准 DevOps CI/CD 完整流水线（企业主流）
+
+```
+开发提交代码(Git)
+     ↓
+【CI阶段】
+1. 拉取代码
+2. Sonar代码质量扫描
+3. 单元测试、统计覆盖率
+4. Maven打包Jar
+5. Docker构建镜像
+6. 镜像推送到Harbor私有仓库
+     ↓
+【CD阶段-持续交付】
+7. 手动触发部署测试环境 → K8s Deployment/Helm部署
+8. 自动化接口测试、压力测试验证
+9. 测试通过后，手动审批发布预发、生产环境
+10. 上线后监控、日志采集，异常可快速回滚
+```
+
+### 五、主流 CI/CD 工具链两套方案
+
+#### 方案 1：Jenkins 经典方案（传统企业、运维常用）
+
+Git + gitlab+ Jenkins + SonarQube + Maven + Docker + Harbor + K8s
+
+- 优势：插件极丰富、高度自定义、适配各种老旧项目、灵活可控
+- 缺点：需要运维维护 Jenkins 服务，配置复杂
+
+#### 方案 2：GitLab CI 云原生原生方案（云原生大厂主流）
+
+GitLab 内置 CI，通过项目根目录 `.gitlab-ci.yml` 声明式配置流水线
+
+- 优势：无需单独部署 Jenkins，轻量、K8s 分布式 Runner 弹性扩容
+- 缺点：复杂定制化不如 Jenkins 灵活
+
+### 六、CI/CD 核心价值总结
+
+1. **CI**：保证代码质量，频繁合并、自动构建测试，避免集成灾难，产出稳定制品（镜像 / Jar 包）；
+2. **持续交付 CD**：制品随时可一键部署，上线可控、风险低；
+3. **持续部署 CD**：全流程自动上线，极致迭代速度；
+4. DevOps 通过 CI/CD 落地，实现：**开发自测、自动校验、运维标准化部署、版本可追溯可回滚**。
+
+### 七、面试精简一句话背诵
+
+DevOps 是打通开发运维的流程文化，CI 持续集成实现代码频繁合并、自动构建测试打包产出制品；CD 分为持续交付（人工确认上线）和持续部署（自动上线），依托 Jenkins/GitLabCI+Docker+Harbor+K8s 实现自动化发布，提升迭代效率、降低上线故障。
+
+
+
+## [K8S中安装配置Jenkins](https://docs.chengkanghua.top/k8s-2023/7基于Kubernetes的DevOps平台实践?id=k8s中安装配置jenkins)
+
+
+
+注意点：
+
+1. 第一次启动很慢
+2. 因为后面Jenkins会与kubernetes集群进行集成，会需要调用kubernetes集群的api，因此安装的时候创建了ServiceAccount并赋予了cluster-admin的权限
+3. 初始化容器来设置权限
+4. ingress来外部访问
+5. 数据存储通过pvc挂载到宿主机中
+
+```bash
+mkdir -p ~/jenkins;cd ~/jenkins
+cat <<EOF > nfs-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv   # PV名称，集群内唯一
+spec:
+  capacity: 
+    storage: 20Gi   # PV总容量
+  accessModes:
+  - ReadWriteOnce     # 单节点读写，
+  persistentVolumeReclaimPolicy: Retain  # 回收策略：保留数据
+  storageClassName: nfs             # 存储类名，PVC必须和该值一致
+  nfs:					   # 底层存储类型为NFS
+    server: 10.0.0.80      # NFS服务器地址              
+    path: /data/k8s        # NFS上的共享目录（需提前手动创建）    
+EOF
+kubectl create -f nfs-pv.yaml
+    
+cat <<\EOF > jenkins-all.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jenkins
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: jenkins
+  namespace: jenkins
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins
+  namespace: jenkins
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins-crb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: jenkins
+  namespace: jenkins
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins-master
+  namespace: jenkins
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      devops: jenkins-master
+  template:
+    metadata:
+      labels:
+        devops: jenkins-master
+    spec:
+      serviceAccount: jenkins #Pod 需要使用的服务账号
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ["sh", "-c", "chown -R 1000:1000 /var/jenkins_home"]
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: jenkinshome
+          mountPath: /var/jenkins_home
+      containers:
+      - name: jenkins
+        image: jenkins/jenkins:2.516.3-jdk17
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http #Jenkins Master Web 服务端口
+          containerPort: 8080
+        - name: slavelistener #Jenkins Master 供未来 Slave 连接的端口
+          containerPort: 50000
+        volumeMounts:
+        - name: jenkinshome
+          mountPath: /var/jenkins_home
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx1024m -XX:MetaspaceSize=256M -XX:MaxMetaspaceSize=512M -Duser.timezone=Asia/Shanghai -Dhudson.model.DirectoryBrowserSupport.CSP="
+      volumes:
+      - name: jenkinshome
+        persistentVolumeClaim:
+          claimName: jenkins
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+  namespace: jenkins
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  - name: slavelistener
+    port: 50000
+    targetPort: 50000
+  type: ClusterIP
+  selector:
+    devops: jenkins-master
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins-web
+  namespace: jenkins
+spec:
+  ingressClassName: nginx #注意这个不能少,否则不会加载到ingrss-nginx-controller容器配置里
+  rules:
+  - host: jenkins.luffy.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service: 
+            name: jenkins
+            port:
+              number: 8080
+EOF
+
+
+# 实验环境 java虚拟机内存给小点， jenkins总是崩溃 增加-XX:PermSize=256M 参数
+ value: "-Xms512m -Xmx1024m -XX:PermSize=256M -Duser.timezone=Asia/Shanghai -Dhudson.model.DirectoryBrowserSupport.CSP="
+注意：这里的几个 JVM 参数含义如下：
+-Xms: 使用的最小堆内存大小
+-Xmx: 使用的最大堆内存大小
+-XX：内存的永久保存区域大小
+这几个参数也不是配置越大越好，具体要根据所在机器实际内存和使用大小配置。
+ -XX:PermSize=256M 官方的最新版不认识这个参数.
+
+JDK17改成这个
+-Xms512m -Xmx1024m -XX:MetaspaceSize=256M -XX:MaxMetaspaceSize=512M -Duser.timezone=Asia/Shanghai -Dhudson.model.DirectoryBrowserSupport.CSP=
+
+ 
+ # 这里jenkins 镜像随着时间推移,版本可能需要更新版本
+ https://docker.aityp.com/  #国内镜像版本查看
+
+
+
+
+## 部署服务
+
+kubectl create -f jenkins-all.yaml
+## 查看服务
+kubectl -n jenkins get po
+NAME                              READY   STATUS    RESTARTS   AGE
+jenkins-master-767df9b574-lgdr5   1/1     Running   0          20s
+
+# 查看日志，第一次启动提示需要完成初始化设置
+$ kubectl -n jenkins logs -f jenkins-master-767df9b574-lgdr5
+
+
+错误记录:
+kubectl edit deploy ingress-nginx-controller -n ingress-nginx
+修改成 dnsPolicy: ClusterFirstWithHostNet
+# 开启宿主机网络（hostNetwork:true）时，依然强制使用 K8s 集群的 CoreDNS 做域名解析，既能占用宿主机端口，又能正常解析集群内部 Service 域名。
+
+
+# win11上的hosts配置ip是 ingress-nginx-controller的宿主机ip地址
+# kubectl get pod -n ingress-nginx -o wide
+# C:\Windows\System32\drivers\etc\hosts
+10.0.0.81 jenkins.luffy.com
+
+
+# 查看jenkins初始化的密码
+kubectl -n jenkins exec  -ti jenkins-master-b884fb8d-vpgn8 cat /var/jenkins_home/secrets/initialAdminPassword
+
+浏览器访问 jenkins.luffy.com
+Jenkins -> manage Jenkins -> Plugin Manager -> Avaliable，搜索 chinese关键字
+安装的插件
+GitLab Plugin
+Pipeline: Multibranch
+Blue Ocean
+Localization: Chinese (Simplified)
+
+# 修改国内下载插件源
+kubectl -n jenkins exec  -ti jenkins-master-b884fb8d-vpgn8 -- bash
+cd /var/jenkins_home/updates
+sed -i 's/http:\/\/updates.jenkins-ci.org\/download/https:\/\/mirrors.tuna.tsinghua.edu.cn\/jenkins/g' default.json 
+sed -i 's/http:\/\/www.google.com/https:\/\/www.baidu.com/g' default.json
+
+```
+
+
+
+kubectl 查看所有namespace 的所有资源
+
+```bash
+kubectl get all --all-namespaces
+# 简写
+kubectl get all -A
+# 包含资源：Pod、Service、Deployment、ReplicaSet、StatefulSet、DaemonSet、Job、CronJob
+# get all 是简写聚合，不包含：ConfigMap、Secret、PV、PVC、Ingress、ServiceAccount、Role、ClusterRole、CRD 等资源。
+
+kubectl get cm -A
+kubectl get secret -A
+
+kubectl get pv
+kubectl get pvc -A
+kubectl get storageclasses
+
+kubectl get ingress -A
+kubectl get sa -A
+kubectl get role,clusterrole,rolebinding,clusterrolebinding -A
+
+# 批量查看常用核心资源
+kubectl get all,cm,secret,pvc,ingress,sa -A
+
+
+# 把占用资源的deploy 停掉
+kubectl -n luffy get hpa
+kubectl -n luffy delete hpa hpa-eladmin-web
+
+## 该命名空间下所有Deployment缩容到0
+kubectl scale deployment --all --replicas=0 -n luffy
+
+```
+
+
+
+## 安装gitlab
+
+```bash
+
+cat <<\EOF >gitlab-secret.txt
+postgres.user.root=root
+postgres.pwd.root=cm9vdA==
+EOF
+
+kubectl -n jenkins create secret generic gitlab-secret --from-env-file=gitlab-secret.txt
+
+
+cat <<\EOF > postgres.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+  namespace: jenkins
+spec:
+  ports:
+  - name: server
+    port: 5432
+    targetPort: 5432
+    protocol: TCP
+  selector:
+    app: postgres
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: postgredb
+  namespace: jenkins
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: jenkins
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      tolerations:
+      - operator: "Exists"
+      containers:
+      - name: postgres
+        image: postgres:11.4
+        imagePullPolicy: "IfNotPresent"
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER           #PostgreSQL 用户名
+          valueFrom:
+            secretKeyRef:
+              name: gitlab-secret
+              key: postgres.user.root
+        - name: POSTGRES_PASSWORD       #PostgreSQL 密码
+          valueFrom:
+            secretKeyRef:
+              name: gitlab-secret
+              key: postgres.pwd.root
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 2048Mi
+          requests:
+            cpu: 50m
+            memory: 100Mi
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: postgredb
+      volumes:
+      - name: postgredb
+        persistentVolumeClaim:
+          claimName: postgredb
+EOF
+# 实验环境资源调整
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 100Mi
+
+#创建postgres
+kubectl create -f postgres.yaml
+   
+# 创建数据库gitlab,为后面部署gitlab组件使用
+# kubectl -n jenkins exec -ti postgres-7ff9b49f4c-nt8zh -- bash
+root@postgres-7ff9b49f4c-nt8zh:/# psql
+root=# create database gitlab;
+root-# \q
+root@postgres-5d96874894-ktg2r:/# exit
+
+cat <<\EOF >redis.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels:
+    app: redis
+  namespace: jenkins
+spec:
+  ports:
+  - name: server
+    port: 6379
+    targetPort: 6379
+    protocol: TCP
+  selector:
+    app: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: jenkins
+  name: redis
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      tolerations:
+      - operator: "Exists"
+      containers:
+      - name: redis
+        image: sameersbn/redis:4.0.9-2
+        imagePullPolicy: "IfNotPresent"
+        ports:
+        - containerPort: 6379
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
+EOF
+# 实验环境资源调整
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
+            
+# 创建
+kubectl create -f redis.yaml
+
+
+
+cat <<\EOF > gitlab.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gitlab
+  namespace: jenkins
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: gitlab.luffy.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gitlab
+            port:
+              number: 80
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: gitlab
+  namespace: jenkins
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitlab
+  labels:
+    app: gitlab
+  namespace: jenkins
+spec:
+  ports:
+  - name: server
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: gitlab
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: jenkins
+  name: gitlab
+  labels:
+    app: gitlab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitlab
+  template:
+    metadata:
+      labels:
+        app: gitlab
+    spec:
+      nodeName: k8s-slave1  #指定部署到的节点
+      tolerations:
+      - operator: "Exists"
+      containers:
+      - name: gitlab
+        image:  sameersbn/gitlab:13.2.2
+        imagePullPolicy: "IfNotPresent"
+        env:
+        - name: GITLAB_HOST
+          value: "gitlab.luffy.com"
+        - name: GITLAB_PORT
+          value: "80"
+        - name: GITLAB_SECRETS_DB_KEY_BASE
+          value: "long-and-random-alpha-numeric-string"
+        - name: GITLAB_SECRETS_SECRET_KEY_BASE
+          value: "long-and-random-alpha-numeric-string"
+        - name: GITLAB_SECRETS_OTP_KEY_BASE
+          value: "long-and-random-alpha-numeric-string"
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_NAME
+          value: "gitlab"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: gitlab-secret
+              key: postgres.user.root
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: gitlab-secret
+              key: postgres.pwd.root
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: 8000m
+            memory: 2048Mi
+          requests:
+            cpu: 1000m
+            memory: 1024Mi
+        volumeMounts:
+        - mountPath: /home/git/data
+          name: data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: gitlab
+EOF
+
+## 为节点打标签   在master上执行就可以
+$ kubectl label node k8s-slave1 component=gitlab
+# 创建
+kubectl create -f gitlab.yaml
+
+# C:\Winodws\system32\drivers\etc\hosts
+10.0.0.81 gitlab.luffy.com
+
+
+访问[http://gitlab.luffy.com，设置管理员密码] root Admin@123.com
+```
+
+
+
+- eladmin-api项目推送到gitlab*
+
+```bash
+
+# 配置k8s-master节点的hosts
+echo "10.0.0.81 gitlab.luffy.com" >>/etc/hosts
+
+---------------- 把本地代码推送到gitlab
+登录gitlab  root  Admin@123.com
+创建一个group  name: eladmin  -->  组内创建一个项目 eladmin-api
+
+
+# git clone https://gitee.com/chengkanghua/eladmin.git
+
+
+git config --global user.name "Administrator"
+git config --global user.email "admin@example.com"
+
+# Push an existing Git repository
+cd eladmin
+git remote rename origin old-origin
+git remote add origin http://gitlab.luffy.com/eladmin/eladmin-api.git
+git push -u origin --all  #根据提示输入账号密码 root  Admin@123.com
+# git push -u origin --tags
+
+# git remote -v #查看远程仓库地址
+
+#gitlab 默认的 auto DevOps    关闭 Default to Auto DevOps pipeline 勾选去掉
+# http://gitlab.luffy.com/eladmin/eladmin-api/-/settings/ci_cd
+
+
+
+
+
+```
+
+
+
+*钉钉推送*
+
+```bash
+
+配置机器人
+
+试验发送消息
+
+#钉钉群 设置 --》 智能群助手 -》机器人管理---》 自定义
+https://oapi.dingtalk.com/robot/send?access_token=740b792c8b2a02d4ead9826263b562c36e8e30d9d15bc5b9de1712fa7d469744
+
+配置当前网络的公网 网段为白名单
+
+
+$ curl 'https://oapi.dingtalk.com/robot/send?access_token=740b792c8b2a02d4ead9826263b562c36e8e30d9d15bc5b9de1712fa7d469744' \
+   -H 'Content-Type: application/json' \
+   -d '{"msgtype": "text", 
+        "text": {
+             "content": "我就是我, 是不一样的烟火"
+        }
+      }'
+      
+
+
+```
+
+
+
+
+
+## Jenkins 4 种常用项目类型
+
+### 1. 自由风格项目（Freestyle）
+
+**适合：新手、简单小任务**
+
+- 可视化点点点配置，不用写代码
+- 拉代码、打包、部署都在页面上配置
+- 缺点：配置不能版本管理、不好复用、换环境要重新配
+
+### 2. 流水线项目（Pipeline）
+
+**适合：正式项目、复杂 CI/CD 流程（最常用）**
+
+- 用`Jenkinsfile`写流程（放到 Git 仓库里）
+- 构建、测试、打包、部署步骤代码化
+- 优点：可版本回滚、可复用、多环境方便迁移
+
+### 细分两种流水线：
+
+1. **流水线（Pipeline）**：单仓库单分支项目用
+2. 多分支流水线（Multibranch Pipeline）
+   - 自动扫描 Git 所有分支，每个分支自动生成一条流水线任务
+   - 适合多分支开发（dev/test/prod）、自动触发各分支构建
+
+### 3. 文件夹（Folder）
+
+不算构建任务，用来归类管理大量任务，分组存放，方便查找权限管控。
+
+### 4. Maven 项目（Maven Project）
+
+**适合 Java Maven 项目**
+
+- 封装了 Maven 常用命令，不用自己写 shell 执行 mvn
+- 内置 Maven 工具配置，比自由风格简化 Java 打包配置
+
+### 极简总结
+
+1. 新手简单任务 → **自由风格**
+2. 标准 CI/CD、流程要托管 → **流水线 Pipeline**
+3. 多分支开发 → **多分支流水线**
+4. Java Maven 项目快速打包 → **Maven 项目**
+
+
+
+
+
+## 演示一个自由风格项目
+
+```bash
+jeknis插件安装gitlab plugin
+插件中心搜索并安装gitlab，直接安装即可
+
+-------------------------------------------------
+全局 GitLab 连接（URL+API Token）：Jenkins 能正常识别你的 GitLab 仓库、分支，构建完把结果同步到 GitLab 页面。
+任务内 Secret Token + 开启 /project 接口认证：GitLab 代码提交后，通过 Webhook 带这个密钥调用 Jenkins，安全触发自动构建。
+---------------------------------------------------
+
+http://jenkins.luffy.com/manage/configure  # 配置全局 Gitlab api
+系统管理->系统配置->Gitlab，其中的API Token，需要从下个步骤中获取
+
+✔ Enable authentication for '/project' end-point
+Connection name : gitlab
+GitLab host URL: http://gitlab.luffy.com/
+Credentials: 添加
+	Jenkins凭据提供者：Jenkins
+	Domain: 全局凭据(unrestricted)
+	类型: GitLab API token  [选择]
+	范围?: 全局(Jenkins,nodes,items,all child items,etc)
+	API token:        登录gitlab获取 
+	ID?: gitlab-api-token [填写]
+
+
+登录gitlab，选择user->Settings->access tokens新建一个访问token
+http://gitlab.luffy.com/profile/personal_access_tokens
+名称: jenkins [填写]
+到期时间: 默认不选
+范围:勾选前4个就可以  api read_user  read_api read_repository
+
+点击 创建个人访问令牌  复制回到jenkins 
+
+点击test connection
+注意: 这里test conntection 不成功,是要做host解析, 按下一步操作
+
+配置host解析
+由于我们的Jenkins和gitlab域名是本地解析，因此需要让gitlab和Jenkins服务可以解析到对方的域名。两种方式：
+- 在容器内配置hosts
+- 配置coredns的静态解析 | 推荐这种方式
+# kubectl -n kube-system edit cm coredns
+        ready #下面增加内容。定位
+        hosts {
+            10.0.0.81 jenkins.luffy.com  gitlab.luffy.com
+            fallthrough
+        }
+
+# 重启coredns
+kubectl -n kube-system scale deployment coredns --replicas=0
+kubectl -n kube-system scale deployment coredns --replicas=1 
+
+登录jenkins 网页jenkins.luffy.com 
+# 创建自由风格项目 name : free-demo
+源码管理-->选择Git，填项项目地址:http://gitlab.luffy.com/eladmin/eladmin-api.git
+Credentials 认证-->添加 ，使用用户名密码方式 username + password，配置gitlab的用户和密码
+用户名: root  
+密码: Admin@123.com
+ID : gitlab-user
+
+
+勾选 Build when a change is pushed to GitLab #复制url
+	高级 展开
+		Secret token :     复制
+		generate 点击生成一个 
+		保存
+# 复制 jenkins项目地址  对应的 Secret token 
+# 登录gitlab  项目--> 设置 添加一个webhook
+http://gitlab.luffy.com/eladmin/eladmin-api/hooks
+    URL： http://jenkins.luffy.com/project/free-demo
+    Secret Token 填入在Jenkins端生成的token
+    Trigger: 勾选 Push events | Merge request events| ssl 取消勾选
+    Add webhook
+
+场景 1：普通前后端项目（最常用推荐）
+✅ Push events + Merge request events
+其余全部不选；SSL 校验取消勾选
+场景 2：需要标签发布部署（生产版本打包）
+✅ Push events + Merge request events + Tag push events
+其余不选，关闭 SSL 校验
+
+test push events，报错：Requests to the local network are not allowed
+解决: 设置gitlab允许向本地网络发送webhook请求
+参考地址 http://gitlab.luffy.com/admin/application_settings/network
+访问 Admin Aera -> Settings -> Network ，
+	展开Outbound requests -->
+		打勾 Allow requests to the local network from web hooks and services  保存
+
+
+# 配置free项目-> 增加构建步骤-> 执行shell，将发送钉钉消息的shell保存
+curl 'https://oapi.dingtalk.com/robot/send?access_token=740b792c8b2a02d4ead9826263b562c36e8e30d9d15bc5b9de1712fa7d469744' \
+   -H 'Content-Type: application/json' \
+   -d '{"msgtype": "text","text": {"content": "我就是我, 是不一样的烟火"}}'
+   
+# 提交代码到gitlab仓库，查看构建是否自动执行
+git clone http://gitlab.luffy.com/eladmin/eladmin-api.git
+cd eladmin
+touch test.log
+git add .
+git commit -m "touch test"
+git push -u origin master
+
+```
+
+
+
+
+
+
+
+
+
 
 
 # k8s 高频面试题

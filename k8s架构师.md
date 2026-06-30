@@ -998,7 +998,7 @@ ctr -n k8s.io image ls
 # 导入镜像
 ctr -n=k8s.io image import dashboard.tar
 # 从私有仓库拉取镜像，前提是/etc/containerd/certs.d下已经配置过该私有仓库的非安全认证
-ctr images pull --user admin:admin  --hosts-dir "/etc/containerd/certs.d"  172.16.1.226:5000/eladmin/eladmin-api:v1-rc1
+ctr images pull --user admin:admin  --hosts-dir "/etc/containerd/certs.d"  10.0.0.80:5000/eladmin/eladmin-api:v1-rc1
 # ctr命令无法查看容器的日志，也无法执行exec等操作
 
 
@@ -1017,7 +1017,7 @@ crictl ps
 # 查看镜像列表
 crictl images 
 # 删除镜像
-crictl rmi 172.16.1.226:5000/eladmin/eladmin-api:v1-rc1
+crictl rmi 10.0.0.80:5000/eladmin/eladmin-api:v1-rc1
 # 拉取镜像， 若拉取私有镜像，需要修改containerd配置添加认证信息，比较麻烦且不安全
 crictl pull nginx:alpine
 # 执行exec操作
@@ -1454,6 +1454,13 @@ kubectl get pods --all-namespaces / -A
 kubectl describe pod pod名 -n ns名
 # 查看标签
 kubectl get pods --show-labels
+
+
+# node节点添加标签
+kubectl label node k8s-slave1 component=gitlab
+# 删除掉标签
+kubectl label node k8s-slave1 component-
+
 # 按标签过滤
 kubectl get pods -l app=nginx
 
@@ -1573,7 +1580,7 @@ Pod的重启策略（`RestartPolicy`）应用于Pod内的所有容器，并且�
 spec:
   containers:
   - name: eladmin-api
-    image: 172.16.1.226:5000/eladmin/eladmin-api:v1
+    image: 10.0.0.80:5000/eladmin/eladmin-api:v1
     imagePullPolicy: IfNotPresent
     
 ```
@@ -1620,7 +1627,7 @@ Readiness 决定了Service是否将流量导入到该Pod，Liveness决定了容�
 #httpGet方式：通过发送http请求检查服务是否正常，返回200-399状态码则表明容器健康
   containers:
   - name: eladmin-api
-    image: 172.16.1.226:5000/eladmin/eladmin-api:v1
+    image: 10.0.0.80:5000/eladmin/eladmin-api:v1
     readinessProbe:
       httpGet:
         path: /auth/code
@@ -2216,7 +2223,7 @@ spec:
   restartPolicy: Always
   containers:
   - name: eladmin-api
-    image: 172.16.1.226:5000/eladmin/eladmin-api:v1
+    image: 10.0.0.80:5000/eladmin/eladmin-api:v1
     env:
     - name: DB_HOST   #  指定数据库地址
       value: "10.1.14.241"
@@ -2351,7 +2358,7 @@ kubectl -n luffy get secret
 ...
   containers:
   - name: eladmin-api
-    image: 172.16.1.226:5000/eladmin/eladmin-api:v1
+    image: 10.0.0.80:5000/eladmin/eladmin-api:v1
     env:
     - name: DB_HOST   #  指定数据库地址
       valueFrom:
@@ -4646,7 +4653,7 @@ spec:
 spec:
       containers:
       - name: eladmin-api
-        image: 172.16.1.226:5000/eladmin-api:v1
+        image: 10.0.0.80:5000/eladmin-api:v1
         ports:
         - containerPort: 8000
       affinity:
@@ -4845,7 +4852,7 @@ spec:
 spec:
       containers:
       - name: eladmin-web
-        image: 172.16.1.226:5000/eladmin/eladmin-web:v2
+        image: 10.0.0.80:5000/eladmin/eladmin-web:v2
       tolerations:
         - operator: "Exists"
 #效果: 所有污点都可以容忍,所有node都可能会调度过去
@@ -8038,7 +8045,7 @@ spec:
       labels:
         app: gitlab
     spec:
-      nodeName: k8s-slave1  #指定部署到的节点
+      nodeName: k8s-slave2  #指定部署到的节点
       tolerations:
       - operator: "Exists"
       containers:
@@ -8327,9 +8334,3125 @@ git push -u origin master
 
 
 
+## Master-Slave模式
+
+ 核心作用
+
+**Master（主节点）负责调度、管理、页面操作；Slave（从节点）真正跑构建任务**，把打包、编译、部署这些耗 CPU / 内存的活分给多台机器执行，避免单台 Jenkins 服务器压力过大卡死。
 
 
 
+```bash
+系统管理 -> 节点管理 -> 新建节点 
+http://jenkins.luffy.com/manage/computer/
+
+名字: 10.0.0.81， 选择固定节点，保存
+执行器数量: 3
+远程工作目录: /opt/jenkins_jobs
+标签: 为任务选择节点的依据，如 10.0.0.81
+启动方式:选择通过java web启动代理，代理是运行jar包，通过JNLP（是一种允许客户端启动托管在远程Web服务器上的应用程序的协议 ）启动连接到master节点服务中
+保持之后根据提示 到节点上操作
+
+Run from agent command line: (Unix) 
+curl -sO http://jenkins.luffy.com/jnlpJars/agent.jar
+java -jar agent.jar -url http://jenkins.luffy.com/ -secret 1e8940ceb13b6c6cae10b127a2fe21c723dce86d4f40bcdb228d9bca9d268b01 -name "10.0.0.81" -webSocket -workDir "/opt/jenkins_jobs"
+
+
+Or run from agent command line, with the secret stored in a file: (Unix) 
+echo 1e8940ceb13b6c6cae10b127a2fe21c723dce86d4f40bcdb228d9bca9d268b01 > secret-file
+curl -sO http://jenkins.luffy.com/jnlpJars/agent.jar
+java -jar agent.jar -url http://jenkins.luffy.com/ -secret @secret-file -name "10.0.0.81" -webSocket -workDir "/opt/jenkins_jobs"
+
+
+
+
+# jenkins服务器装的是jdk17, 所有slave服务器也要安装相同版本
+# openjdk 17 版本下载地址
+#https://www.openlogic.com/openjdk-downloads?page=4
+#https://developers.redhat.com/products/openjdk/download   #需要登录,user:chengkanghua
+
+wget https://builds.openlogic.com/downloadJDK/openlogic-openjdk/17.0.12+7/openlogic-openjdk-17.0.12+7-linux-x64-el.rpm
+yum localinstall openlogic-openjdk-17.0.12+7-linux-x64-el.rpm
+
+echo '10.0.0.81 jenkins.luffy.com gitlab.luffy.com' >> /etc/hosts
+
+
+curl -sO http://jenkins.luffy.com/jnlpJars/agent.jar
+java -jar agent.jar -url http://jenkins.luffy.com/ -secret 1e8940ceb13b6c6cae10b127a2fe21c723dce86d4f40bcdb228d9bca9d268b01 -name "10.0.0.81" -webSocket -workDir "/opt/jenkins_jobs"
+
+
+# 提示 INFO: Connected , 页面上查看连接状态
+
+# 注意 需要安装git,  
+yum install -y git
+
+
+
+测试使用新节点执行任务
+配置free-demo项目
+限制项目的运行节点 ，标签表达式选择10.0.0.81
+立即构建
+查看构建日志
+
+
+
+
+```
+
+## Jenkins定制化容器
+
+```bash
+# 获取当前Jenkins的所有插件列表
+# admin:123456@localhost 需要替换成Jenkins的用户名、密码及访问地址
+#先配置好 etc/hosts ;  jennkins容器ip  jenkins.luffy.com
+echo '10.0.0.81 jenkins.luffy.com' >> /etc/hosts
+
+curl -sSL  "http://admin:admin@jenkins.luffy.com/pluginManager/api/xml?depth=1&xpath=/*/*/shortName|/*/*/version&wrapper=plugins" | perl -pe 's/.*?<shortName>([\w-]+).*?<version>([^<]+)()(<\/\w+>)+/\1:\2\n/g'|sed 's/ /:/' > plugins.txt
+
+wget https://gitee.com/chengkanghua/script/raw/master/k8s/jenkins-plugin-cli.sh
+ 
+ 
+cat <<\EOF >Dockerfile
+FROM jenkins/jenkins:2.544-jdk17
+LABEL maintainer="inspur_lyx@hotmail.com"
+USER root
+
+
+## 用最新的插件列表文件替换默认插件文件
+COPY plugins.txt /usr/share/jenkins/ref/
+COPY jenkins-plugin-cli.sh /usr/local/bin/
+## 执行插件安装
+RUN chmod +x /usr/local/bin/jenkins-plugin-cli.sh && /usr/local/bin/jenkins-plugin-cli.sh -f /usr/share/jenkins/ref/plugins.txt
+EOF
+
+## 执行构建，定制jenkins容器
+docker build . -t 10.0.0.80:5000/jenkins:v20241025 -f Dockerfile
+docker push 10.0.0.80:5000/jenkins:v20241025
+
+
+启动定制化镜像
+## 删掉当前服务
+$ kubectl delete -f jenkins-all.yaml
+## 删掉已挂载的数据
+$ rm -rf /var/jenkins_home
+## 替换使用定制化镜像
+$ sed -i 's#jenkinsci/blueocean#10.0.0.80:5000/jenkins:v20200404#g' jenkins-all.yaml
+## 重新创建服务
+$ kubectl create -f jenkins-all.yaml
+
+
+```
+
+
+
+自由风格项目弊端：
+
+- 任务的完成需要在Jenkins端维护大量的配置
+- 没法做版本控制
+- 可读性、可移植性很差，不够优雅
+
+
+
+## [流水线语法](https://docs.chengkanghua.top/k8s-2023/7基于Kubernetes的DevOps平台实践?id=流水线语法)
+
+
+
+为什么叫做流水线，和工厂产品的生产线类似，pipeline是从源码到发布到线上环境。关于流水线，需要知道的几个点：
+
+- 重要的功能插件，帮助Jenkins定义了一套工作流框架；
+- Pipeline 的实现方式是一套 Groovy DSL（ 领域专用语言 ），所有的发布流程都可以表述为一段 Groovy 脚本；
+- 将WebUI上需要定义的任务，以脚本代码的方式表述出来；
+- 帮助jenkins实现持续集成CI（Continue Integration）和持续部署CD（Continue Deliver）的重要手段；
+
+
+
+[官方文档](https://jenkins.io/zh/doc/book/pipeline/syntax/)
+
+两种语法类型：
+
+- **脚本式语法（Scripted）**
+  - 基于 Groovy 脚本，写法灵活自由，没有固定结构
+  - 可以直接写循环、判断、自定义函数，适合复杂定制化场景
+  - 上手门槛高，无语法强校验，出错难排查
+- **声明式语法（Declarative）【推荐、主流】**
+  - 结构固定、语法严格、易读易维护，企业标准写法
+  - 固定以 `pipeline { ... }` 开头
+  - 自带错误校验，新手不容易写错，BlueOcean 可视化编辑器默认生成这种语法
+
+*为与BlueOcean脚本编辑器兼容，通常建议使用Declarative Pipeline的方式进行编写,从jenkins社区的动向来看，很明显这种语法结构也会是未来的趋势。*
+
+ 补充关键点
+
+1. 自由风格、Maven 项目**不能使用 Jenkinsfile**，只有普通 Pipeline、多分支 Pipeline 项目支持；
+
+2. Jenkinsfile 一般存放于 Git 代码仓库根目录，跟着项目代码做版本管理；
+
+3. 本质：Pipeline 是一套 Jenkins 定义的 DSL 领域专用语言，底层基于 Groovy 实现。
+
+   
+
+```bash
+pipeline { 
+    agent {label '10.0.0.81'}
+    environment { 
+        PROJECT = 'eladmin-api'
+    }
+    stages {
+        stage('Checkout') { 
+            steps { 
+                checkout scm 
+            }
+        }
+        stage('Build') { 
+            steps { 
+                sh 'make' 
+            }
+        }
+        stage('Test'){
+            steps {
+                sh 'make check'
+                junit 'reports/**/*.xml' 
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sh 'make publish'
+            }
+        }
+    }
+    post {
+        success { 
+            echo 'Congratulations!'
+        }
+        failure { 
+            echo 'Oh no!'
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+}
+
+------------------------------------------------
+脚本解释：
+checkout步骤为检出代码; scm是一个特殊变量，指示checkout步骤克隆触发此Pipeline运行的特定修订
+agent：指明使用哪个agent节点来执行任务，定义于pipeline顶层或者stage内部
+any，可以使用任意可用的agent来执行
+label，在提供了标签的 Jenkins 环境中可用的代理上执行流水线或阶段。 例如: agent { label 'my-defined-label' }，最常见的使用方式
+
+none，当在 pipeline 块的顶部没有全局代理， 该参数将会被分配到整个流水线的运行中并且每个 stage 部分都需要包含他自己的 agent 部分。比如: agent none
+
+docker， 使用给定的容器执行流水线或阶段。 在指定的节点中，通过运行容器来执行任务
+agent {
+    docker {
+        image 'maven:3-alpine'
+        label 'my-defined-label'
+        args  '-v /tmp:/tmp'
+    }
+}
+options: 允许从流水线内部配置特定于流水线的选项。
+buildDiscarder , 为最近的流水线运行的特定数量保存组件和控制台输出。
+例如: options { buildDiscarder(logRotator(numToKeepStr: '10')) }
+
+disableConcurrentBuilds ,不允许同时执行流水线。 可被用来防止同时访问共享资源等。 
+例如: options { disableConcurrentBuilds() }
+
+timeout ,设置流水线运行的超时时间, 在此之后，Jenkins将中止流水线。
+例如: options { timeout(time: 1, unit: 'HOURS') }
+
+retry，在失败时, 重新尝试整个流水线的指定次数。 For example: options { retry(3) }
+environment: 指令制定一个 键-值对序列，该序列将被定义为所有步骤的环境变量
+
+stages: 包含一系列一个或多个 stage指令, stages 部分是流水线描述的大部分"work" 的位置。 建议 stages 至少包含一个 stage 指令用于连续交付过程的每个离散部分,比如构建, 测试, 和部署。
+pipeline {
+    agent any
+    stages { 
+        stage('Example') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+    }
+}
+steps: 在给定的 stage 指令中执行的定义了一系列的一个或多个steps。
+
+post: 定义一个或多个steps ，这些阶段根据流水线或阶段的完成情况而运行post 支持以下 post-condition 块中的其中之一: always, changed, failure, success, unstable, 和 aborted。
+
+always, 无论流水线或阶段的完成状态如何，都允许在 post 部分运行该步骤
+changed, 当前流水线或阶段的完成状态与它之前的运行不同时，才允许在 post 部分运行该步骤
+failure, 当前流水线或阶段的完成状态为"failure"，才允许在 post 部分运行该步骤, 通常web UI是红色
+success, 当前流水线或阶段的完成状态为"success"，才允许在 post 部分运行该步骤, 通常web UI是蓝色或绿色
+unstable, 当前流水线或阶段的完成状态为"unstable"，才允许在 post 部分运行该步骤, 通常由于测试失败,代码违规等造成。通常web UI是黄色
+aborted， 只有当前流水线或阶段的完成状态为"aborted"，才允许在 post 部分运行该步骤, 通常由于流水线被手动的aborted。通常web UI是灰色
+
+
+
+```
+
+创建pipeline示意：
+
+新建任务 -> 流水线 任务名字: eladmin-api-pipeline
+
+```go
+jenkins/pipelines/p1.yaml
+
+pipeline {
+   agent {label '172.16.1.228'}
+   environment { 
+      PROJECT = 'eladmin-api'
+   }
+   stages {
+      stage('printenv') {
+         steps {
+            echo 'Hello World'
+            sh 'printenv'
+         }
+      }
+      stage('check') {
+         steps {
+            checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: '543cae0a-2f0c-4b12-bd0c-0ea4b6596726', url: 'http://gitlab.luffy.com/eladmin/eladmin-api.git']])
+         }
+      }
+      stage('build-image') {
+         steps {
+            sh 'docker build . -t 172.16.1.226/eladmin/eladmin-api:latest -f Dockerfile'
+         }
+      }
+      stage('send-msg') {
+         steps {
+            sh """
+            curl 'https://oapi.dingtalk.com/robot/send?access_token=740b792c8b2a02d4ead9826263b562c36e8e30d9d15bc5b9de1712fa7d469744' \
+   -H 'Content-Type: application/json' \
+   -d '{"msgtype": "text", 
+        "text": {
+             "content": "我就是我, 是不一样的烟火"
+        }
+      }'
+      """
+         }
+      }
+   }
+}
+
+
+ # stage('check') 点击流水线语法,里选择chenckout: Check out from version control , 里填写,生成对用的脚本
+
+ #在代码里添加Dockerfile文件
+git clone http://gitlab.luffy.com/eladmin/eladmin-api.git
+cd eladmin-api
+
+cat > Dockerfile.multi <<EOF
+FROM aerialist7/maven-git as builder
+WORKDIR /opt/eladmin
+COPY  . .
+RUN mvn clean package
+
+FROM java:8u111
+WORKDIR /opt/eladmin
+COPY --from=builder /opt/eladmin/eladmin-system/target/eladmin-system-2.6.jar .
+CMD [ "sh", "-c", "java -Dspring.profiles.active=prod -jar eladmin-system-2.6.jar" ]
+EOF
+
+git add .
+git commit -m "add Dockerfile.multi"
+git push -u origin master
+
+ 
+ 
+ -------------- 实际修改的版本
+ pipeline {
+   agent {label '10.0.0.81'}
+   environment { 
+      PROJECT = 'eladmin-api'
+   }
+   stages {
+      stage('printenv') {
+         steps {
+            echo 'Hello World'
+            sh 'printenv'
+         }
+      }
+      stage('check') {
+         steps {
+            checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'gitlab-user', url: 'http://gitlab.luffy.com/eladmin/eladmin-api.git']])
+         }
+      }
+      stage('build-image') {
+         steps {
+            sh 'docker build . -t 10.0.0.80:5000/eladmin/eladmin-api:latest -f Dockerfile.multi'
+         }
+      }
+
+   }
+   post {
+        success { 
+            echo 'Congratulations!'
+        }
+        failure { 
+            echo 'Oh no!'
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+   
+}
+
+
+点击“立即构建”，同样的，我们可以配置触发器，使用webhook的方式接收项目的push事件，
+
+构建触发器选择 Build when a change is pushed to GitLab. #复制url地址,
+生成 Secret token #复制token
+配置gitlab，创建webhook，(粘贴到创建webhook页面, ) , 发送test push events测试
+```
+
+
+
+## Blue Ocean
+
+1. **定位**：Jenkins 现代化可视化 UI 插件，专为 Pipeline 流水线设计，用来替代老旧经典界面。
+2. 核心优势
+   - 流水线阶段图形化展示，红绿蓝三色直观看每个步骤成败，排错快；
+   - 支持拖拽式编辑器，可可视化生成 Jenkinsfile；
+   - 分阶段独立日志，多分支、MR 构建状态集中展示，界面简洁好上手。
+3. 局限
+   - 只能查看、新建流水线，**不能做系统配置、插件、节点、权限管理**，复杂配置仍要切回经典页面；
+   - 官方已停止功能迭代，仅安全维护，替代方案：`Pipeline Graph View`、`Pipeline Stage View`插件，保留可视化核心能力，持续更新维护
+4. **适用场景**：开发日常查看构建、排查流水线报错；新手快速入门写流水线。
+
+
+
+## Jenkinsflie实战
+
+Jenkins Pipeline 提供了一套可扩展的工具，用于将“简单到复杂”的交付流程实现为“持续交付即代码”。Jenkins Pipeline 的定义通常被写入到一个文本文件（称为 `Jenkinsfile` ）中，该文件可以被放入项目的源代码控制库中。
+
+### 演示1：使用Jenkinsfile管理**pipeline**
+
+- 在项目中源代码 新建Jenkinsfile文件，拷贝已有script内容 #上面--实际修改的版本
+- 配置pipeline任务，流水线 定义为 Pipeline Script from SCM (scoure code manage 源代码管理)
+- 执行push 代码测试
+
+```bash
+#配置pipeline 流水线 定义为 Pipeline Script from SCM (scoure code manage 源代码管理)
+regpossitory URL: http://gitlab.luffy.com/eladmin/eladmin-api.git
+脚本路径 Jenkinsfile
+
+
+
+ ~/eladmin (master) $ vi Jenkinsfile
+粘贴 已有script内容 #上面--实际修改的版本
+
+git add .
+git commit -m 'add Jenkinsfile'
+git push -u origin master
+---------------------------------------------Jenkinsfile
+pipeline {
+   agent {label '10.0.0.81'}
+   environment { 
+      PROJECT = 'eladmin-api'
+   }
+   stages {
+      stage('printenv') {
+         steps {
+            echo 'Hello World'
+            sh 'printenv'
+         }
+      }
+      stage('check') {
+         steps {
+            checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'gitlab-user', url: 'http://gitlab.luffy.com/eladmin/eladmin-api.git']])
+         }
+      }
+      stage('build-image') {
+         steps {
+            sh 'docker build . -t 10.0.0.80:5000/eladmin/eladmin-api:latest -f Dockerfile.multi'
+         }
+      }
+
+   }
+   post {
+        success { 
+            echo 'Congratulations!'
+        }
+        failure { 
+            echo 'Oh no!'
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+   
+}
+
+
+```
+
+### [演示2：优化及丰富流水线内容]
+
+- 优化代码检出阶段
+
+  由于目前已经配置了使用git仓库地址，且使用SCM来检测项目，因此代码检出阶段完全没有必要再去指定一次
+
+- 构建镜像的tag使用git的commit id
+
+- 增加post阶段的消息通知，丰富通知内容, 钉钉工作群设置里-->机器人,-->设置 开启 webhook, 安全设置外网ip地址段;
+
+- 编译和构建拆分不同的stage，增加构建速度
+
+```bash
+
+ pipeline {
+   agent {label '10.0.0.81'}
+   environment { 
+      PROJECT = 'eladmin-api'
+   }
+   stages {
+      stage('printenv') {
+         steps {
+            echo 'Hello World'
+            sh 'printenv'
+         }
+      }
+      stage('check') {
+         steps {
+             checkout scm
+         }
+      }
+      stage('mvn package') {
+          steps {
+            sh 'mvn clean package'
+          }
+        }
+      stage('build-image') {
+         steps {
+            sh 'docker build . -t 10.0.0.80:5000/eladmin/eladmin-api:${GIT_COMMIT} -f Dockerfile'
+         }
+      }
+
+   }
+   post {
+        success { 
+            echo 'Congratulations!'
+            sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=740b792c8b2a02d4ead9826263b562c36e8e30d9d15bc5b9de1712fa7d469744' \
+                    -H 'Content-Type: application/json' \
+                    -d '{"msgtype": "text", 
+                            "text": {
+                                "content": "😄👍构建成功👍😄\n 关键字：luffy\n 项目名称: ${JOB_BASE_NAME}\n Commit Id: ${GIT_COMMIT}\n 构建地址：${RUN_DISPLAY_URL}"
+                        }
+                }'
+            """
+        }
+        failure {
+            echo 'Oh no!'
+            sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=740b792c8b2a02d4ead9826263b562c36e8e30d9d15bc5b9de1712fa7d469744' \
+                    -H 'Content-Type: application/json' \
+                    -d '{"msgtype": "text", 
+                            "text": {
+                                "content": "😖❌构建失败❌😖\n 关键字：luffy\n 项目名称: ${JOB_BASE_NAME}\n Commit Id: ${GIT_COMMIT}\n 构建地址：${RUN_DISPLAY_URL}"
+                        }
+                }'
+            """
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+   
+}
+
+# 重新修改 vi Jenkinsfile
+
+
+需要在10.0.0.81 节点安装maven环境
+官网下载地址 https://maven.apache.org/download.cgi
+国内华为镜像地址:https://mirrors.huaweicloud.com/apache/maven/maven-3/3.6.3/binaries/
+
+
+wget https://mirrors.huaweicloud.com/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
+# 解压
+tar zxf apache-maven-3.6.3-bin.tar.gz
+
+# 修改mvn配置，配置maven源和本地仓库路径
+cat <<\EOF > apache-maven-3.6.3/conf/settings.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+  <localRepository>/opt/maven-repo</localRepository>
+  <proxies>
+  </proxies>
+
+  <servers>
+  </servers>
+
+  <mirrors>
+    <mirror>
+      <id>alimaven</id>
+      <name>aliyun maven</name>
+      <url>http://maven.aliyun.com/nexus/content/groups/public/</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
+  </mirrors>
+
+</settings>
+EOF
+
+# 拷贝目录,并软连接
+cp -r apache-maven-3.6.3 /usr/lib/
+ln -s /usr/lib/apache-maven-3.6.3/bin/mvn /usr/bin/mvn
+# 验证
+mvn -v
+
+# 修改Dockerfile.multi 为Dockerfile
+
+mv Dockerfile.multi Dockerfile
+cat <<\EOF > Dockerfile
+FROM java:8u111
+WORKDIR /opt/eladmin
+COPY eladmin-system/target/ .
+CMD [ "sh", "-c", "java -Dspring.profiles.active=prod -jar eladmin-system-2.6.jar" ]
+EOF
+
+git add .
+git commit -am 'modify Jenkinsfile and Dockerfile'
+git push -u origin master 
+
+
+```
+
+
+
+### [演示3：使用k8s部署服务]
+
+- 在源代码新建mainfests目录，将k8s所需的文件放到mainfests目录中
+- 将镜像地址改成模板，在pipeline中使用新构建的镜像进行替换
+- 执行kubectl apply -f mainfests应用更改，需要配置kubectl认证
+
+```bash
+
+/eladmin-api (master) $ mkdir mainifests;cd mainifests
+/eladmin-api (master)$ vim  eladmin-api.dpl.yaml
+cat <<\EOF >eladmin-api.dpl.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eladmin-api
+  namespace: luffy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eladmin-api
+  template:
+    metadata:
+      labels:
+        app: eladmin-api
+    spec:
+      imagePullSecrets:
+      - name: registry-10-0-0-80
+      containers:
+      - name: eladmin-api
+        image: {{IMAGE_URL}} #这里改成模板
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: eladmin
+              key: DB_HOST
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: eladmin-secret
+              key: DB_USER
+        - name: DB_PWD
+          valueFrom:
+            secretKeyRef:
+              name: eladmin-secret
+              key: DB_PWD
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: eladmin
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: eladmin
+              key: REDIS_PORT
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: 200Mi
+            cpu: 50m
+          limits:
+            memory: 1Gi
+            cpu: 2
+        livenessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          timeoutSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /auth/code
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 20
+          timeoutSeconds: 3
+          periodSeconds: 15
+EOF
+# 有之前部署的yaml 文件就可以用之前的部署的yaml文件
+# kubectl -n luffy get deployments.apps eladmin-api -oyaml>eladmin-api.dpl.yaml
+# vi eladmin-api.dpl.yaml #删除不需要的信息.
+cat <<EOF > deploy-eladmin-api.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eladmin-api
+  namespace: luffy
+spec:
+  replicas: 1    #指定Pod副本数
+  selector:        #指定Pod的选择器
+    matchLabels:
+      app: eladmin-api
+  template:
+    metadata:
+      labels:    #给Pod打label
+        app: eladmin-api
+    spec:
+      imagePullSecrets:
+      - name: registry-10-0-0-80
+      containers:
+      - name: eladmin-api
+        image: 10.0.0.80:5000/eladmin/eladmin-api:v1
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: eladmin
+              key: DB_HOST
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: eladmin-secret
+              key: DB_USER
+        - name: DB_PWD
+          valueFrom:
+            secretKeyRef:
+              name: eladmin-secret
+              key: DB_PWD
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: eladmin
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: eladmin
+              key: REDIS_PORT
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: 200Mi
+            cpu: 50m
+          limits:
+            memory: 1Gi
+            cpu: 2
+        livenessProbe:
+          tcpSocket:
+            port: 8000
+          initialDelaySeconds: 20  # 容器启动后第一次执行探测是需要等待多少秒
+          periodSeconds: 15     # 执行探测的频率
+          timeoutSeconds: 3        # 探测超时时间
+        readinessProbe: 
+          httpGet: 
+            path: /auth/code
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 20 
+          timeoutSeconds: 3
+          periodSeconds: 15
+EOF
+
+
+#将master上认证文件复制到jenkins-agent机器上
+scp -r k8s-master:/root/.kube /root
+
+
+
+# 调整Jenkinsfile # cd eladmin
+cat <<EOF > Jenkinsfile
+pipeline {
+    agent { label '10.0.0.81'}
+
+    environment {
+        IMAGE_REPO = "10.0.0.80:5000/eladmin"
+    }
+
+    stages {
+        stage('printenv') {
+            steps {
+              echo 'Hello World'
+              sh 'printenv'
+            }
+        }
+        stage('check') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('build-image') {
+            steps {
+                retry(2) { sh 'docker build . -t ${IMAGE_REPO}:${GIT_COMMIT}'}
+            }
+        }
+        stage('push-image') {
+            steps {
+                retry(2) { sh 'docker push ${IMAGE_REPO}:${GIT_COMMIT}'}
+            }
+        }
+        stage('deploy') {
+            steps {
+                sh "sed -i 's#{{IMAGE_URL}}#${IMAGE_REPO}:${GIT_COMMIT}#g' mainifests/*"
+                timeout(time: 1, unit: 'MINUTES') {
+                    sh "kubectl apply -f mainifests/"
+                }
+            }
+        }
+    }
+    post {
+        success { 
+            echo 'Congratulations!'
+            sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=740b792c8b2a02d4ead9826263b562c36e8e30d9d15bc5b9de1712fa7d469744' \
+                    -H 'Content-Type: application/json' \
+                    -d '{"msgtype": "text", 
+                            "text": {
+                                "content": "😄👍构建成功👍😄\n 关键字：myblog\n 项目名称: ${JOB_BASE_NAME}\n Commit Id: ${GIT_COMMIT}\n 构建地址：${RUN_DISPLAY_URL}"
+                        }
+                }'
+            """
+        }
+        failure {
+            echo 'Oh no!'
+            sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=740b792c8b2a02d4ead9826263b562c36e8e30d9d15bc5b9de1712fa7d469744' \
+                    -H 'Content-Type: application/json' \
+                    -d '{"msgtype": "text", 
+                            "text": {
+                                "content": "😖❌构建失败❌😖\n 关键字：luffy\n 项目名称: ${JOB_BASE_NAME}\n Commit Id: ${GIT_COMMIT}\n 构建地址：${RUN_DISPLAY_URL}"
+                        }
+                }'
+            """
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+}
+EOF
+
+git add . && git commit -m "modify"
+git push -u origin master
+```
+
+
+
+### 演示4：使用凭据管理敏感信息
+
+上述Jenkinsfile中存在的问题是敏感信息使用明文，暴漏在代码中，如何管理流水线中的敏感信息（包含账号密码），之前我们在对接gitlab的时候，需要账号密码，已经使用过凭据来管理这类敏感信息，同样的，我们可以使用凭据来存储钉钉的token信息，创建凭据:
+
+[Dashboard] ==> [系统管理]==>[凭据]==> [系统] => [全局凭据 (unrestricted)](http://jenkins.luffy.com/manage/credentials/store/system/domain/_/)
+
+new credentials :
+
+- 类型: username with password
+- 用户名: dingTalk #这里可以自定义
+- 密码: 粘贴 钉钉的token
+  - ID: dingTalk #唯一标识
+  - 描述: dingTalk robot access token
+
+如何在Jenkinsfile中获取已有凭据的内容？
+
+Jenkins 的声明式流水线语法有一个 `credentials()` 辅助方法（在[`environment`](https://jenkins.io/zh/doc/book/pipeline/jenkinsfile/#../syntax#environment) 指令中使用），它支持 [secret 文本](https://jenkins.io/zh/doc/book/pipeline/jenkinsfile/##secret-text)，[带密码的用户名](https://jenkins.io/zh/doc/book/pipeline/jenkinsfile/##usernames-and-passwords)，以及 [secret 文件](https://jenkins.io/zh/doc/book/pipeline/jenkinsfile/##secret-files)凭据。
+
+下面的流水线代码片段展示了如何创建一个使用带密码的用户名凭据的环境变量的流水线。
+
+在该示例中，带密码的用户名凭据被分配了环境变量，用来使你的组织或团队以一个公用账户访问 Bitbucket 仓库；这些凭据已在 Jenkins 中配置了凭据 ID `jenkins-bitbucket-common-creds`。
+
+当在 [`environment`](https://jenkins.io/zh/doc/book/pipeline/jenkinsfile/#../syntax#environment) 指令中设置凭据环境变量时：
+
+```
+environment {
+    BITBUCKET_COMMON_CREDS = credentials('jenkins-bitbucket-common-creds')
+}
+
+```
+
+这实际设置了下面的三个环境变量：
+
+- `BITBUCKET_COMMON_CREDS` - 包含一个以冒号分隔的用户名和密码，格式为 `username:password`。
+- `BITBUCKET_COMMON_CREDS_USR` - 附加的一个仅包含用户名部分的变量。
+- `BITBUCKET_COMMON_CREDS_PSW` - 附加的一个仅包含密码部分的变量。
+
+```bash
+pipeline {
+    agent {
+        // 此处定义 agent 的细节
+    }
+    environment {
+        //顶层流水线块中使用的 environment 指令将适用于流水线中的所有步骤。 
+        BITBUCKET_COMMON_CREDS = credentials('jenkins-bitbucket-common-creds')
+    }
+    stages {
+        stage('Example stage 1') {
+             //在一个 stage 中定义的 environment 指令只会将给定的环境变量应用于 stage 中的步骤。
+            environment {
+                BITBUCKET_COMMON_CREDS = credentials('another-credential-id')
+            }
+            steps {
+                // 
+            }
+        }
+        stage('Example stage 2') {
+            steps {
+                // 
+            }
+        }
+    }
+}
+
+```
+
+
+
+因此对Jenkinsfile做改造：
+
+```Groovy 
+
+pipeline {
+    agent { label '10.0.0.81'}
+
+    environment {
+        IMAGE_REPO = "10.0.0.80:5000/eladmin"
+        DINGTALK_CREDS = credentials('dingTalk')
+    }
+
+    stages {
+        stage('printenv') {
+            steps {
+            echo 'Hello World'
+            sh 'printenv'
+            }
+        }
+        stage('check') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('mvn clean package') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage('build-image') {
+            steps {
+                retry(2) { sh 'docker build . -t ${IMAGE_REPO}:${GIT_COMMIT}'}
+            }
+        }
+        stage('push-image') {
+            steps {
+                retry(2) { sh 'docker push ${IMAGE_REPO}:${GIT_COMMIT}'}
+            }
+        }
+        stage('deploy') {
+            steps {
+                sh "sed -i 's#{{IMAGE_URL}}#${IMAGE_REPO}:${GIT_COMMIT}#g' mainifests/*"
+                timeout(time: 1, unit: 'MINUTES') {
+                    sh "kubectl apply -f mainifests/"
+                }
+            }
+        }
+    }
+    post {
+        success { 
+            echo 'Congratulations!'
+            sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                    -H 'Content-Type: application/json' \
+                    -d '{"msgtype": "text", 
+                            "text": {
+                                "content": "😄👍构建成功👍😄\n 关键字：luffy\n 项目名称: ${JOB_BASE_NAME}\n Commit Id: ${GIT_COMMIT}\n 构建地址：${RUN_DISPLAY_URL}"
+                        }
+                }'
+            """
+        }
+        failure {
+            echo 'Oh no!'
+            sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                    -H 'Content-Type: application/json' \
+                    -d '{"msgtype": "text", 
+                            "text": {
+                                "content": "😖❌构建失败❌😖\n 关键字：luffy\n 项目名称: ${JOB_BASE_NAME}\n Commit Id: ${GIT_COMMIT}\n 构建地址：${RUN_DISPLAY_URL}"
+                        }
+                }'
+            """
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+}
+
+# ------操作, 查看jeknins构建过程
+vi Jenkinsfile  
+
+git commit -am "modify Jenkinsfile"
+
+git push -u origin master
+
+```
+
+上面我们已经通过Jenkinsfile完成了最简单的项目的构建和部署，那么我们来思考目前的方式：
+
+1. 目前都是在项目的单一分支下进行操作，企业内一般会使用feature、develop、release、master等多个分支来管理整个代码提交流程，如何根据不同的分支来做构建？
+2. 构建视图中如何区分不同的分支?
+3. 如何不配置webhook的方式实现构建？
+4. 如何根据不同的分支选择发布到不同的环境(开发、测试、生产)？
+
+
+
+## 多分支流水线实战
+
+[官方示例](https://jenkins.io/zh/doc/tutorials/build-a-multibranch-pipeline-project/)
+
+假如使用develop分支作为开发分支，master分支作为集成测试分支，看一下如何使用多分支流水线来管理。
+
+### 演示1：多分支流水线的使用
+
+
+
+```bash
+
+# 提交develop分支：
+git checkout -b develop        #基于本地分支创建新分支develop
+git push --set-upstream origin develop  #推送新分支到远程仓库时, --set-upstream 简写 -u
+
+```
+
+1. 禁用pipeline项目 (项目配置-->右上角 禁用)
+
+2. Jenkins端创建多分支流水线项目 #名称: eladmin-api-muitl-pipeline
+
+   - 增加git分支源
+
+     - 项目仓库 http://gitlab.luffy.com/eladmin/eladmin-api.git
+
+     - 凭据 选择 root/****
+
+     - add --> 发现标签
+
+     - add--> 根据名称过滤(支持正则表达式): develop|master|.*
+
+     - add-->高级克隆，add--> 设置浅克隆 1
+
+     - 扫描 多分支流水线 触发器
+
+       Periodically if not otherwise run 选择 1 minute
+
+保存后，会自动检索项目中所有存在Jenkinsfile文件的分支和标签，若匹配我们设置的过滤正则表达式，则会添加到多分支的构建视图中。所有添加到视图中的分支和标签，会默认执行一次构建任务。
+
+
+
+### 演示2：美化消息通知内容
+
+- 添加构建阶段记录
+- 使用markdown格式，添加构建分支消息
+
+
+
+```groovy
+# develop 分支
+cat <<\EOF > Jenkinsfile
+pipeline {
+    agent { label '10.0.0.81'}
+
+    environment {
+        IMAGE_REPO = "10.0.0.80:5000/eladmin"
+        DINGTALK_CREDS = credentials('dingTalk')
+        TAB_STR = "\n                    \n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+    }
+
+    stages {
+        stage('printenv') {
+            steps {
+                script{
+                    sh "git log --oneline -n 1 > gitlog.file"
+                    env.GIT_LOG = readFile("gitlog.file").trim()
+                }
+                sh 'printenv'
+            }
+        }
+        stage('checkout') {
+            steps {
+                checkout scm
+                script{
+                    env.BUILD_TASKS = env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('mvn clean package') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage('build-image') {
+            steps {
+                retry(2) { sh 'docker build . -t ${IMAGE_REPO}:${GIT_COMMIT}'}
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('push-image') {
+            steps {
+                retry(2) { sh 'docker push ${IMAGE_REPO}:${GIT_COMMIT}'}
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('deploy') {
+            steps {
+                sh "sed -i 's#{{IMAGE_URL}}#${IMAGE_REPO}:${GIT_COMMIT}#g' mainifests/*"
+                timeout(time: 1, unit: 'MINUTES') {
+                    sh "kubectl apply -f mainifests/"
+                }
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+    }
+    post {
+        success { 
+            echo 'Congratulations!'
+            sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                    -H 'Content-Type: application/json' \
+                    -d '{
+                        "msgtype": "markdown",
+                        "markdown": {
+                            "title":"myblog",
+                            "text": "😄👍 构建成功 👍😄  \n**项目名称**：luffy  \n**Git log**: ${GIT_LOG}   \n**构建分支**: ${GIT_BRANCH}   \n**构建地址**：${RUN_DISPLAY_URL}  \n**构建任务**：${BUILD_TASKS}"
+                        }
+                    }'
+            """ 
+        }
+        failure {
+            echo 'Oh no!'
+            sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                    -H 'Content-Type: application/json' \
+                    -d '{
+                        "msgtype": "markdown",
+                        "markdown": {
+                            "title":"myblog",
+                            "text": "😖❌ 构建失败 ❌😖  \n**项目名称**：luffy  \n**Git log**: ${GIT_LOG}   \n**构建分支**: ${GIT_BRANCH}  \n**构建地址**：${RUN_DISPLAY_URL}  \n**构建任务**：${BUILD_TASKS}"
+                        }
+                    }'
+            """
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+}
+EOF
+
+git commit -am "muilt pipeline jenkinsfile"
+git push -u origin develop
+
+```
+
+
+
+### 演示3：通知gitlab构建状态
+
+Jenkins端做了构建，可以通过gitlab通过的api将构建状态通知过去，作为开发人员发起Merge Request或者合并Merge Request的依据之一。
+
+*注意一定要指定gitLabConnection('gitlab')，不然没法认证到Gitlab端*
+
+\#这里gitlab就是最开始在jeknis 系统设置里配置的 gitlab connections -->Connection name
+
+```bash
+   #配置说明 
+   options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))  # 保留构建记录个数
+        disableConcurrentBuilds()                 # 禁止并行构建
+        timeout(time: 20, unit: 'MINUTES')      # Pipeline 的超时时间为 20 分钟,超过时间就失败 
+        gitLabConnection('gitlab')             # 配置指定了与 GitLab 的连接
+    }
+    
+    
+ updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success') #将构建状态信息发给gitlab
+
+```
+
+
+
+```groovy
+cat <<\EOF > Jenkinsfile
+pipeline {
+    agent { label '10.0.0.81'}
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+        timeout(time: 20, unit: 'MINUTES')
+        gitLabConnection('gitlab')
+    }
+
+    environment {
+        IMAGE_REPO = "10.0.0.80:5000/eladmin"
+        DINGTALK_CREDS = credentials('dingTalk')
+        TAB_STR = "\n                    \n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+    }
+
+    stages {
+        stage('printenv') {
+            steps {
+                script{
+                    sh "git log --oneline -n 1 > gitlog.file"
+                    env.GIT_LOG = readFile("gitlog.file").trim()
+                }
+                sh 'printenv'
+            }
+        }
+        stage('checkout') {
+            steps {
+                checkout scm
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS = env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('mvn clean package') {
+            steps {
+                sh 'mvn clean package'
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('build-image') {
+            steps {
+                retry(2) { sh 'docker build . -t ${IMAGE_REPO}:${GIT_COMMIT}'}
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('push-image') {
+            steps {
+                retry(2) { sh 'docker push ${IMAGE_REPO}:${GIT_COMMIT}'}
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('deploy') {
+            steps {
+                sh "sed -i 's#{{IMAGE_URL}}#${IMAGE_REPO}:${GIT_COMMIT}#g' mainifests/*"
+                timeout(time: 1, unit: 'MINUTES') {
+                    sh "kubectl apply -f mainifests/"
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+    }
+    post {
+        success { 
+            echo 'Congratulations!'
+            sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                    -H 'Content-Type: application/json' \
+                    -d '{
+                        "msgtype": "markdown",
+                        "markdown": {
+                            "title":"myblog",
+                            "text": "😄👍 构建成功 👍😄  \n**项目名称**：luffy  \n**Git log**: ${GIT_LOG}   \n**构建分支**: ${BRANCH_NAME}   \n**构建地址**：${RUN_DISPLAY_URL}  \n**构建任务**：${BUILD_TASKS}"
+                        }
+                    }'
+            """ 
+        }
+        failure {
+            echo 'Oh no!'
+            sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                    -H 'Content-Type: application/json' \
+                    -d '{
+                        "msgtype": "markdown",
+                        "markdown": {
+                            "title":"myblog",
+                            "text": "😖❌ 构建失败 ❌😖  \n**项目名称**：luffy  \n**Git log**: ${GIT_LOG}   \n**构建分支**: ${BRANCH_NAME}  \n**构建地址**：${RUN_DISPLAY_URL}  \n**构建任务**：${BUILD_TASKS}"
+                        }
+                    }'
+            """
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+}
+EOF
+
+git commit -am "update to gitlab for Jenkinsfile"
+git push  #在develop 分支
+
+```
+
+我们可以访问gitlab，然后找到commit记录，查看同步状态
+
+http://gitlab.luffy.com/eladmin/eladmin-api/-/pipelines/
+
+提交merge request，也可以查看到相关的任务状态，可以作为项目owner合并代码的依据之一：
+
+
+
+本章小结:
+
+优势:
+
+- 根据分支展示, 视图人性化
+- 自动检测各分支的变更
+
+思考：
+
+- Jenkins的slave端，没有任务的时候处于闲置状态，slave节点多的话造成资源浪费
+- 是否可以利用kubernetes的Pod来启动slave，动态slave pod来执行构建任务
+
+
+
+## Jenkins与K8S集成
+
+工具集成与Jenkinsfile实践篇
+
+1. Jenkins如何对接kubernetes集群
+2. 使用kubernetes的Pod-Template来作为动态的agent执行Jenkins任务
+3. 如何制作agent容器实现不同类型的业务的集成
+4. 集成代码扫描、docker镜像自动构建、k8s服务部署、自动化测试
+
+
+
+[插件官方文档](https://plugins.jenkins.io/kubernetes/)
+
+1. [系统管理] -> [插件管理] -> [搜索kubernetes]->直接安装
+
+   若安装失败，请先更新[ bouncycastle API Plugin](https://plugins.jenkins.io/bouncycastle-api)并重新启动Jenkins
+
+2. [系统管理] -> [节点管理] ->clouds --> [Add a new cloud]
+
+3. 配置地址信息
+
+   - Kubernetes 地址: [https://kubernetes.default](https://kubernetes.default/)
+   - Kubernetes 命名空间：jenkins
+   - 服务证书不用写（我们在安装Jenkins的时候已经指定过serviceAccount），均使用默认
+   - 连接测试，成功会提示：Connection test successful
+   - Kubernetes 命名空间: jenkins
+   - Jenkins地址：[http://jenkins:8080](http://jenkins:8080/)
+   - Jenkins 通道 ：jenkins:50000
+
+4. 配置Pod Template #新版是在左边列表专门有一个pod templates 点[Add a pod template]
+
+   - 名称: jnlp-slave
+   - 命名空间：jenkins
+   - 标签列表：jnlp-slave，作为agent的label选择用
+   - 连接 Jenkins 的超时时间（秒） ：300，设置连接jenkins超时时间
+   - 工作空间卷：选择hostpath，设置/opt/jenkins,注意需要设置目录权限，否则Pod没有权限
+
+
+
+```bash
+卷?
+​ Host Path Volume
+​	主机路径？:  /opt/jenkins
+​	挂载路径？:  /home/jenkins/agent
+
+# 打了标签的节点上操作
+chown -R 1000:1000 /opt/jenkins
+chmod 777 /opt/jenkins
+
+节点选择器: jnlp-slave
+
+工作空间卷: host path workspace volume --> 主机路径: /opt/jenkins
+
+
+
+```
+
+
+
+### 演示动态slave pod
+
+```bash
+# 为准备运行jnlp-slave-agent的pod的节点打上label
+kubectl label node k8s-slave1 jnlp-slave=true
+# kubectl label node k8s-slave2 jnlp-slave=true
+
+### 回放一次多分支流水线develop分支 # 修改label
+# 或者修改代码中的Jenkinsfile 提交代码
+agent { label 'jnlp-slave'}
+```
+
+执行任务，会下载默认的jnlp-slave镜像，地址为jenkins/inbound-agent:4.11-1-jdk11，我们可以先在k8s-master节点拉取下来该镜像： #这里镜像版本要和jenkins的版本保持一致, 这里都是使用最新版
+
+```bash
+$ docker pull jenkins/inbound-agent:latest-jdk17
+
+```
+
+保存jenkinsfile提交后，会出现报错，因为我们的agent已经不再是宿主机，而是Pod中的容器内，报错如下：
+
+mvn  not found
+
+因此我们需要将用到的命令行工具集成到Pod的容器内，但是思考如下问题：
+
+- 目前是用的jnlp的容器，是java的环境，我们在此基础上需要集成很多工具，能不能创建一个新的容器，让新容器来做具体的任务，jnlp-slave容器只用来负责连接jenkins-master
+- 针对不同的构建环境（java、python、go、nodejs），可以制作不同的容器，来执行对应的任务
+
+
+
+### [Pod-Template中容器镜像的制作]
+
+为解决上述问题，我们制作一个tools镜像，集成常用的工具，来完成常见的构建任务，需要注意的几点：
+
+- 使用alpine基础镜像，自身体积比较小
+- 替换国内安装源
+- 为了使用docker，安装了docker
+- 为了克隆代码，安装git
+- 为了后续做python的测试等任务，安装python环境
+- 为了在容器中调用kubectl的命令，拷贝了kubectl的二进制文件
+- 为了认证kubectl，需要在容器内部生成.kube目录及config文件
+
+
+
+```bash
+# slave1 机器操作 
+mkdir tools;
+# 拷贝maven
+cp -r apache-maven-3.6.3 tools
+cp `which kubectl` tools
+cd tools
+
+cat <<\EOF >Dockerfile
+FROM alpine:3.13.4
+LABEL maintainer="inspur_lyx@hotmail.com"
+USER root
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
+    apk update && \
+    apk add  --no-cache openrc docker git curl tar gcc g++ make \
+    bash shadow openjdk8 py-pip python3-dev  openssl-dev libffi-dev \
+    libstdc++ harfbuzz nss freetype ttf-freefont && \
+    mkdir -p /root/.kube && \
+    usermod -a -G docker root
+
+RUN rm -rf /var/cache/apk/* 
+#-----------------安装 kubectl--------------------#
+COPY kubectl /usr/local/bin/
+RUN chmod +x /usr/local/bin/kubectl
+# ------------------------------------------------#
+
+#-----------------安装 maven--------------------#
+COPY apache-maven-3.6.3 /usr/lib/apache-maven-3.6.3
+RUN ln -s /usr/lib/apache-maven-3.6.3/bin/mvn /usr/local/bin/mvn && chmod +x /usr/local/bin/mvn
+ENV MAVEN_HOME=/usr/lib/apache-maven-3.6.3
+#------------------------------------------------#
+EOF
+
+#执行镜像构建并推送到仓库中：
+docker build . -t 10.0.0.80:5000/devops/tools:v1
+docker push 10.0.0.80:5000/devops/tools:v1
+
+#我们可以直接使用该镜像做测试：
+
+## 启动临时镜像做测试
+$ docker run --rm -ti 10.0.0.80:5000/devops/tools:v1 bash
+# / git clone http://xxxxxx.git
+# / kubectl get no
+# / python3
+#/ docker
+
+## 重新挂载docker的sock文件
+docker run -v /var/run/docker.sock:/var/run/docker.sock --rm -ti 10.0.0.80:5000/devops/tools:v1 bash
+
+
+```
+
+### [实践通过Jenkinsfile实现demo项目自动发布到kubenetes环境]
+
+更新Jenkins中的PodTemplate，添加tools镜像，注意同时要先添加名为jnlp的container，因为我们是使用自定义的PodTemplate覆盖掉默认的模板：
+
+名称: jnlp
+
+docker镜像: jenkins/inbound-agent:latest-jdk17 #版本和jenkins的jdk一致
+
+运行的命令: 空
+
+命令的参数: 空
+
+
+
+**再添加第二个container Template**
+
+名称: tools
+
+Docker 镜像: 10.0.0.80:5000/devops/tools:v1
+
+其他参数默认就可以
+
+**添加拉取镜像的认证信息**
+
+```bash
+# kubectl -n luffy get secrets registry-10-0-0-80 -oyaml > registry-10-0-0-80.yaml
+# vi registry-10-0-0-80.yaml #去掉不用的信息, namespace修改成jenkins
+apiVersion: v1
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyIxNzIuMTYuMS4yMjY6NTAwMCI6eyJ1c2VybmFtZSI6ImFkbWluIiwicGFzc3dvcmQiOiJhZG1pbiIsImVtYWlsIjoiY2hlbmdrYW5naHVhQGZveG1haWwuY29tIiwiYXV0aCI6IllXUnRhVzQ2WVdSdGFXND0ifX19
+kind: Secret
+metadata:
+  creationTimestamp: "2024-10-27T08:21:21Z"
+  name: registry-10-0-0-80
+  namespace: jenkins
+type: kubernetes.io/dockerconfigjson
+# kubectl create -f registry-10-0-0-80.yaml
+[root@k8s-master jenkins]# kubectl -n jenkins get secrets
+NAME                    TYPE                             DATA   AGE
+gitlab-secret           Opaque                           2      2d2h
+registry-10-0-0-80      kubernetes.io/dockerconfigjson   1      13s
+
+
+```
+
+拉取镜像的Secret: image Pull secret : 填写registry-10-0-0-80
+
+在卷栏目，添加三个卷，
+
+- Host Path Volume: `/var/run/docker.sock`，不然在容器中使用docker会提示docker服务未启动
+- Host Path Volume: `/opt/maven-repo`，本地maven仓库
+- kubeconfig文件，用来认证kubectl，通过secret的方式进行挂载
+
+```bash
+kubectl -n jenkins create secret generic kubeconfig --from-file=/root/.kube/config
+
+```
+
+Secret Volume: kubeconfig
+
+挂载路径: /root/.kube/
+
+```bash
+Dashboard>系统管理>Clouds>k8s-local>jnlp-slave
+        ≡Host Path Volume主机路径?: /var/run/docker.sock
+            挂载路径?: /var/run/docker.sock
+            Read Only ?
+            Host Path Volume
+        ≡主机路径?: /opt/maven-repo
+            挂载路径？: /opt/maven-repo
+            Read Only ?
+        =Secret Volume
+            Secret名称?: kubeconfig
+            挂载路径?: /root/.kube/Save
+```
+
+tools容器做好后，我们需要对Jenkinsfile做如下调整：
+
+> 在jenkins添加一个全局凭证 用于 容器仓库登录 push
+>
+> 类型 username with password 用户名:admin 密码 admin ID: registry
+
+```bash
+
+cat <<\EOF > Jenkinsfile
+pipeline {
+    agent { label 'jnlp-slave'}
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+        timeout(time: 20, unit: 'MINUTES')
+        gitLabConnection('gitlab')
+    }
+
+    environment {
+        REGISTRY = "10.0.0.80:5000"
+        IMAGE_REPO = "10.0.0.80:5000/eladmin"
+        DINGTALK_CREDS = credentials('dingTalk')
+        REGISTRY_CREDS = credentials('registry')
+        TAB_STR = "\n                    \n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+    }
+
+    stages {
+        stage('printenv') {
+            steps {
+                script{
+                    sh "git log --oneline -n 1 > gitlog.file"
+                    env.GIT_LOG = readFile("gitlog.file").trim()
+                }
+                sh 'printenv'
+            }
+        }
+        stage('checkout') {
+            steps {
+                container('tools') {
+                    checkout scm
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS = env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('mvn clean package') {
+            steps {
+                container('tools') {
+                    sh 'mvn clean package'
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('build-image') {
+            steps {
+                container('tools') {
+                    retry(2) { sh 'docker build . -t ${IMAGE_REPO}:${GIT_COMMIT}'}
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('push-image') {
+            steps {
+                container('tools') {
+                    retry(2) { 
+                        sh """
+                        docker logout ${REGISTRY};
+                        docker login ${REGISTRY} -u ${REGISTRY_CREDS_USR} -p ${REGISTRY_CREDS_PSW}
+                        docker push ${IMAGE_REPO}:${GIT_COMMIT}
+                        """
+                    }
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('deploy') {
+            steps {
+                container('tools') {
+                    sh "sed -i 's#{{IMAGE_URL}}#${IMAGE_REPO}:${GIT_COMMIT}#g' mainifests/*"
+                    timeout(time: 1, unit: 'MINUTES') {
+                        sh "kubectl apply -f mainifests/"
+                    }
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+    }
+    post {
+        success { 
+           container('tools') {
+              echo 'Congratulations!'
+              sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                    -H 'Content-Type: application/json' \
+                    -d '{
+                        "msgtype": "markdown",
+                        "markdown": {
+                            "title":"myblog",
+                            "text": "😄👍 构建成功 👍😄  \n**项目名称**：luffy  \n**Git log**: ${GIT_LOG}   \n**构建分支**: ${BRANCH_NAME}   \n**构建地址**：${RUN_DISPLAY_URL}  \n**构建任务**：${BUILD_TASKS}"
+                        }
+                    }'
+               """ 
+           }
+        }
+        failure {
+           container('tools') {
+              echo 'Oh no!'
+              sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                    -H 'Content-Type: application/json' \
+                    -d '{
+                        "msgtype": "markdown",
+                        "markdown": {
+                            "title":"myblog",
+                            "text": "😖❌ 构建失败 ❌😖  \n**项目名称**：luffy  \n**Git log**: ${GIT_LOG}   \n**构建分支**: ${BRANCH_NAME}  \n**构建地址**：${RUN_DISPLAY_URL}  \n**构建任务**：${BUILD_TASKS}"
+                        }
+                    }'
+               """
+           }
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+}
+EOF
+
+git commit -am "add tools container time"
+git push 
+
+```
+
+
+
+## [jenkins集成Sonarqube]
+
+### [集成sonarQube实现代码扫描]
+
+sonarQube可以从以下七个维度检测代码质量，而作为开发人员至少需要处理前5种代码质量问题。
+
+一、必须整改的 5 项
+
+1. **代码规范**：集成多款规则工具，约束编码格式，统一团队代码书写标准。
+2. **潜在缺陷**：提前发现隐藏逻辑漏洞、隐性 bug，规避线上故障。
+3. **代码高复杂度**：复杂代码难读懂难修改，改动极易引发 bug，测试维护成本高。
+4. **重复代码**：定位复制粘贴的冗余代码，避免多处同步修改出错。
+5. **注释问题**：缺少注释不利于接手维护，冗余注释干扰代码阅读，两种情况都要优化。
+
+ 二、建议优化的 2 项
+
+1. **单元测试不足**：统计测试覆盖率，覆盖率太低缺少代码变更的安全防护。
+2. **架构设计问题**：检测依赖耦合、循环依赖、不合理第三方包引用等架构隐患。
+
+补充核心能力
+
+1. **安全漏洞**：扫描 SQL 注入、敏感信息硬编码等安全风险；
+2. **技术债务**：量化劣质代码的整改工时，评估维护成本；
+3. **质量门禁**：配置代码质量阈值，流水线不达标可阻断代码上线；
+4. **多语言扫描**：支持前后端、Go、Python 等绝大多数开发语言。
+
+
+
+### 5 条企业质量门禁
+
+1. **新增阻塞、严重 Bug 数量必须为 0**
+
+   本次提交代码不能出现致命、高危缺陷（比如空指针、数组越界、逻辑错误），这类问题一旦上线会直接造成服务崩溃、业务异常，必须清零。
+
+2. **新增安全漏洞数量必须为 0**
+
+   本次提交不能引入 SQL 注入、敏感信息明文写死、XSS 攻击等安全漏洞，防止系统被入侵、数据泄露。
+
+3. **新增代码重复率 ≤ 3%**
+
+   不能大量复制粘贴代码，重复代码改一处就要多处同步，极易出错，把新增代码重复片段控制在 3% 以内。
+
+4. **新增代码单元测试覆盖率 ≥ 80%**
+
+   本次新增的业务代码，至少 80% 都写了单元测试，后续改代码能自动校验，避免改动导致隐性 bug。
+
+5. **所有新增安全热点必须全部审核**
+
+   扫描出来的高危代码（如文件读写、数据库操作），必须人工确认没有安全风险，不能放任不管直接上线。
+
+
+
+1. **Sonar 默认自带 Java 编码规则吗？**
+
+SonarQube 内置官方 Java 规则集（Sonar way），已经预设好通用编码规范：命名格式、缩进、未关闭流、无效变量、语法陋习等，安装好就能直接扫描校验代码规范。
+
+2. **规则可以自定义吗？**
+
+可以高度自定义：
+
+1. 可以在原有规则集里**启用 / 关闭某条规则**（比如放宽某些命名规范、关闭过于严苛的提示）；
+2. 支持新增自定义规则，也能导入第三方规则库（CheckStyle、PMD、FindBugs）；
+3. 可以新建企业专属规则集，筛选符合团队开发规范的规则统一管理。
+
+  **企业一般用默认还是自定义？**
+
+1. **中小团队**：直接使用官方默认的`Sonar way`规则集，仅少量关闭过于严苛、不符合团队习惯的规则，不用从零编写规则；
+2. **中大型企业 / 金融政企**：基于默认规则做裁剪 + 补充内部规范，形成企业专属规则集，统一全团队编码约束。
+
+### sonarqube架构简介
+
+#### 一、核心架构组成（官方标准定义）
+
+SonarQube 采用「客户端扫描 + 服务端三进程 + 数据库」的分层架构：
+
+1. **SonarScanner（扫描端）**：运行在 CI / 本地，执行源码扫描、规则初检，生成结构化分析报告。
+2. **Web Server（服务端入口）**：对外提供 Web 管理页面、REST API、用户认证与配置管理；**所有外部请求（含扫描报告提交）的唯一入口**。
+3. **Compute Engine（计算引擎，CE）**：服务端后台进程，异步消费扫描报告，执行指标计算、问题判定、质量门禁校验，是核心计算单元。
+4. **Search Server（Elasticsearch）**：对问题、指标建立索引，支撑页面快速检索与筛选。
+5. **数据库（推荐 PostgreSQL）**：持久化存储项目配置、质量数据、历史快照、权限规则。
+
+#### 二、官方标准数据流（严格执行顺序）
+
+1. SonarScanner 在本地完成源码扫描，生成结构化分析报告
+2. 扫描器通过 HTTP 调用 **Web Server 的 API 接口**，提交报告（Compute Engine 不对外暴露端口，所有外部请求统一走 Web Server）
+3. Web Server 接收报告后，将其送入后台任务队列
+4. Compute Engine 异步消费队列，完成规则匹配、复杂度 / 重复率 / 技术债务计算、质量门禁判定
+5. 处理完成后，结果写入数据库，同步更新 Elasticsearch 索引
+6. Web Server 从数据库与 ES 读取最终数据，在页面展示质量报表
+
+#### 补充说明
+
+Compute Engine 是服务端内部的后台计算进程，不直接对外提供接口；扫描报告必须先经过 Web Server 接入，再转交给 CE 异步处理，这是 SonarQube 的标准设计。
+
+### sonarqube on kubernetes环境搭建
+
+1. 资源文件准备
+
+- 和gitlab共享postgres数据库
+- 使用ingress地址 `sonar.luffy.com` 进行访问
+- 使用initContainers进行系统参数调整
+- sonar/sonar.yaml
+
+
+
+```yaml
+
+cat <<\EOF >sonar.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarqube
+  namespace: jenkins
+  labels:
+    app: sonarqube
+spec:
+  ports:
+  - name: sonarqube
+    port: 9000
+    targetPort: 9000
+    protocol: TCP
+  selector:
+    app: sonarqube
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: jenkins
+  name: sonarqube
+  labels:
+    app: sonarqube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sonarqube
+  template:
+    metadata:
+      labels:
+        app: sonarqube
+    spec:
+      initContainers:
+      - command:
+        - /sbin/sysctl
+        - -w
+        - vm.max_map_count=262144
+        image: alpine:3.6
+        imagePullPolicy: IfNotPresent
+        name: elasticsearch-logging-init
+        resources: {}
+        securityContext:
+          privileged: true
+      containers:
+      - name: sonarqube
+        image: sonarqube:7.9-community
+        ports:
+        - containerPort: 9000
+        env:
+        - name: SONARQUBE_JDBC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: gitlab-secret
+              key: postgres.user.root
+        - name: SONARQUBE_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: gitlab-secret
+              key: postgres.pwd.root
+        - name: SONARQUBE_JDBC_URL
+          value: "jdbc:postgresql://postgres:5432/sonar"
+        livenessProbe:
+          httpGet:
+            path: /sessions/new
+            port: 9000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /sessions/new
+            port: 9000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          failureThreshold: 6
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 4096Mi
+          requests:
+            cpu: 1000m
+            memory: 1024Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sonarqube
+  namespace: jenkins
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: sonar.luffy.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service: 
+            name: sonarqube
+            port:
+              number: 9000
+              
+EOF
+
+
+
+
+```
+
+
+
+```bash
+1. sonarqube服务端安装
+
+# 创建sonar数据库
+ kubectl -n jenkins exec -ti postgres-5d96874894-5p8q4 -- bash
+#/ psql 
+# create database sonar;
+
+## 创建sonarqube服务器
+kubectl create -f sonar.yaml
+
+## 配置本地hosts解析   
+172.16.1.226 sonar.luffy.com
+# kubectl -n kube-system edit cm coredns 
+
+## 访问sonarqube，初始用户名密码为 admin/admin
+http://sonar.luffy.com
+	
+
+2. sonar-scanner的安装
+下载地址： https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.2.0.1873-linux.zip
+
+该地址比较慢，可以在网盘下载（https://pan.baidu.com/s/1SiEhWyHikTiKl5lEMX1tJg?pwd=tqb9 提取码: tqb9）。
+
+#github 下载
+https://github.com/SonarSource/sonar-scanner-cli/tags
+wget https://github.com/SonarSource/sonar-scanner-cli/archive/refs/tags/4.2.0.1873.zip
+
+
+[root@k8s-slave1 ~]# unzip sonar-scanner-cli-4.2.0.1873-linux.zip
+[root@k8s-slave1 ~]# mv sonar-scanner-4.2.0.1873-linux /opt/
+
+
+3. 演示sonar代码扫描功能
+
+在项目根目录中准备配置文件 sonar-project.properties
+
+[root@k8s-slave1 ~]# git clone -b develop http://gitlab.luffy.com/eladmin/eladmin-api.git
+# cd eladmin-api
+# java 语言的扫描写法
+cat <<\EOF > sonar-project.properties
+sonar.projectKey=eladmin-api
+sonar.projectName=eladmin-api
+# if you want disabled the DTD verification for a proxy problem for example, true by default
+# JUnit like test report, default value is test.xml
+sonar.sources=eladmin-common/src/main/java,eladmin-system/src/main/java
+sonar.language=java
+sonar.tests=eladmin-common/src/test/java,eladmin-system/src/test/java
+sonar.java.binaries=eladmin-common/target/classes,eladmin-system/target/classes
+EOF
+
+git add .
+git commit -m "add sonar-project.properties"
+git push
+
+配置sonarqube服务器地址
+
+由于sonar-scanner需要将扫描结果上报给sonarqube服务器做质量分析，因此我们需要在sonar-scanner中配置sonarqube的服务器地址：
+
+在集群宿主机中测试，先配置一下hosts文件，然后配置sonar的地址：
+# vi /etc/hosts
+10.0.0.81 jenkins.luffy.com gitlab.luffy.com sonar.luffy.com
+
+$ cat /root/sonar-scanner-4.2.0.1873-linux/conf/sonar-scanner.properties
+#----- Default SonarQube server
+#sonar.host.url=http://localhost:9000
+sonar.host.url=http://sonar.luffy.com
+#----- Default source code encoding
+#sonar.sourceEncoding=UTF-8
+
+# 为了使所有的pod都可以通过`sonar.luffy.com`访问，可以配置coredns的静态解析
+$ kubectl -n kube-system edit cm coredns 
+...
+          hosts {
+              10.0.0.81 jenkins.luffy.com gitlab.luffy.com sonar.luffy.com
+              fallthrough
+       }
+
+
+执行扫描
+
+## 在项目的根目录下执行
+$ /opt/sonar-scanner-4.2.0.1873-linux/bin/sonar-scanner  -X 
+# 提示  No files nor directories matching 'eladmin-common/target/classes'
+# 这个文件时需要mvn clean package 之后产生的
+$ mvn clean package
+
+$ /opt/sonar-scanner-4.2.0.1873-linux/bin/sonar-scanner  -X 
+16:46:24.190 INFO: ANALYSIS SUCCESSFUL, you can browse http://sonar.luffy.com/dashboard?id=eladmin-api
+16:46:24.190 INFO: Note that you will be able to access the updated dashboard once the server has process
+16:46:24.190 INFO: More about the report processing at http://sonar.luffy.com/api/ce/task?id=AZLTwwRhX8fS
+16:46:24.191 DEBUG: Report metadata written to /root/eladmin-api/.scannerwork/report-task.txt
+16:46:24.193 DEBUG: Post-jobs :
+16:46:24.194 INFO: Analysis total time: 22.067 s
+16:46:24.195 INFO: ------------------------------------------------------------------------
+16:46:24.195 INFO: EXECUTION SUCCESS
+16:46:24.195 INFO: ------------------------------------------------------------------------
+16:46:24.195 INFO: Total time: 23.031s
+16:46:24.231 INFO: Final Memory: 15M/60M
+16:46:24.231 INFO: ------------------------------------------------------------------------
+sonarqube界面查看结果
+
+登录sonarqube界面查看结果，Quality Gates说明
+
+java项目的配置文件通常格式为：
+sonar.projectKey=eureka-cluster
+sonar.projectName=eureka-cluster
+# if you want disabled the DTD verification for a proxy problem for example, true by default
+# JUnit like test report, default value is test.xml
+sonar.sources=src/main/java
+sonar.language=java
+sonar.tests=src/test/java
+sonar.java.binaries=target/classes
+
+```
+
+
+
+### 插件安装及配置
+
+集成到tools容器中
+
+由于我们的代码拉取、构建任务均是在tools容器中进行，因此我们需要把scanner集成到我们的tools容器中，又因为scanner是一个cli客户端，因此我们直接把包解压好，拷贝到tools容器内部，配置一下PATH路径即可，注意两点：
+
+- 直接在在tools镜像中配置`http://sonar.luffy.com`
+
+- 由于tools已经集成了java环境，因此可以直接剔除scanner自带的jre
+
+  - 删掉sonar-scanner/jre目录
+
+  - 修改sonar-scanner/bin/sonar-scanner
+
+    `use_embedded_jre=false`
+
+```bash
+cd /root/tools
+cp -r /opt/sonar-scanner-4.2.0.1873-linux/ sonar-scanner
+## sonar配置，由于我们是在Pod中使用，也可以直接配置：sonar.host.url=http://sonarqube:9000
+$ cat sonar-scanner/conf/sonar-scanner.properties
+#----- Default SonarQube server
+sonar.host.url=http://sonar.luffy.com
+
+#----- Default source code encoding
+#sonar.sourceEncoding=UTF-8
+
+rm -rf sonar-scanner/jre
+$ vi sonar-scanner/bin/sonar-scanner
+...
+use_embedded_jre=false
+...
+
+```
+
+*Dockerfile*
+
+root/tools/Dockerfile
+
+```bash
+#vim Dockerfile
+FROM alpine:3.13.4
+LABEL maintainer="inspur_lyx@hotmail.com"
+USER root
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
+    apk update && \
+    apk add  --no-cache openrc docker git curl tar gcc g++ make \
+    bash shadow openjdk8 python2 python2-dev py-pip python3-dev openssl-dev libffi-dev \
+    libstdc++ harfbuzz nss freetype ttf-freefont && \
+    mkdir -p /root/.kube && \
+    usermod -a -G docker root
+
+# COPY config /root/.kube/
+
+
+RUN rm -rf /var/cache/apk/*
+
+#-----------------安装 kubectl--------------------#
+COPY kubectl /usr/local/bin/
+RUN chmod +x /usr/local/bin/kubectl
+# ------------------------------------------------#
+
+#-----------------安装 maven--------------------#
+COPY apache-maven-3.6.3 /usr/lib/apache-maven-3.6.3
+RUN ln -s /usr/lib/apache-maven-3.6.3/bin/mvn /usr/local/bin/mvn && chmod +x /usr/local/bin/mvn
+ENV MAVEN_HOME=/usr/lib/apache-maven-3.6.3
+#------------------------------------------------#
+
+#---------------安装 sonar-scanner-----------------#
+COPY sonar-scanner /usr/lib/sonar-scanner
+RUN ln -s /usr/lib/sonar-scanner/bin/sonar-scanner /usr/local/bin/sonar-scanner && chmod +x /usr/local/bin/sonar-scanner
+ENV SONAR_RUNNER_HOME=/usr/lib/sonar-scanner
+# ------------------------------------------------#
+
+```
+
+
+
+重新构建镜像，并推送到仓库：
+
+```
+docker build . -t 10.0.0.80:5000/devops/tools:v2
+docker push 10.0.0.80:5000/devops/tools:v2
+   
+```
+
+1. 修改Jenkins PodTemplate
+
+   为了在新的构建任务中可以拉取v2版本的tools镜像，需要更新PodTemplate
+
+2. 安装并配置sonar插件
+
+   由于sonarqube的扫描的结果需要进行Quality Gates的检测，那么我们在容器中执行完代码扫描任务后，如何知道本次扫描是否通过了Quality Gates，那么就需要借助于sonarqube实现的jenkins的插件。
+
+   - 安装插件
+
+     插件中心搜索sonarqube，直接安装 [SonarQube ScannerVersion2.17.2]
+
+   - 配置插件
+
+     系统管理->系统配置-> **SonarQube servers** ->Add SonarQube
+
+     - Name：sonarqube
+
+     - Server URL：[http://sonar.luffy.com](http://sonar.luffy.com/)
+
+     - Server authentication token
+
+       ① 登录sonarqube -> My Account -> Security -> Generate Token
+
+       ② 登录Jenkins，添加全局凭据，类型为Secret text
+
+   - 如何在jenkinsfile中使用
+
+     我们在 https://jenkins.io/doc/pipeline/steps/sonar/ 官方介绍中可以看到：
+
+###  [Jenkinsfile集成sonarqube演示\]
+
+修改Jenkinsfile
+
+```groovy
+cat <<\EOF>Jenkinsfile
+pipeline {
+    agent { label 'jnlp-slave'}
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+        timeout(time: 20, unit: 'MINUTES')
+        gitLabConnection('gitlab')
+    }
+
+
+    environment {
+        REGISTRY = "10.0.0.80:5000"
+        IMAGE_REPO = "10.0.0.80:5000/eladmin"
+        DINGTALK_CREDS = credentials('dingTalk')
+        REGISTRY_CREDS = credentials('registry')
+        TAB_STR = "\n                  \n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+    }
+
+    stages {
+        stage('gitlog') {
+            steps {
+                script{
+                    sh "git log --oneline -n 1 > gitlog.file"
+                    env.GIT_LOG = readFile("gitlog.file").trim()
+                }
+                sh 'printenv'
+            }
+        }
+        stage('checkout') {
+            steps {
+                checkout scm
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS = env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('mvn package') {
+            steps {
+                container('tools') {
+                    sh 'mvn clean package'
+                }               
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('CI'){
+            failFast true
+            parallel {
+                stage('Unit Test') {
+                    steps {
+                        echo "Unit Test Stage Skip..."
+                    }
+                }
+                stage('Code Scan') {
+                    steps {
+                        container('tools') {
+                            withSonarQubeEnv('sonarqube') {
+                                sh 'sonar-scanner -X'
+                                sleep 3
+                            }
+                            script {
+                                timeout(1) {
+                                    def qg = waitForQualityGate('sonarqube')
+                                    if (qg.status != 'OK') {
+                                        error "未通过Sonarqube的代码质量阈检查，请及时修改！failure: ${qg.status}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('build-image') {
+            steps {
+                container('tools') {
+                    retry(2) { sh 'docker build . -t ${IMAGE_REPO}:${GIT_COMMIT}'}
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('push-image') {
+            steps {
+                container('tools') {
+                    retry(2) { 
+                        sh """
+                            docker logout ${REGISTRY};
+                            docker login ${REGISTRY} -u ${REGISTRY_CREDS_USR} -p ${REGISTRY_CREDS_PSW}
+                            docker push ${IMAGE_REPO}:${GIT_COMMIT}
+                            """
+                        }
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('deploy') {
+            steps {
+                container('tools') {
+                    timeout(time: 1, unit: 'MINUTES') {
+                        sh "sed -i 's#{{IMAGE_URL}}#${IMAGE_REPO}:${GIT_COMMIT}#g' mainifests/*"
+                        sh "kubectl apply -f mainifests/"
+                    }
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+    }
+    post {
+        success { 
+            container('tools') {
+                echo 'Congratulations!'
+                sh """
+                    curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                            "msgtype": "markdown",
+                            "markdown": {
+                                "title":"myblog",
+                                "text": "😄👍 构建成功 👍😄  \n**项目名称**: luffy  \n**Git log**: ${GIT_LOG}   \n**构建分支**: ${GIT_BRANCH}   \n**构建地址**: ${RUN_DISPLAY_URL}  \n**构建任务**: ${BUILD_TASKS}"
+                            }
+                        }'
+                """ 
+            }
+
+        }
+        failure {
+            container('tools') {
+                echo 'Oh no!'
+                sh """
+                    curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                            "msgtype": "markdown",
+                            "markdown": {
+                                "title":"myblog",
+                                "text": "😖❌ 构建失败 ❌😖  \n**项目名称**: luffy  \n**Git log**: ${GIT_LOG}   \n**构建分支**: ${GIT_BRANCH}  \n**构建地址**: ${RUN_DISPLAY_URL}  \n**构建任务**: ${BUILD_TASKS}"
+                            }
+                        }'
+                """
+            }
+
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+}
+EOF
+git commit -am"add ci"
+git push
+
+```
+
+
+
+若Jenkins执行任务过程中sonarqube端报类似下图的错：
+
+```bash
+[Code Scan] Checking status of SonarQube task 'AX9FxIQUOvgvmwirpLGo' on server 'sonarqube'SonarQube task 'AX9FxIQUOvgvmwirpLGO' status is 'IN PROGRESS'
+[Code Scan] Cancelling nested steps due to timeout
+```
+
+则需要在sonarqube服务端进行如下配置，添加一个webhook：
+
+路径：`Administration（配置）` → `Configuration（系统设置）` → `Webhooks`
+
+Name: jenkins
+
+URL: http://jenkins:8080/sonarqube-webhook/
+
+
+
+小结:
+
+```bash
+这是一个 Java + Maven + Sonar + Docker + K8s 的标准自动化上线流程
+一、整体流程（按顺序）
+1 拉取代码
+	从 GitLab 拉取最新代码，记录提交日志。
+2. Maven 编译打包
+	执行 mvn clean package，生成 Jar 包（target 目录）。
+3 .并行校验（单元测试 + 代码扫描）
+    单元测试：跳过
+    代码扫描：用 sonar-scanner 做代码质量检测，上传 SonarQube，并等待质量门禁结果，不通过直接失败。
+4. 构建 Docker 镜像
+	根据代码打包好的 Jar，构建成 Docker 镜像。
+5.推送镜像到私有仓库
+	登录镜像仓库，把镜像推送到 10.0.0.80:5000。
+6. K8s 部署
+	替换镜像地址，使用 kubectl apply 发布到 Kubernetes。
+7. 结果通知
+	构建成功 / 失败，自动发送钉钉消息通知。
+```
+
+
+
+
+
+## [jenkins集成robotFramework]
+
+### 简介
+
+基于**Python 开发、开源、关键字驱动**的通用自动化框架，不用写大量代码，用接近自然语言的关键字就能编写自动化脚本，非开发的测试人员也能快速上手，同时支持自动化测试 + RPA 业务流程自动化两大场景Robot Framework
+
+rpa= **Robotic Process Automation**    中文：机器人流程自动化
+
+### **能做什么**
+
+1. Web UI 自动化测试（结合 Selenium）
+2. API 接口自动化测试（结合 Requests 库）
+3. APP 移动端自动化测试（结合 Appium）
+4. 数据库、Linux 服务器等集成测试
+5. RPA 办公流程自动化，批量处理重复工作
+6. 可集成 Jenkins 持续执行，自动生成测试报告
+
+###  **企业里最常用的场景**
+
+#### 1. 接口自动化测试（使用最广）
+
+通过`RequestsLibrary`做后端 API 回归测试，每次版本迭代，Jenkins 自动批量跑所有接口用例，校验新增代码有没有破坏原有接口逻辑，提前发现服务间调用 bug，金融、政企、中台系统高频使用。
+
+#### 2. Web 端 UI 自动化回归测试
+
+基于 Selenium 做网页功能自动化，针对核心业务流程（登录、下单、审批、支付）编写用例，版本上线前自动跑一遍全流程冒烟测试，替代人工重复点点点。
+
+#### 3. 系统集成测试
+
+一套脚本串联：接口调用→数据库校验→页面结果验证，适合多模块、多系统联动的复杂业务场景。
+
+#### 4. RPA 办公自动化（传统行业高频）
+
+银行、财务、制造业常用：自动拉取业务数据、生成日报报表、多系统之间数据录入同步、定时对账、文件批量处理，解放重复人工操作。
+
+#### 5. 移动端 APP 自动化测试
+
+基于 Appium 库，做安卓、iOS 的核心功能回归、兼容性测试。
+
+### 企业常用第三方核心库
+
+1. `RequestsLibrary`：API 接口测试（最常用）
+2. `SeleniumLibrary`：Web 网页 UI 自动化
+3. `DatabaseLibrary`：数据库查询、数据校验
+4. `AppiumLibrary`：手机 APP 自动化
+5. `RPA.Framework`：Excel、PDF、桌面操作、业务流程自动化
+
+
+
+### RobotFramework 接口测试模板（RequestsLibrary）
+
+模板 1：基础通用模板（GET/POST、请求头、参数、断言、会话复用）
+
+```bash
+*** Settings ***
+# 接口测试只需要RequestsLibrary，没用的SeleniumLibrary可以删掉
+Library           RequestsLibrary
+# 测试报告、重试、标签配置
+Test Teardown     Close All Sessions
+
+*** Variables ***
+# 测试环境基础地址
+${BASE_URL}       http://eladmin-api.luffy:8000
+# 全局请求头，比如token、内容类型
+&{HEADERS}        Content-Type=application/json
+
+*** Keywords ***
+# 关键字：登录获取token，后续所有接口自动带上登录凭证
+Login And Get Token
+    ${resp}    Post Request    api    /auth/login    json={"username":"admin","password":"123456"}    headers=${HEADERS}
+    Should Be Equal As Strings    ${resp.status_code}    200
+    ${token}    Get From Dictionary    ${resp.json()}    token
+    Set Suite Variable    ${token}
+
+*** Test Cases ***
+# 前置：全局只登录一次，所有用例复用token
+Suite Setup       Create Session    api    ${BASE_URL}    headers=${HEADERS}
+Suite Setup       Login And Get Token
+# 把token塞进全局请求头
+${HEADERS.Authorization}    Bearer ${token}
+
+# 用例1：健康检查 GET 无参数
+接口-服务健康检查[critical]
+    [Tags]    critical    smoke
+    ${res}    Get Request    api    /
+    Should Be Equal    ${res.status_code}    200
+    Log    ${res.json()}
+
+# 用例2：GET带URL参数
+接口-获取验证码
+    [Tags]    smoke
+    ${params}    Create Dictionary    uuid=test123
+    ${res}    Get Request    api    /auth/code    params=${params}
+    Should Be Equal    ${res.status_code}    200
+    Should Contain    ${res.json()}    img
+
+# 用例3：POST JSON请求（业务新增/提交）
+接口-新增用户
+    ${json_data}    Create Dictionary    username=test01    phone=13800138000
+    ${res}    Post Request    api    /user/add    json=${json_data}
+    Should Be Equal    ${res.status_code}    200
+    Should Be True    ${res.json()["code"]} == 200
+
+# 用例4：PUT修改接口
+接口-编辑用户
+    ${json_data}    Create Dictionary    id=1    username=test02
+    ${res}    Put Request    api    /user/update    json=${json_data}
+    Should Be Equal    ${res.status_code}    200
+
+# 用例5：DELETE删除接口
+接口-删除用户
+    ${res}    Delete Request    api    /user/1
+    Should Be Equal    ${res.status_code}    200
+```
+
+模板 2：参数化数据驱动模板（多组参数批量测试）
+
+```bash
+*** Settings ***
+Library           RequestsLibrary
+Test Teardown     Close All Sessions
+
+*** Variables ***
+${BASE_URL}       http://eladmin-api.luffy:8000
+&{HEADER}         Content-Type=application/json
+
+*** Test Cases ***
+Suite Setup    Create Session    api    ${BASE_URL}    headers=${HEADER}
+
+# 数据驱动：多组账号密码批量登录校验
+批量登录数据校验
+    [Tags]    data
+    ${test_data}=    Create List
+    ...    ${{"username":"admin","password":"123456","expect_code":200}}
+    ...    ${{"username":"admin","password":"wrong","expect_code":500}}
+    :FOR    ${case}    IN    @{test_data}
+    \    ${user}=    Get From Dictionary    ${case}    username
+    \    ${pwd}=    Get From Dictionary    ${case}    password
+    \    ${expect}=    Get From Dictionary    ${case}    expect_code
+    \    ${res}=    Post Request    api    /auth/login    json={"username":"${user}","password":"${pwd}"}
+    \    Should Be Equal    ${res.json()["code"]}    ${expect}
+```
+
+模板 3：数据库校验接口（调用接口后查库验证数据是否落库）
+
+需要提前导入库：`Library    DatabaseLibrary`
+
+```bash
+
+*** Settings ***
+Library           RequestsLibrary
+Library           DatabaseLibrary
+
+*** Variables ***
+${BASE_URL}       http://eladmin-api.luffy:8000
+# 数据库连接信息
+${DB_CONN}        mysql+pymysql://root:123456@127.0.0.1:3306/eladmin
+
+*** Keywords ***
+连接数据库
+    Connect To Database Using Custom Params    pymysql    ${DB_CONN}
+
+关闭数据库连接
+    Disconnect From Database
+
+*** Test Cases ***
+Suite Setup    Create Session    api    ${BASE_URL}
+Suite Setup    连接数据库
+Test Teardown    关闭数据库连接
+
+新增用户并校验数据库数据
+    ${json}    Create Dictionary    username=testdb    phone=13900139000
+    ${res}    Post Request    api    /user/add    json=${json}
+    Should Be Equal    ${res.status_code}    200
+    # 查询数据库校验是否存在该用户
+    ${sql_res}    Query    select * from sys_user where username='testdb'
+    Should Not Be Empty    ${sql_res}
+```
+
+
+
+```bash
+
+二、常用核心关键字说明（快速修改参考）
+Create Session：创建 HTTP 会话，全局复用连接
+Get Request / Post Request / Put Request / Delete Request：四种常用请求方式
+params：拼接 URL 查询参数；json：传递 JSON 请求体
+${res.json()}：获取接口返回 JSON 字典，可通过键取值
+常用断言：
+Should Be Equal：相等断言（状态码、返回码）
+Should Contain：返回内容包含指定字符串
+Should Not Be Empty：返回数据非空
+
+三、Jenkins 执行常用命令
+# 指定只执行critical标签用例，测试报告输出到artifacts目录
+robot -d artifacts/ --include critical robot.txt
+# 排除冒烟用例执行
+# robot -d artifacts/ --exclude smoke robot.txt
+
+----其他
+.txt 只是兼容格式，企业标准推荐后缀：.robot
+官方文档中心（新手教程、语法手册）：https://docs.robotframework.org/docsROBOT FRAMEWORK
+
+所有 Should Be Equal、Log、Set Variable 这类内置关键字在这里查：
+https://robotframework.org/robotframework/latest/libraries/BuiltIn.html
+
+2、接口测试 RequestsLibrary 关键字（你当前最常用）
+Create Session、Get Request、Post Request 全部官方用法 + 示例：
+https://marketsquare.github.io/robotframework-requests/doc/RequestsLibrary.html
+
+3、SeleniumLibrary Web UI 自动化关键字
+https://robotframework.org/SeleniumLibrary/SeleniumLibrary.html
+
+
+本地快速查关键字小技巧（不用每次打开网页）
+命令行查看内置库：
+python -m robot.libdoc BuiltIn BuiltIn.html
+
+查看 Requests 库所有关键字，生成本地 HTML 文档：
+python -m robot.libdoc RequestsLibrary RequestsLibrary.html
+执行后会在当前目录生成网页，离线可查所有关键字、参数、示例。
+
+```
+
+
+
+
+
+
+
+### [[robot用例简介\]]
+
+```bash
+
+cat <<\EOF > robot.txt
+*** Settings ***
+Library           RequestsLibrary
+Library           SeleniumLibrary
+
+*** Variables ***
+${api_url}       http://eladmin-api.luffy:8000/
+
+*** Test Cases ***
+api1
+    [Tags]  critical
+    Create Session    api    ${api_url}
+    ${alarm_system_info}    RequestsLibrary.Get Request    api    /
+    log    ${alarm_system_info.status_code}
+    log    ${alarm_system_info.content}
+    should be true    ${alarm_system_info.status_code} == 200
+
+api2
+    [Tags]  critical
+    Create Session    api    ${api_url}
+    ${alarm_system_info}    RequestsLibrary.Get Request    api    /auth/code
+    log    ${alarm_system_info.status_code}
+    log    ${alarm_system_info.content}
+    should be true    ${alarm_system_info.status_code} == 200
+EOF
+    
+--------------------------------------------------------------解释
+*** Settings ***
+# 引入RF内置第三方库：实现HTTP接口请求能力
+Library           RequestsLibrary
+# 引入RF内置第三方库：实现Web浏览器UI自动化能力（当前脚本未使用）
+Library           SeleniumLibrary
+
+*** Variables ***
+# 定义全局变量：被测系统的接口基础地址（测试环境后端服务地址）
+${api_url}       http://eladmin-api.luffy:8000/
+
+*** Test Cases ***
+# 第一条接口用例，标签标记为critical（关键用例，失败直接判定测试失败）
+api1
+    [Tags]  critical
+    # 创建一个HTTP会话，会话命名为api，绑定上面配置的接口基础地址
+    Create Session    api    ${api_url}
+    # 发送GET请求，访问根路径 /
+    ${alarm_system_info}    RequestsLibrary.Get Request    api    /
+    # 打印本次请求返回的HTTP状态码
+    log    ${alarm_system_info.status_code}
+    # 打印接口返回的响应正文数据
+    log    ${alarm_system_info.content}
+    # 断言：必须保证接口返回状态码等于200，否则当前用例执行失败
+    should be true    ${alarm_system_info.status_code} == 200
+
+# 第二条关键接口测试用例，获取图形验证码接口
+api2
+    [Tags]  critical
+    # 复用会话名称api创建HTTP连接
+    Create Session    api    ${api_url}
+    # GET请求调用验证码接口 /auth/code
+    ${alarm_system_info}    RequestsLibrary.Get Request    api    /auth/code
+    # 打印响应状态码
+    log    ${alarm_system_info.status_code}
+    # 打印接口返回内容
+    log    ${alarm_system_info.content}
+    # 校验接口必须请求成功，状态码200
+    should be true    ${alarm_system_info.status_code} == 200
+-------------------------------------------------------------------------------
+
+
+# 使用tools镜像启动容器，来验证手动使用robotframework来做验收测试
+$ docker run --rm -ti 10.0.0.8:5000/devops/tools:v2 bash
+bash-5.0# apk add py-pip python3-dev
+$ cat requirements.txt
+robotframework
+robotframework-seleniumlibrary
+robotframework-databaselibrary
+robotframework-requests
+#pip安装必要的软件包
+$ python3 -m pip install --upgrade pip -i http://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com && pip3 install -i http://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com -r requirements.txt 
+
+$ cat /etc/resolv.conf
+search jenkins.svc.cluster.local svc.cluster.local cluster.local in.ctcdn.cn ss.in.ctcdn.cn
+nameserver 10.96.0.10
+options ndots:5
+
+
+# vi robot.txt #复制上面的代码
+#使用robot命令做测试
+$ robot -d artifacts/ robot.txt
+
+```
+
+
+
+### [与tools工具镜像集成]  docker build 新的镜像
+
+```bash
+
+cd tools  #k8s-slave1 
+cat <<\EOF >requirements.txt
+robotframework
+robotframework-seleniumlibrary
+robotframework-databaselibrary
+robotframework-requests
+EOF
+
+cat <<\EOF >Dockerfile
+FROM alpine:3.13.4
+LABEL maintainer="inspur_lyx@hotmail.com"
+USER root
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
+    apk update && \
+    apk add  --no-cache openrc docker git curl tar gcc g++ make \
+    bash shadow openjdk8 python2 python2-dev py-pip python3-dev openssl-dev libffi-dev \
+    libstdc++ harfbuzz nss freetype ttf-freefont chromium chromium-chromedriver && \
+    mkdir -p /root/.kube && \
+    usermod -a -G docker root
+
+
+# COPY config /root/.kube/
+
+COPY requirements.txt /
+
+RUN python3 -m pip install --upgrade pip -i http://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com && pip3 install -i http://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com -r requirements.txt  
+
+
+RUN rm -rf /var/cache/apk/* && \
+    rm -rf ~/.cache/pip
+
+#-----------------安装 kubectl--------------------#
+COPY kubectl /usr/local/bin/
+RUN chmod +x /usr/local/bin/kubectl
+# ------------------------------------------------#
+
+#-----------------安装 maven--------------------#
+COPY apache-maven-3.6.3 /usr/lib/apache-maven-3.6.3
+RUN ln -s /usr/lib/apache-maven-3.6.3/bin/mvn /usr/local/bin/mvn && chmod +x /usr/local/bin/mvn
+ENV MAVEN_HOME=/usr/lib/apache-maven-3.6.3
+#------------------------------------------------#
+
+#---------------安装 sonar-scanner-----------------#
+COPY sonar-scanner /usr/lib/sonar-scanner
+RUN ln -s /usr/lib/sonar-scanner/bin/sonar-scanner /usr/local/bin/sonar-scanner && chmod +x /usr/local/bin/sonar-scanner
+ENV SONAR_RUNNER_HOME=/usr/lib/sonar-scanner
+# ------------------------------------------------#
+EOF
+
+docker build . -t 10.0.0..80:5000/devops/tools:v3
+
+docker push 10.0.0..80:5000/devops/tools:v3
+
+
+更新Jenkins中kubernetes中的containers pod template
+
+
+```
+
+
+
+### jenkins中插件安装及配置
+
+为什么要安装robot插件？
+
+1. 安装robotFramework
+   - 插件中心搜索robotframework，直接安装
+   - tools集成robot命令（之前已经安装）
+
+
+
+2.与jenkinsfile的集成
+
+```groovy
+    container('tools') {
+        sh 'robot  -d artifacts/ robot.txt || echo ok'
+        echo "R ${currentBuild.result}"
+        step([
+            $class : 'RobotPublisher',
+            outputPath: 'artifacts/',
+            outputFileName : "output.xml",
+            disableArchiveOutput : false,
+            passThreshold : 80,
+            unstableThreshold: 20.0,
+            onlyCritical : true,
+            otherFiles : "*.png"
+        ])
+        echo "R ${currentBuild.result}"
+        archiveArtifacts artifacts: 'artifacts/*', fingerprint: true
+    }
+-------------------------------------------解释说明
+container('tools') {
+    # 执行Robot Framework接口自动化用例，测试报告、日志输出到artifacts目录；用例失败不直接终止流水线
+    sh 'robot  -d artifacts/ robot.txt || echo ok'
+    # 打印执行自动化后的当前构建状态
+    echo "R ${currentBuild.result}"
+    # 配置Jenkins的Robot插件，解析自动化测试结果并生成可视化测试报告
+    step([
+        $class : 'RobotPublisher',
+        outputPath: 'artifacts/',          // RF测试报告存放目录
+        outputFileName : "output.xml",     // RF生成的测试结果原始xml文件
+        disableArchiveOutput : false,      // 不禁止归档测试报告文件
+        passThreshold : 80,               // 用例通过率≥80%才判定构建成功
+        unstableThreshold: 20.0,          // 失败用例占比超过20%则标记构建状态为不稳定
+        onlyCritical : true,              // 只统计带critical标签的核心用例
+        otherFiles : "*.png"              // 归档测试过程中截图类附件文件
+    ])
+    # 打印解析完测试报告后的最新构建状态
+    echo "R ${currentBuild.result}"
+    # 将artifacts目录下所有测试报告文件归档保存到Jenkins构建记录中，支持文件指纹追踪
+    archiveArtifacts artifacts: 'artifacts/*', fingerprint: true
+}
+```
+
+
+
+### 实践通过Jenkinsfile实现demo项目的验收测试
+
+项目源代码添加robot.txt文件：
+
+```bash
+cat <<\EOF >robot.txt
+*** Settings ***
+Library           RequestsLibrary
+Library           SeleniumLibrary
+
+*** Variables ***
+${api_url}       http://eladmin-api.luffy:8000/
+
+*** Test Cases ***
+api1
+    [Tags]  critical
+    Create Session    api    ${api_url}
+    ${alarm_system_info}    RequestsLibrary.Get Request    api    /
+    log    ${alarm_system_info.status_code}
+    log    ${alarm_system_info.content}
+    should be true    ${alarm_system_info.status_code} == 200
+
+api2
+    [Tags]  critical
+    Create Session    api    ${api_url}
+    ${alarm_system_info}    RequestsLibrary.Get Request    api    /auth/code
+    log    ${alarm_system_info.status_code}
+    log    ${alarm_system_info.content}
+    should be true    ${alarm_system_info.status_code} == 200
+EOF
+
+#修改Jenkinsfile
+
+
+pipeline {
+    agent { label 'jnlp-slave'}
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+        timeout(time: 20, unit: 'MINUTES')
+        gitLabConnection('gitlab')
+    }
+
+    environment {
+        IMAGE_REPO = "172.16.1.226:5000/myblog"
+        DINGTALK_CREDS = credentials('dingTalk')
+        TAB_STR = "\n                    \n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+    }
+
+    stages {
+        stage('git-log') {
+            steps {
+                script{
+                    sh "git log --oneline -n 1 > gitlog.file"
+                    env.GIT_LOG = readFile("gitlog.file").trim()
+                }
+                sh 'printenv'
+            }
+        }        
+        stage('checkout') {
+            steps {
+                container('tools') {
+                    checkout scm
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS = env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('mvn package') {
+            steps {
+                container('tools') {
+                    sh 'mvn clean package'
+                }               
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('CI'){
+            failFast true
+            parallel {
+                stage('Unit Test') {
+                    steps {
+                        echo "Unit Test Stage Skip..."
+                    }
+                }
+                stage('Code Scan') {
+                    steps {
+                        container('tools') {
+                            withSonarQubeEnv('sonarqube') {
+                                sh 'sonar-scanner -X'
+                                sleep 3
+                            }
+                            script {
+                                timeout(1) {
+                                    def qg = waitForQualityGate('sonarqube')
+                                    if (qg.status != 'OK') {
+                                        error "未通过Sonarqube的代码质量阈检查，请及时修改！failure: ${qg.status}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('build-image') {
+            steps {
+                container('tools') {
+                    retry(2) { sh 'docker build . -t ${IMAGE_REPO}:${GIT_COMMIT}'}
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('push-image') {
+            steps {
+                container('tools') {
+                    retry(2) { sh 'docker push ${IMAGE_REPO}:${GIT_COMMIT}'}
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('deploy') {
+            steps {
+                container('tools') {
+                    sh "sed -i 's#{{IMAGE_URL}}#${IMAGE_REPO}:${GIT_COMMIT}#g' mainifests/*"
+                    timeout(time: 1, unit: 'MINUTES') {
+                        sh "kubectl apply -f mainifests/;sleep 20;"
+                    }
+                }
+                updateGitlabCommitStatus(name: env.STAGE_NAME, state: 'success')
+                script{
+                    env.BUILD_TASKS += env.STAGE_NAME + "√..." + env.TAB_STR
+                }
+            }
+        }
+        stage('Accept Test') {
+            steps {
+                    container('tools') {
+                        sh 'robot -d artifacts/ robot.txt'
+                        echo "R ${currentBuild.result}"
+                        step([
+                            $class : 'RobotPublisher',
+                            outputPath: 'artifacts/',
+                            outputFileName : "output.xml",
+                            disableArchiveOutput : false,
+                            passThreshold : 80,
+                            unstableThreshold: 20.0,
+                            onlyCritical : true,
+                            otherFiles : "*.png"
+                        ])
+                        echo "R ${currentBuild.result}"
+                        archiveArtifacts artifacts: 'artifacts/*', fingerprint: true
+                    }
+            }
+        }
+    }
+    post {
+        success { 
+           container('tools') {
+              echo 'Congratulations!'
+              sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                    -H 'Content-Type: application/json' \
+                    -d '{
+                        "msgtype": "markdown",
+                        "markdown": {
+                            "title":"myblog",
+                            "text": "😄👍 构建成功 👍😄  \n**项目名称**：luffy  \n**Git log**: ${GIT_LOG}   \n**构建分支**: ${BRANCH_NAME}   \n**构建地址**：${RUN_DISPLAY_URL}  \n**构建任务**：${BUILD_TASKS}"
+                        }
+                    }'
+               """ 
+           }
+        }
+        failure {
+           container('tools') {
+              echo 'Oh no!'
+              sh """
+                curl 'https://oapi.dingtalk.com/robot/send?access_token=${DINGTALK_CREDS_PSW}' \
+                    -H 'Content-Type: application/json' \
+                    -d '{
+                        "msgtype": "markdown",
+                        "markdown": {
+                            "title":"myblog",
+                            "text": "😖❌ 构建失败 ❌😖  \n**项目名称**：luffy  \n**Git log**: ${GIT_LOG}   \n**构建分支**: ${BRANCH_NAME}  \n**构建地址**：${RUN_DISPLAY_URL}  \n**构建任务**：${BUILD_TASKS}"
+                        }
+                    }'
+               """
+           }
+        }
+        always { 
+            echo 'I will always say Hello again!'
+        }
+    }
+}
+
+```
+
+在Jenkins中查看robot的构建结果。
+
+
+
+总结: 
+
+## Jenkins 完整构建流程
+
+### 整体流程顺序（从上到下真实执行链路）
+
+1. **获取 Git 最新提交日志**
+
+   记录本次构建的 Git 提交记录，用于钉钉推送展示。
+
+2. **拉取代码（checkout）**
+
+   从 GitLab 拉取源码，初始化构建任务状态。
+
+3. **Maven 编译打包**
+
+   执行 `mvn clean package`，编译 Java 项目、生成 class、执行单元测试、产出 Jar 包。
+
+4. **CI 并行质检**
+
+   - 单元测试：跳过
+
+   - SonarQube 代码质量扫描
+
+     使用 sonar-scanner 扫描代码 → 上报服务端 → 
+
+     阻塞等待质量门禁
+
+     门禁不通过直接终止构建，禁止后续打包部署。
+
+5. **构建 Docker 镜像**
+
+   根据当前 Git commit 打包成镜像。
+
+6. **推送镜像到私有仓库**
+
+   将镜像推送到本地镜像仓库，供 K8s 部署使用。
+
+7. **K8s 部署服务**
+
+   替换镜像版本 → `kubectl apply` 部署服务，sleep 20s **等待服务启动就绪**。
+
+8. **RobotFramework 自动化接口验收测试（核心）**
+
+   服务部署**启动成功后**执行 RF 接口自动化：
+
+   - 测试服务根路径健康检查
+   - 测试验证码接口可用性
+   - 只运行 critical 核心用例
+   - 自动生成测试报告、归档到 Jenkins
+   - **自动化用例失败 → 本次构建直接失败，阻断交付**
+
+9. **钉钉结果通知**
+
+   构建成功 / 失败自动推送 markdown 结果到钉钉群。
+
+------
+
+### 最关键的核心逻辑（之前疑惑的点）
+
+1. **Sonar 位置**：打包后、镜像构建前
+
+   作用：**代码质量卡点，代码烂直接不让打包上线**
+
+2. **Robot 自动化位置：部署之后！！**
+
+   必须等 K8s 服务启动完成才执行接口测试
+
+   原因：**接口必须服务部署启动通了才能测**，
+
+3. **整条流水线卡点顺序**
+
+   代码质量 (Sonar) → 镜像打包 → 服务部署 → 功能验收测试 (Robot)
+
+------
+
+### 一句话终极背诵版
+
+**拉代码→Maven 打包→Sonar 代码质量门禁校验→构建推送镜像→K8s 部署启动服务→Robot 接口自动化验收测试→钉钉通知结果**
+
+
+
+小结:
+
+1. 讲解最基础的Jenkins的使用
+2. Pipeline流水线的使用
+3. Jenkinsfile的使用
+4. 多分支流水线的使用
+5. 与Kubernetes集成，动态jnlp slave pod的使用
+6. 与sonarqube集成，实现代码扫描
+7. 与Robotframework集成，实现验收测试
 
 
 

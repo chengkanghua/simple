@@ -663,6 +663,65 @@ docker push 10.0.0.80:5000/eladmin/eladmin-api:v1
 
 
 
+## nsenter  全称 namespace enter
+
+`docker exec / kubectl exec` 依赖容器内部必须有 `bash/sh`、`ip`、`ifconfig` 等工具；
+
+而 **nsenter 是从宿主机直接进入容器的隔离环境**，可以**直接使用宿主机的所有命令**，哪怕容器是极简镜像、没有任何网络工具也能调试网络、进程、文件系统。
+
+```bash
+# 属于 util-linux 系统工具包 CentOS 安装（自带，一般不用装）
+yum install -y util-linux
+
+二、Docker 容器标准用法
+1. 先拿到容器在宿主机的 PID
+# 容器名/容器ID替换成你的
+PID=$(docker inspect --format '{{.State.Pid}}' 容器名)
+2. 完整进入容器所有命名空间（拿到交互式 shell）
+nsenter -t $PID -m -u -i -n -p /bin/bash
+
+参数说明：
+-t：指定目标进程 PID（必选）
+-m：挂载命名空间（看到容器文件系统）
+-u：主机名命名空间
+-i：进程间通信
+-n：网络命名空间（你用来查 ip 最常用）
+-p：进程命名空间
+
+极简写法（新版系统）
+nsenter -t $PID -a bash
+# -a 等价上面所有命名空间参数
+
+
+不用进完整 shell，直接在容器网络环境执行宿主机的 ip/ss/curl：
+# 只进入网络命名空间查看网卡
+nsenter -t $PID -n ip addr
+# 查看端口监听
+nsenter -t $PID -n ss -tunlp
+# 测试容器内部网络连通性
+nsenter -t $PID -n curl 127.0.0.1:8080
+
+
+K8s Pod 使用 nsenter 步骤
+先登录 Pod 所在的宿主机节点
+获取容器 PID：
+# 拿到容器ID
+crictl ps | grep pod名
+# 拿PID
+crictl inspect 容器ID | grep pid
+再用 nsenter -t PID -n ip addr 调试网络
+
+
+# 和 kubectl exec /docker exec 区别
+exec：在容器内部新建进程，只能用容器里预装的命令；容器没有 shell 就进不去
+nsenter：加入已有容器进程的隔离环境，复用宿主机所有命令，适合极简容器、容器卡死无法 exec 的紧急调试场景
+
+
+
+```
+
+
+
 
 
 
@@ -11458,30 +11517,7 @@ pipeline {
 
 
 
-# k8s 高频面试题
-
-1. 为什么生产集群 Master 推荐**奇数节点（3/5/7）**？
-
-   偶数节点容错能力和少一台的奇数集群一致，4 节点最多也只能坏 1 台，却多一台机器成本，无收益。
-
-   | Master 节点数 | 法定多数派 | 最大可故障节点数 |
-
-   | ---- | ---- | ---- |
-
-   | 3 | 2 | 1 |
-
-   | 5 | 3 | 2 |
-
-   | 7 | 4 | 3 |
-
-2. kube-apiserver 是无状态组件
-
-   哪怕挂 2 台 apiserver，只要 etcd 集群多数派正常，剩余 apiserver 节点依然可以负载均衡对外提供服务，不影响集群可用性。
-
-3. 临时故障 vs 永久硬件故障
-
-- 短暂网络 / 机器重启：2 台故障恢复后，etcd 自动同步日志，集群自动恢复；
-- 硬件永久损坏：必须先把故障节点从 etcd 集群中移除，再新增 Master 节点扩容，恢复容错能力。
+- 
 
 
 

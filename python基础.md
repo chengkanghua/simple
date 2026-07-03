@@ -1636,7 +1636,7 @@ print(set(math).intersection(set(english).intersection(set(music))).intersection
 ```
 
 1. 找出同时选修了任意1种课程的人,任意2种课程的人,任意3种课程的人，任意4种课程的人
-   
+  
    ```py
    math = ["张三", "田七", "李四", "马六"]
    english = ["李四", "王五", "田七", "陈八"]
@@ -2148,14 +2148,14 @@ print(os.system("cat /etc/fstab")) # 除了执行命令外，还会显示返回�
 
 问题: 感觉我就只要会os.popen()和os.system()就够了啊，因为我是搞linux运维的，命令熟悉啊。为啥还去记上面那些方法?
 答:
-尽量不使用os.popen和os.system,练习下面题目:
-练习: 递归找一个目录里的所有链接文件
-
-shell里直接一个find命令就可以实现递归查找
-
-# find $dir -type l
 
 ```bash
+
+尽量不使用os.popen和os.system,练习下面题目:
+练习: 递归找一个目录里的所有链接文件
+shell里直接一个find命令就可以实现递归查找
+# find $dir -type l
+
 # shell写法的参考
 #!/bin/bash
 read -p "输入一个目录:" dir
@@ -3573,5 +3573,4 @@ elif choice == 0:
 
 # python3.6 脚本名 10.1.1.12 22 root 123456
 ```
-
 

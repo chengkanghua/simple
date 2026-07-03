@@ -256,13 +256,19 @@ info ls
 ```
 # linux命令行常用快捷键
 
-```
-ctrl + c     cancel取消当前操作
-ctrl + l    清空屏幕内容
-ctrl + d    退出当前用户
-ctrl + a    光标移到行首
-ctrl + e    光标移到行尾
-ctrl + u  删除光标到行首的内容
+```bash
+Tab          自动补全
+Ctrl + a  把光标移动到行首   a=begin 
+Ctrl + e  把光标移动到行尾   e=end
+Ctrl + c  取消 cancel     c=cancel
+Ctrl + d  退出当前用户     d=delete，
+Ctrl + l  清屏        l=clear
+Ctrl + u  把光标所在位置到行首的内容删除（剪切）   u=undo
+Ctrl + k  把光标所在位置到行尾的内容删除（剪切）   k=kill
+ctrl + y  粘贴   y=yank
+ctrl+s     锁屏  s=stop
+ctrl+q/c   解锁  q=quit
+Ctrl + r   搜索最近使用的命令 r=reverse
 ```
 
 # 2-11、vim使用
@@ -273,26 +279,70 @@ ctrl + u  删除光标到行首的内容
   编辑模式（i/a/o 进入）：输入文字，按 ESC 退回普通模式
   末行模式（普通模式按 :）：保存、退出、查找替换、设置参数
   
-  进入编辑模式常用按键
-  按键	作用
-  i	光标前插入
-  a	光标后插入
-  I	行首插入
-  A	行尾插入
-  o	光标下新开一行插入
-  O	光标上新开一行插入
+  # 1.普通模式-光标移动
+  h:left 光标左移
+  j:down 光标下移
+  k:up 光标上移
+  l:right 光标右移
+  w:word 下一个单词首字母
+  b:back 上一个单词首字母
+  e:end 单词末尾
+  0:行首
+  $:endline 行尾
+  gg:go first 文档首行
+  G:go last 文档尾行
+  nG:跳转到第n行
   
-  二、末行模式常用（:xxx）
-  保存退出
-  :w        # 保存
+  屏幕跳转
+  ctrl+f  # 向下翻一页
+  ctrl+b  # 向上翻一页
+  ctrl+d  # 向下翻半页
+  ctrl+u  # 向上翻半页
+  
+  # 2.普通模式-删除操作
+  x:cut char 删除当前字符
+  X:大写X cut prev 删除光标前字符
+  dd:delete line 删除当前行
+  ndd:向下删除n行
+  dw:delete word 删除单词
+  d0:删除至行首
+  d$:删除至行尾
+  
+  # 3.普通模式-复制粘贴
+  yy:yank line 复制当前行
+  nyy:向下复制n行  3yy
+  yw:yank word 复制单词
+  y0      # 复制到行首
+  y$      # 复制到行尾
+  p:paste 粘贴到下一行
+  P:大写P Paste 粘贴到上一行
+  
+  # 4.普通模式-撤销重做
+  u:undo 撤销操作
+  Ctrl+r:redo 反向撤销
+  
+  
+  # 5.插入模式切换
+  i:insert 光标前插入
+  I:Insert 行首插入
+  a:append 光标后插入
+  A:Append 行尾插入
+  o:open 下方新建行插入
+  O:Open 上方新建行插入
+  Esc:escape 返回普通模式
+  
+  
+  # 6.底行模式
+  :w:write 保存文件
   :w 文件名 # 另存为
-  :q        # 退出（没修改才能退）
-  :wq       # 保存+退出
-  :x        # 保存退出（修改才写盘，推荐）
-  :q!       # 强制不保存退出
+  :q:quit 退出
+  :wq 保存并退出 无论有没有修改文件内容，都会强制写入磁盘，直接更新文件的修改时间戳。
+  :x  保存并退出 只有文件发生修改才会保存、更新时间戳；没有修改则直接退出，不触碰原文件，时间戳保持不变
+  :q!:quit force 强制不保存退出
   :wq!      # 强制保存退出（只读文件）
   
-  查找替换
+  :%s/old/new/g:substitute 全局替换
+  :n1,n2s/old/new/g 指定行区间替换
   # 全文替换 old→new，确认询问
   :%s/old/new/gc
   # 全文直接替换不询问
@@ -301,65 +351,26 @@ ctrl + u  删除光标到行首的内容
   :10,20s/old/new/g
   # 取消高亮
   :nohl
-  行操作
-  plaintext
-  :set nu      # 显示行号
-  :set nonu    # 关闭行号
+  
+  :set nu  :number 显示行号
+  :set nonu 取消行号
   :set nowrap  # 不自动换行
   :set fileencoding=utf-8 # 设置编码
   :15          # 直接跳转到第15行
   
-  三、普通模式：光标跳转（高频）
-  字符跳转
-  h左 j下 k上 l右
-  行跳转
-  0       # 跳到行首
-  $       # 跳到行尾
-  gg      # 文件第一行
-  G       # 文件最后一行
-  15G     # 跳转到第15行
-  w       # 下一个单词开头
-  b       # 上一个单词开头
-  
-  屏幕跳转
-  ctrl+f  # 向下翻一页
-  ctrl+b  # 向上翻一页
-  ctrl+d  # 向下翻半页
-  ctrl+u  # 向上翻半页
-  
-  四、删除 / 剪切、复制、粘贴
-  删除（d=delete）
-  x       # 删除光标当前字符
-  dd      # 删除当前一整行
-  5dd     # 删除光标往下5行
-  dw      # 删除一个单词
-  d0      # 删除光标到行首
-  d$      # 删除光标到行尾
-  
-  复制（y=yank）
-  yy      # 复制当前行
-  3yy     # 复制3行
-  yw      # 复制一个单词
-  y0      # 复制到行首
-  y$      # 复制到行尾
-  
-  粘贴
-  p  # 在光标下方粘贴
-  P  # 在光标上方粘贴
-  撤销 & 重做
-  plaintext
-  u        # 撤销上一步
-  ctrl+r   # 恢复撤销
-  
-  
-  五、可视化模式（批量操作）
-  v：字符选择
-  V：整行选择
-  Ctrl+v：块选择（矩形选中，批量注释必备）
+  # 7.可视模式
+  v:visual 字符选中模式
+  V:Visual 行选中模式
+  Ctrl+v:Visual block 块选中模式
+  ---------------------------
   批量注释示例：
   Ctrl+v 选中多行开头
   I 输入 #
   按 ESC 全部添加注释
+  ------------------------
+  d:delete 选中内容删除
+  y:yank 选中内容复制
+  
   
   
   六、vim 常用小技巧（运维必备）
@@ -383,23 +394,13 @@ ctrl + u  删除光标到行首的内容
   原因：上次异常退出产生 .xxx.swp 交换文件
   解决：
   rm -rf .文件名.swp
+  
+  # vim交换文件解决办法
+  vim -r 文件名  #恢复数据
+  rm -f  xxx.swp #删除隐藏文件 
   ```
 
 
-
-
-
-
-
-
-
-2-12、vim快捷键
-
-
-
-2-13、vim交换文件解决办法
-vim -r 文件名  #恢复数据
-rm -f  xxx.swp #删除隐藏文件 
 
 # 2-14、重定向符号
 
@@ -1087,15 +1088,13 @@ history
 !行号
 !! 上一次的命令
 
-ctrl + a  移动到行首
-ctrl + e  移动到行尾
-ctrl + u  删除光标之前的字符
-ctrl + k  删除光标之后的字符
-ctrl + l  清空屏幕终端内容，同于clear
+ctrl + a  移动到行首  a = Ahead（向前、开头）
+ctrl + e  移动到行尾  e = End（末尾）
+ctrl + u  删除光标之前的字符  u = Undo backward（反向撤销 / 清空前面输入）
+ctrl + k  删除光标之后的字符  k = Kill（删除、截断）
+ctrl + l  清空屏幕终端内容，同于clear   l = Clear Screen（L 取自 CLS / Clear）
 
-tab键
-补全
-    $PATH中存在的命令
+tab键: 补全 $PATH中存在的命令
     
     
 基本正则表达式bre集合

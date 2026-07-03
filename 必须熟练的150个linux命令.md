@@ -3711,17 +3711,17 @@ grep （egrep ） sed  awk find
 
 ```bash
 Tab          自动补全
-Ctrl + a  把光标移动到行首
-Ctrl + e  把光标移动到行尾
-Ctrl + c  取消 cancel
-Ctrl + d  退出当前用户
-Ctrl + l  清屏
-Ctrl + u  把光标所在位置到行首的内容删除（剪切）
-Ctrl + k  把光标所在位置到行尾的内容删除（剪切）
-ctrl + y  粘贴
-ctrl+s     锁屏
-ctrl+q/c   解锁
-Ctrl + r   搜索最近使用的命令 不对继续按ctrl+r
+Ctrl + a  把光标移动到行首   a=begin 
+Ctrl + e  把光标移动到行尾   e=end
+Ctrl + c  取消 cancel     c=cancel
+Ctrl + d  退出当前用户     d=delete，
+Ctrl + l  清屏        l=clear
+Ctrl + u  把光标所在位置到行首的内容删除（剪切）   u=undo
+Ctrl + k  把光标所在位置到行尾的内容删除（剪切）   k=kill
+ctrl + y  粘贴   y=yank
+ctrl+s     锁屏  s=stop
+ctrl+q/c   解锁  q=quit
+Ctrl + r   搜索最近使用的命令 r=reverse
 ```
 
 

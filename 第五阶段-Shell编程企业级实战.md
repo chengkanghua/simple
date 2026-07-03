@@ -2541,6 +2541,568 @@ done
 
 
 
+##  linux 通配符  基础正则  扩展正则
+
+```bash
+
+# 1. Shell 通配符Globbing（用于文件名匹配：ls/cp/mv/find）
+符号		作用
+*		 匹配任意长度任意字符（不含隐藏文件开头.）
+?		 匹配单个任意字符
+[abc]	 匹配括号内任意一个字符
+[a-z]	 匹配区间内单个字符
+[^0-9]	 匹配不在区间内的单个字符
+[!字符集] 取反，匹配不在括号内的单个字符	
+{a,b,c}	批量匹配多个字符串，不属于正则，属于 bash 花括号扩展
+
+#POSIX 字符类（在 [] 内使用）
+# 用于更规范的字符范围匹配，避免不同编码下的范围异常。
+字符类			含义			示例
+[:digit:]	数字 0-9		 ls [[:digit:]]*.txt 数字开头的 txt 文件
+[:alpha:]	大小写字母	   ls [[:alpha:]]*.log 字母开头的 log 文件
+[:lower:]	小写字母		ls [[:lower:]]* 小写开头的所有文件
+[:upper:]	大写字母		ls [[:upper:]]* 大写开头的所有文件
+[:alnum:]	字母 + 数字		ls [[:alnum:]]*.conf 字母数字开头的 conf
+[:space:]	空白字符（空格、制表符等）	匹配含空格的文件名
+[:punct:]	标点符号	              匹配含标点的文件名
+
+# 开启扩展通配符
+shopt -s extglob
+
+大括号扩展 {}
+纯字符串枚举生成，不检查文件是否存在，常用于批量创建、批量操作。
+枚举：{a,b,c} → 生成 a b c
+序列：{1..10}、{a..z}、{10..1} 倒序
+嵌套组合：{web,db}_{log,data} → web_log web_data db_log db_data
+
+
+常用示例：
+# 快速备份文件
+cp nginx.conf{,.bak}
+# 批量创建目录
+mkdir -p /data/{app,log,backup,script}
+# 批量创建有序文件
+touch file{1..10}.txt
+
+递归通配 **
+# 递归列出所有子目录的log文件
+ls **/*.log
+# 递归查找所有yaml配置
+ls **/*.yaml
+
+波浪号 ~ 扩展
+~：当前用户家目录
+~用户名：指定用户的家目录
+~+：当前工作目录
+~-：上一个工作目录
+.    当前工作路径,或隐藏文件
+..   上一级目录
+回家用 cd ~，切回上目录用 cd -，自己家目录加 ~/，查其他用户用 ~用户名。
+
+
+
+运维常用组合 
+1. 匹配多类后缀文件
+# 基础写法
+ls *.log *.txt *.conf
+# 扩展通配符写法（更简洁）
+ls *.@(log|txt|conf)
+
+2. 查看所有隐藏文件（排除。和 ..）
+ls -d .[!.]*
+# - d只展示目录自身，不遍历目录内内容。
+
+3. 排除某类文件批量操作
+# 删除除配置文件外的所有文件（需extglob）
+shopt -s extglob
+rm !(*.conf|*.yaml)
+场景：清理目录时保留核心配置，删除临时文件。
+
+4. 批量备份配置文件
+# 单个文件快速备份
+cp nginx.conf{,.bak}
+# 批量备份所有conf文件
+for f in *.conf; do cp "$f"{,.bak}; done
+
+5. 匹配数字 / 字母开头的文件
+# 匹配纯数字开头的日志
+ls [0-9]*.log
+# 匹配大写字母开头的配置
+ls [A-Z]*.conf
+
+6. 递归批量查找文件
+# 需globstar，替代 find . -name "*.log"
+shopt -s globstar
+ls -l **/*.log
+场景：快速定位多层目录下的目标文件。
+
+
+--------------------------------------------------------------------------
+shopt 用来控制 Bash 通配、历史、命令纠错等 Shell 行为；最常用globstar递归遍历、extglob扩展通配、nullglob防止脚本误操作。
+shopt          # 查看所有选项开关状态
+shopt 选项名    # 单独查看某一个选项状态
+shopt -s 选项名 # set 开启
+shopt -u 选项名 # unset 关闭
+shopt -q 选项名 # 静默查询，仅返回退出码（脚本用）
+
+globstar
+    开启：** 递归匹配所有层级目录文件；
+    关闭：** 等价于 */*，仅匹配一级子目录。
+extglob 开启扩展正则通配：?() *() +() @() !()，用于文件排除、多后缀匹配。
+dotglob   默认*不匹配隐藏文件；开启后通配符可匹配.开头文件。
+nullglob  通配符无匹配结果时返回空，不会把通配符当作普通字符串，避免 rm 误删。
+nocaseglob  文件名通配匹配忽略大小写。
+cdspell  cd 命令自动拼写错误纠错。
+
+运维推荐常驻配置
+shopt -s extglob globstar nullglob dotglob
+
+cat >> ~/.bashrc <<'EOF'
+shopt -s extglob
+shopt -s globstar
+shopt -s nullglob
+shopt -s dotglob
+EOF
+source ~/.bashrc
+----------------------------------------------------------------------------
+
+Regular Expression，缩写：Regex / Regexp
+中文：正则表达式、规则表达式
+
+基础正则表达式
+全称：Basic Regular Expression
+缩写：BRE
+扩展正则表达式
+全称：Extended Regular Expression
+缩写：ERE
+
+# 2. 基础正则（grep、sed 默认支持）
+^  行开头
+$  行结尾
+.  任意单个字符
+*  前面字符出现0次或多次
+[]   字符集合	
+[^]   取反
+\     转义符
+\{n\} 前面字符精准n次
+\{n,\} 至少n次
+\{n,m\} n~m次
+
+#组合示例
+^$	组合符，表示空行
+.*	组合符，匹配任意长度的任意字符
+^.*	组合符，匹配任意多个字符开头的内容
+.*$	组合符，匹配以任意多个字符结尾的内容
+[abc]	匹配[]集合内的任意一个字符，a或b或c，可以写[a-c]
+[^abc]	匹配除了^后面的任意字符，a或b或c，^表示对[abc]的取反
+
+<pattern>	匹配完整的内容
+<或>	定位单词的左侧，和右侧，如<chao> 可以找出"The chao ge"，缺找不出"yuchao"
+
+
+# 3. 扩展正则（egrep/grep -E、sed -r、awk 默认支持）
++  前面字符至少1次
+?  前面字符0或1次
+() 分组 被括起来的内容表示一个整体
+|  或者
+{n} {n,} {,m} {n,m} 次数限定
+
+
+组合:
+[:/]+	匹配括号内的":"或者"/"字符1次或多次
+
+次数限制说明
+a{n}	匹配前一个字符正好n次
+a{n,}	匹配前一个字符最少n次
+a{,m}	匹配前一个字符最多m次
+a{n,m}	匹配前一个字符最少n次，最多m次
+
+
+
+```
+
+
+
+## grep sed awk
+
+```bash
+grep 过滤筛选文本
+全称：Global Regular Expression Print  中文：全局正则表达式打印
+grep [选项] '匹配模式' 文件名
+常用参数
+-v：取反匹配   invert match
+-i：忽略大小写   ignore case
+-n：显示行号    line number
+-c：统计匹配行数  count 
+-o：只输出匹配到的内容  only matching 
+-E：启用扩展正则（egrep）  extended regex 
+-A n：匹配行后 n 行   after
+-B n：匹配行前 n 行   before
+-C n：前后各 n 行    context 
+-r/-R：递归遍历目录  recursive 
+-w：精确匹配单词     word regexp
+-q：静默匹配，只返回退出码   quiet 
+
+# 过滤日志关键词并显示前后 10 行
+grep -C10 "error" app.log
+# 统计报错行数
+grep -ic "fail" app.log 
+# 递归查找含指定内容的文件
+grep -r "192.168.1.1" /etc/
+# 排除注释行、空行
+grep -v '^#' nginx.conf | grep -v '^$'
+
+grep -nE "^[0-9]+" test.txt
+grep "error" log1.log log2.log
+ps -ef | grep java
+
+
+
+sed 用法（流式编辑器：增删改查）  核心处理机制：逐行读取、模式空间处理
+全称：Stream Editor   中文：流式编辑器
+记忆：Stream（数据流、一行行流式读取）+ Editor（编辑器）
+对应特点：逐行读取文本、流式处理，不用一次性加载整个文件，适合大文件批量处理（增删改查、替换）。
+
+sed [OPTIONS] 'ADDR1[,ADDR2] COMMAND' file
+参数 
+-n：只输出匹配行   No automatic print（禁止自动打印）
+-e：多个表达式   expression
+-f：从脚本文件读取规则  file
+-r/-E：扩展正则   extended-regexp，
+-i：直接修改原文件；in-place(重定向;原地直接修改原文件) ;-i.bak 先备份再修改  
+常用动作
+p 打印  print
+d 删除  delete 
+s/旧/新/g    替换substitute ，g 全局 global
+a 行后追加   appent
+i 行前插入   insert
+c 整行替换   change 
+= 打印行号   print line number
+
+# 无地址，全文执行动作
+sed 's/old/new/g' test.txt
+sed '5d' test.txt
+sed -n '3,10p' test.txt
+sed '/^#/d' nginx.conf
+# -i.bak：先备份，匹配root的行整行替换
+sed -i.bak '/root/c admin:x:0:0::/root:/bin/bash' /etc/passwd
+
+
+# 全局替换，备份原文件
+sed -i.bak 's/80/8080/g' nginx.conf
+# 删除空行、注释行
+sed '/^#/d;/^$/d' nginx.conf
+# 在第 10 行前插入新行内容
+sed -i '10i listen 80;' nginx.conf
+# 只查看匹配行（不修改）
+sed -n '/root/p' nginx.conf
+# 只查看第5-10行
+sed -n '5,10p' nginx.conf
+# 截取指定时间段日志
+sed -n '/2026-07-03 09:00/,/2026-07-03 10:00/p' app.log
+
+
+awk 用法（列处理、统计、格式化输出）
+取自三位开发者姓氏首字母：Aho、Weinberger、Kernighan  没有英文释义缩写，只能记来源；
+定位：文本分析语言、列处理器
+记忆：grep 擅长按行过滤、sed 擅长按行修改、awk 擅长按列截取 + 统计计算。
+
+awk [OPTIONS] 'PATTERN {ACTION}' file1 file2...
+三段式标准结构（核心）
+awk '
+BEGIN{ 初始化代码; 执行一次，读取文件前运行 }
+PATTERN{ 逐行匹配执行 }
+END{ 收尾代码; 所有文件读取完毕后执行一次 }
+' 文件名
+PATTERN：正则、数值判断、空（匹配所有行）
+ACTION：print、循环、判断、格式化输出等代码块
+
+结构:  awk 'BEGIN{初始化} 条件{执行动作} END{收尾}'
+
+参数
+-F：指定分隔符  --field-separator
+-v：定义外部变量  
+	在 awk 脚本执行前（包含BEGIN块）定义外部变量，用于把 Shell 变量传入 awk
+	awk -v 变量名=值 '条件{动作}' 文件
+	awk -v num=10 '$3>num' test.txt
+-f：从脚本文件执行 file;    awk -f script.awk data.txt
+高频内置变量
+$0 整行
+$1 $2 ... 第 1、2 列
+NF 当前行总列数  Number of Fields $NF最后一列
+NR 全局行号  Number of Records，全局总记录行号，多文件持续累加
+FNR 单个文件行号  File Number of Records，单个文件独立行号，新文件从 1 重新计数
+FS 输入分隔符   Field Separator，输入字段分隔符，默认空格 / 制表符
+OFS 输出分隔符  Output Field Separator，输出字段分隔符，默认空格
+RS：Record Separator，输入记录（行）分隔符，默认换行
+ORS：Output Record Separator，输出行分隔符，默认换行
+
+一、AWK 核心处理流程
+执行 BEGIN{} 代码块（文件读取前，仅执行 1 次）
+初始化变量、设置分隔符 FS/OFS、打印表头、预处理等
+循环逐行读取文件每一条记录
+按照FS（输入分隔符）把当前行$0切割为$1、$2...$NF字段
+判断当前行是否匹配PATTERN（条件 / 正则）
+匹配成功则执行{ACTION}动作块
+文件所有行遍历结束后，执行一次 END{} 代码块
+做汇总、统计、结果输出等收尾操作
+
+# -F 参数 和 内置变量 FS; 本质完全等价，都是用来设置输入字段分隔符
+# 写法1：命令行 -F 指定分隔符
+awk -F: '{print $1}' /etc/passwd
+# 写法2：BEGIN中手动赋值FS，效果完全一致
+awk 'BEGIN{FS=":"} {print $1}' /etc/passwd
+
+
+# 查看系统连接状态统计（netstat/ss）
+netstat -ant | awk 'NR>2{print $6}'| sort|uniq -c|sort -rn
+#前两行不要的其他方式 
+netstat -ant | sed '1,2d' | awk '{print $6}'
+netstat -ant | tail -n +3 | awk '{print $6}'
+# 统计内存使用率
+free -m | awk 'NR==2{print $3/$2*100"%"}'
+# 过滤第三列大于 100 的行
+awk '$3>100' test.txt
+# 多分隔符筛选字段
+awk -F '[ :\t]' '{print $1,$5}' info.txt
+# 多分隔符匹配
+awk -F '[ :]' '{print $1,$4}' test.txt
+# 打印第1、第5列
+awk '{print $1,$5}' access.log
+# 过滤连接数，统计IP访问量
+awk '{print $1}' access.log |sort|uniq -c|sort -nr|head -10
+
+
+
+三剑客组合运维高频套路
+# 批量杀进程
+ps -ef | grep java | grep -v grep | awk '{print $2}' | xargs kill -9
+# Nginx 访问 IP TOP20 统计
+grep "200" access.log | awk '{print $1}' | sort | uniq -c | sort -nr | head -20
+# 清理配置注释空行并批量替换参数
+sed '/^#/d;/^$/d' nginx.conf | sed 's/worker_connections 1024/worker_connections 2048/g'
+
+
+-----------------------------------------------------------------------
+xargs
+将管道输出的标准输入转换成命令的参数，解决很多命令不支持管道接收数据的问题。
+
+全称 + 记忆技巧
+xargs = extended arguments   中文：扩展参数
+记忆口诀：x（扩展）+ args（arguments 参数）→ 把标准输入扩展成命令行参数。
+
+常用参数
+-n num：每次传递num个参数执行一次命令
+-d '分隔符'：自定义分隔符（默认空格、换行）
+-I {}：用{}占位接收参数，可在命令任意位置使用
+-0：配合find -print0，处理带空格、特殊字符的文件名
+
+常用示例
+# 批量杀进程
+ps -ef | grep java | grep -v grep | awk '{print $2}' | xargs kill -9
+# 每次传2个参数删除文件
+ls | xargs -n 2 rm -f
+# 占位批量重命名 #当前目录所有 .log 文件，统一重命名为 .log.bak
+find . -maxdepth 1 -name "*.log" | xargs -I {} mv {} {}.bak
+# 拆解说明
+-I {}：{} 是占位符，每拿到一个文件名就放到 {} 的位置
+mv {} {}.bak
+第一个{} = 原文件名（如app.log）
+第二个{} = 原文件名，拼接后缀.bak
+执行后：app.log → app.log.bak
+----------------------------------------------------------------
+
+
+```
+
+
+
+## awk语言详细介绍
+
+**AWK 是一门完备的文本处理型编程语言（属于解释型脚本语言）**，满足编程语言核心要素：
+
+变量、数据类型、分支、循环、数组、函数、输入输出、格式化、正则内置支持，自带语法体系，可独立写复杂业务脚本，并非单纯命令过滤工具。
+
+### 1. 数据类型
+
+AWK 只有两种基础类型，会自动隐式转换：
+
+1. **字符串类型**（默认所有内容都是字符串）
+
+2. 数值类型
+
+   （参与四则运算时自动转为数字）
+
+   无布尔类型：
+
+   ```
+   0、空字符串
+   ```
+
+    为假；非 0、非空字符串为真。
+
+### 2. 核心数据结构：关联数组（唯一原生数据结构）
+
+AWK 只有一种数据结构：**关联数组（Associative Array）**
+
+- 下标可以是**数字 / 字符串**，不需要提前声明长度，自动扩容；
+- 典型用途：统计 IP、日志计数、去重、键值存储；
+
+```
+# 语法：数组名[下标]=值
+ip_arr[$1]++
+# 遍历数组
+for(key in ip_arr){print key,ip_arr[key]}
+```
+
+- 无普通顺序数组、链表、哈希表等，全部基于关联数组实现。
+
+### 3. 变量分类
+
+1. **内置全局变量**：NR、NF、FS、OFS、RS、ORS、FILENAME 等，全局生效；
+2. **自定义全局变量**：脚本直接定义，默认全局；
+3. **局部变量**：仅在自定义函数内部用 `local` 声明（gawk 支持）；
+4. **外部传入变量**：`-v` 从 Shell 传入。
+
+### 4. 流程控制语句
+
+#### （1）分支判断
+
+```awk
+# if单分支
+if(条件){动作}
+
+# if-else
+if(条件){
+}else{
+}
+
+# 多分支 else if
+if(){}else if(){}else{}
+
+# 三元运算符
+max = a>b ? a : b
+```
+
+#### （2）循环
+
+```awk
+# while循环
+while(条件){}
+
+# do while 先执行再判断
+do{}while(条件)
+
+# for数值循环
+for(i=1;i<=10;i++){}
+
+# for遍历关联数组（固定语法）
+for(key in arr){}
+```
+
+#### （3）循环控制关键字
+
+`break`：跳出当前循环
+
+`continue`：跳过本次循环，进入下一次迭代
+
+### 5. 函数体系
+
+1. 内置函数
+
+   字符串：
+
+   ```
+   sub/gsub/index/length/split/tolower/toupper
+   ```
+
+   数值：
+
+   ```
+   int/sqrt/rand/srand
+   ```
+
+2. **自定义函数**
+
+```bash
+func add(a,b){
+    return a+b
+}
+```
+
+### 6. 输入输出基础
+
+- `print`：简单输出
+- `printf`：格式化输出（% d % s %.2f）
+- 支持重定向 `> >> |`
+
+### 7. AWK 完整执行流回顾
+
+```
+BEGIN{}` → 逐行循环（分割字段→条件匹配→执行动作） → `END{}
+```
+
+## 二、AWK vs Shell 编程 核心区别对比
+
+### 1. 设计定位
+
+- **AWK**：专门面向 ** 结构化文本（按列）** 处理、日志统计、数据格式化、聚合分析，内置正则 + 关联数组，擅长行列数据计算。
+- **Shell（Bash）**：系统交互脚本，擅长调用 Linux 命令、流程调度、文件操作、服务启停、循环执行系统指令，通用运维编排。
+
+### 2. 数据处理能力
+
+- AWK：原生列分割、内置高效关联数组，海量日志统计性能远高于 Shell；自动字符串 / 数字隐式转换，数学计算友好。
+- Shell：默认按行处理，数组仅支持数字下标，统计需要大量管道组合，大数据量效率低；数值计算需要依赖 `bc`/`expr`。
+
+### 3. 正则支持
+
+- AWK：默认**扩展正则**，语法简洁，正则性能强，适合批量文本匹配提取。
+- Shell：原生基础正则，高级正则需要调用 `grep/sed` 外部命令。
+
+### 4. 运行效率
+
+- 大文件（百万行日志）：AWK >> Shell
+
+  AWK 单次进程遍历文件；Shell 多次管道会创建多个子进程，频繁 IO 开销大。
+
+### 5. 适用场景
+
+### AWK 适合
+
+1. 日志字段提取、IP / 接口访问量统计、去重排序聚合
+2. 格式化输出报表、内存 / 磁盘 / 连接数计算
+3. 结构化配置文件（passwd、nginx 配置）列处理
+
+### Shell 适合
+
+1. 批量执行命令、文件遍历备份、定时任务
+2. 服务启停、容器编排、多脚本调度
+3. 交互式操作、判断文件状态、循环调用工具
+
+### 6. 语法差异
+
+1. AWK 变量直接使用，不用 `$` 赋值，取值部分场景需要；Shell 变量赋值不能加`$`，取值必须`$变量`。
+2. AWK 条件不需要 `[]`；Shell `if` 判断必须 `[ ]`/`[[ ]]`。
+3. AWK 内置格式化`printf`；Shell 格式化能力弱。
+
+### 7. 相互配合关系
+
+二者互补，不是替代：
+
+- Shell 负责流程调度，把文本交给 AWK 做数据清洗统计；
+- AWK 算出结果后，交给 Shell 做后续运维操作（如批量告警、清理）。
+
+### 三、极简总结
+
+1. AWK 是完备编程语言，只有**字符串、数字**两种类型，唯一数据结构是**关联数组**；
+   - shell只有字符串类型,(整数计算是临时隐式转换) ; 数据结构: 普通索引数组和关联数组
+2. 拥有 if/for/while、switch case, 自定义函数、格式化 IO，擅长结构化文本统计；
+3. Shell 侧重系统命令调度，AWK 侧重行列数据聚合，运维中经常搭配使用。
+
+
+
+
+
 ## Vim 新建脚本自动模板（企业最通用）
 
 
@@ -3849,37 +4411,81 @@ main
 
 ```bash
 用 shell 处理以下内容
-1、按单词出现频率降序排序！
-2、按字母出现频率降序排序！
-the squid project provides a number of resources to assist users design,implement and support squid installations. Please browse the documentation and support sections for more infomation,by eric training.
-
-1、按单词出现频率降序排序！
-2、按字母出现频率降序排序！
+1、按单词出现频率降序排序！  # 按【单词】统计排序（词频）
+2、按字母出现频率降序排序！  # 功能：统计文件中【每个英文字符】的出现次数，按出现次数从高到低排序输出
 the squid project provides a number of resources to assist users design,implement and support squid installations. Please browse the documentation and support sections for more infomation
 
 解答：
-# cat eric.txt 
-the squid project provides a number of resources to assist users design,implement and support squid installations. Please browse the documentation and support sections for more infomation
+cat <<EOF > eric.log 
+the squid project provides a number of resources to assist users design,implement and support squid installations. Please browse the documentation and support sections for more infomation,by eric training.
+EOF
 
 按单词排序解答：
 法1:
 tr ",." " " <eric.log|xargs -n 1|sort|uniq -c|sort -rn|head
 
-法2：
-tr ",." " " <eric.log|xargs -n 1|awk '{S[$1]++}END{for(key in S)print S[key],key}'|sort -rn|head2 the
+# 单词频次统计+降序展示Top10
+#tr ",." " " < eric.log  # 替换逗号、句号为空格，清理标点
+# xargs -n 1            # 逐个拆分单词，每行一个
+# sort                  # 单词字典序排序 ,排序规则: 开头字母 A~Z /a~z 字母顺序排列
+# uniq -c               # 统计每个单词重复次数
+# sort -rn              # 按次数数值降序排序
+# head                  # 展示频次最高前10个单词
 
+法2：
+tr ",." " " <eric.log|xargs -n 1|awk '{S[$1]++}END{for(key in S)print S[key],key}'|sort -rn|head
+
+# 整体功能：统计eric.log中每个英文单词的出现次数，按频次从高到低降序，展示出现最多的前10个单词
+# 步骤1：tr ",." " " < eric.log
+# 将文本里的英文逗号,、英文句号. 统一替换成空格，去除标点符号，避免标点附着在单词上干扰统计
+# 步骤2：xargs -n 1
+# 以空格作为分隔符拆分所有内容，每行只输出1个单词，把所有单词纵向单列输出
+# awk '{S[$1]++}END{for(key in S)print S[key],key}' \
+# 步骤3：awk 数组统计单词频次
+# 定义关联数组S，S[单词]用来计数；每读取一行单个单词$1，对应数组元素数值+1
+# 所有行读取完毕后进入END最终块：遍历数组中所有的键（即所有不重复单词），依次打印「出现次数 单词」
+# 步骤4：sort -rn
+# -n：按照纯数字解析出现次数；-r：倒序排列，实现按单词出现次数从多到少排序
+# 步骤5：head
+# 默认输出排序后的前10行，展示出现频次最高的前10个单词
 法3：
 awk -F "[,. ]+" '{for(i=1;i<=NF;i++)S[$i]++}END{for(key in S)print S[key],key}' eric.log |sort -rn|head
 
+
+
 按字母频率排序
 法1
-tr "{ |,|.}" "\n"<eric.txt|awk -F ""  '{for(i=1;i<=NF;i++)array[$i]++}END{for(key in array)print array[key],key|"sort -nr"}'
+tr -d ' {,|.}' < eric.txt|awk -F ""  '{for(i=1;i<=NF;i++)array[$i]++}END{for(key in array)print array[key],key|"sort -nr"}'
+
+-------------------------------------------------
+# 1. tr -d ' {,|.}'
+# 将大括号、空格、逗号、句号，全部删除掉
+# 作用：所有的字母都连到一起了
+| awk -F ""  '{
+    # -F "" ：把分隔符设置为空，代表按【单个字符】切割当前行，NF就是当前行总字符数
+    for(i=1;i<=NF;i++){
+        array[$i]++  # 用关联数组，以单个字符为下标，每出现一次该字符，计数+1
+    }
+}
+END{
+    # 所有字符遍历统计完成后，遍历数组所有键（去重后的所有字符）
+    # 输出格式：次数 字符，交给管道命令 sort -nr 按数字降序排序
+    for(key in array){
+        print array[key],key | "sort -nr"
+    }
+}
+
+------------------------------------------------------------------------
 
 tr "[ ,.]" "\n"<eric.txt|awk '{for(i=1; i<=length($0); i++) ++S[substr($0,i,1)]} END {for(a in S) print S[a], a|"sort -rn"}'
+
 
 echo "the squid project provides a number of resources toassist users design,implement and support squid installations. Please browsethe documentation and support sections for more infomation"|sed 's# ##g'|sed -r 's#(.)#\1\n#g'|sort|uniq -c|sort -rn -k1
 
 echo "the squid project provides a number of resources toassist users design,implement and support squid installations. Please browsethe documentation and support sections for more infomation"|sed 's# ##g'|awk -F "" '{for(n=1;n<=NF;n++) print $n}'|sort|uniq -c|sort -k1 -nr
+
+
+
 
 ```
 

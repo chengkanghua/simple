@@ -116,6 +116,18 @@ deactivate
 直接删除.venv文件夹
 ```
 
+
+
+## python虚拟化工具对比
+
+| 工具     | 核心职责           | 是否自带 Python | 企业使用场景          | 必学程度       |
+| ------ | -------------- | ----------- | --------------- | ---------- |
+| pyenv  | 多 Python 版本切换  | 否，自行下载各版本   | 一台机器多版本项目       | 了解 + 会基础命令 |
+| venv   | 单项目 pip 包隔离    | 复用当前 Python | 普通后端、爬虫、脚本      | **必须熟练**   |
+| pipenv | 虚拟环境 + 依赖锁定    | 复用当前 Python | 中小型 web 项目      | 了解即可       |
+| poetry | 标准化依赖 + 打包发布   | 复用当前 Python | 开源库、规范微服务       | 建议掌握       |
+| conda  | Python + 底层科学库 | 自带整套 Python | AI / 数据分析 / 大模型 | 数据岗必学，后端了解 |
+
 ## 推荐教程地址
 
 [官方教程](https://docs.python.org/zh-cn/3/tutorial/index.html)
@@ -4786,8 +4798,6 @@ p.start()
 - 解决问题：多个进程同时操作同一个共享资源（如文件、终端输出），导致数据错乱
 - 本质：把并发的临界区代码变成串行，牺牲效率保证数据安全
 
-
-
 ```python
 from multiprocessing import Process,Lock
 import time
@@ -4811,8 +4821,6 @@ if __name__ == "__main__":
 - `join()`：让整个子进程全部串行，粒度大，效率低
 - `互斥锁`：只让共享资源的那部分代码串行，其他代码依然并发，粒度细，效率更高
 
-
-
 小结:
 
 多进程并发修改共享数据，加锁可串行执行保障数据安全，但会降低运行速度。
@@ -4829,10 +4837,6 @@ multiprocessing 提供内存级 IPC 方案：管道、队列，兼顾高性能�
 
 开发规范：尽量不用共享内存 / 文件传数据，优先队列消息通信，减少锁的复杂处理，进程量大时扩展性更好。
 
-
-
-
-
 ### 6. 进程间通信（IPC）
 
 进程内存隔离，必须借助专门的机制传递数据，常用 3 种：
@@ -4841,10 +4845,7 @@ multiprocessing 提供内存级 IPC 方案：管道、队列，兼顾高性能�
 
 先进先出，基于「管道 + 锁」实现，自动处理同步
 
-
-
 ```python
-
 from multiprocessing import Queue
 import queue
 q = Queue(3)  # 最大容量3
@@ -4881,8 +4882,6 @@ print(q.full())       # 是否已满
 
 - 核心思想：解耦生产端和消费端，平衡生产速度和消费速度
 - 三要素：生产者、队列（缓冲区）、消费者
-
-
 
 ```python
 from multiprocessing import Process, Queue
@@ -4931,8 +4930,6 @@ if __name__ == "__main__":
 
 1. `q.task_done()`：消费者取完一条数据调用，告知队列本条消息处理完成；
 2. `q.join()`：阻塞等待，直到队列中所有数据都调用过 `task_done()`。
-
-
 
 ```python
 from multiprocessing import Process, JoinableQueue
@@ -5015,10 +5012,6 @@ q.join()等待全部任务处理完，程序退出
 简单临时传输用 Queue；批量任务、需确认全部执行完毕用 JoinableQueue。
 ```
 
-
-
-
-
 ### 补充：僵尸进程与孤儿进程
 
 - **孤儿进程**：父进程先结束，子进程还在运行，会被系统 init 进程收养，无害
@@ -5058,13 +5051,9 @@ q.join()等待全部任务处理完，程序退出
 4. 接口服务：Web 后端处理大量客户端请求，等待数据库 / Redis IO
 5. 监控采集：多线程同时拉取多台机器指标、日志
 
-
-
 ### 1. 线程基础
 
 Python 中使用 `threading` 模块实现多线程，**同一进程内的所有线程共享全局内存**，数据可以直接互相访问。
-
-
 
 ### 2. 开启线程的两种方式
 
@@ -5121,8 +5110,6 @@ threading模块提供的一些方法：
 - 特性：守护线程会在**所有非守护线程都结束时自动终止**
 - 注意：和守护进程的区别 —— 守护进程看主进程代码是否结束，守护线程看所有非守护线程是否结束
 
-
-
 ```python
 t = threading.Thread(target=task)
 t.daemon = True
@@ -5165,20 +5152,14 @@ CPython 解释器中的一把全局互斥锁，**同一时刻只能有一个线�
 - 比如 `count += 1` 底层是 3 条字节码，执行到一半可能被切走，其他线程修改了 count，切回来就会数据错乱
 - 结论：GIL 是解释器级别的锁，线程安全是业务数据级别的锁，二者不是一回事
 
-
-
 多线程用于IO密集型，如socket，爬虫，web
 多进程用于计算密集型，如金融分析
-
-
 
 ### 第五阶段：线程同步与互斥工具
 
 ### 1. 互斥锁 Lock
 
 和进程锁用法完全一致，解决线程间共享数据的竞态条件问题
-
-
 
 ```python
 import threading
@@ -5192,7 +5173,6 @@ def add():
         lock.acquire()
         count += 1
         lock.release()
-        
 ```
 
 ### 2. 死锁现象
@@ -5200,8 +5180,6 @@ def add():
 - 定义：两个线程互相持有对方需要的锁，同时等待对方释放，永远卡住
 - 四个必要条件：互斥、持有并等待、不可剥夺、循环等待
 - 规避：统一加锁顺序、设置超时时间、用递归锁
-
-
 
 ```python
 import threading
@@ -5229,12 +5207,13 @@ t2.start()
 ### 3. 递归锁 RLock
 
 - 特点：同一个线程可以多次 acquire，内部有计数器，acquire 几次就需要 release 几次
+
 - 用途：解决嵌套加锁导致的死锁问题
 
-
-
 - **Lock（互斥锁）**：同一线程**不能重复加锁**，`acquire()` 两次直接卡死死锁；只支持一层锁。
+
 - **RLock（递归锁）**：内部有计数器，**同一个线程可以多次 acquire 嵌套加锁**，acquire 几次必须 release 几次；跨线程依旧互斥。
+
 - 多个线程争抢多把锁互相等待，不管哪种锁都会死锁，只能靠统一加锁顺序规避。
 
 ```python
@@ -5280,9 +5259,6 @@ def main_func():
 
 t = threading.Thread(target=main_func)
 t.start()
-
-
-
 ```
 
 ### 4. 信号量 Semaphore
@@ -5290,14 +5266,55 @@ t.start()
 - 作用：控制同一时间最多有多少个线程并发执行，本质是多把锁
 - 场景：限制接口并发数、控制连接池数量
 
+**GIL + Semaphore 不冲突，信号量不是让 5 个线程同时跑 CPU 计算**
 
+1. **GIL 规则**：**同一时刻只有 1 条线程执行 Python 字节码**（CPU 计算时串行）
+
+2. Semaphore 信号量作用：**限制并发线程总数**，控制同时进入临界区的线程数量
+
+3. 为什么有用？
+   
+   线程大部分时间在**IO 阻塞**（sleep / 网络请求 / 文件读写）时会主动释放 GIL，此时其他线程可以运行。
+   
+   信号量控制「最多 5 个线程同时发起 IO 等待」，而不是 5 个同时算 CPU；
+   
+   如果没有信号量，可能一次性起几百个线程疯狂发网络请求，直接触发服务器限流、端口耗尽、程序卡死。
+
+举个现实例子：爬虫，限制最多 5 个并发请求，就是 Semaphore 经典场景。
 
 ```python
-sem = threading.Semaphore(3)  # 最多3个线程同时运行
-def task():
-    sem.acquire()
-    time.sleep(1)
+import threading
+import time
+
+# 最多允许5个线程同时进入
+sem = threading.Semaphore(5) 
+# 记录当前正在运行的线程数，加锁保证计数准确
+active_count = 0
+count_lock = threading.Lock()
+
+def task(num):
+    global active_count
+    sem.acquire()  # 抢占信号量
+    # 进入临界区，活跃数+1
+    with count_lock:
+        global active_count
+        active_count += 1
+        print(f"线程{num}进入，当前并发数量：{active_count}")
+
+    # sleep模拟IO阻塞，此时释放GIL，其他线程可以执行
+    time.sleep(2)
+
+    # 离开临界区，活跃数-1
+    with count_lock:
+        active_count -= 1
+        print(f"线程{num}退出，当前并发数量：{active_count}")
     sem.release()
+
+if __name__ == "__main__":
+    # 一次性启动20个线程，远超信号量5
+    for i in range(20):
+        t = threading.Thread(target=task, args=(i,))
+        t.start()
 ```
 
 ### 5. 事件 Event
@@ -5305,50 +5322,119 @@ def task():
 - 作用：线程间信号通知，一个线程发信号，其他线程等待
 - 核心方法：`set()` 发信号、`wait()` 等待信号、`clear()` 清空信号、`is_set()` 是否有信号
 
-python
+对比锁 / 信号量区分用途
 
-运行
+- Lock/Semaphore：控制**同时运行线程数量**（限流、互斥）
+- Event：做**线程间通知、开关信号**，不限并发数
 
+```python
+from threading import Event
+Event 是线程间信号通知工具，内部只有一个布尔标记（True/False）
+event.set()：  把标记设为 True，唤醒所有阻塞等待的线程
+event.clear()：把标记重置为 False
+event.is_set()：返回当前标记状态 True/False
+event.wait(timeout=None)：
+    标记为 True：直接放行，不阻塞
+    标记为 False：阻塞等待；传数字代表最多等待多少秒，超时自动放行返回 False
 ```
-event = threading.Event()
 
-def wait_task():
-    print("等待信号...")
-    event.wait()  # 阻塞，直到收到set信号
-    print("收到信号，开始执行")
+```python
+import threading
+import time
 
-def signal_task():
+# 创建事件对象，默认标记False
+e = threading.Event()
+
+def worker():
+    print("子线程：等待启动信号...")
+    # 阻塞等待信号
+    e.wait()
+    print("子线程：收到信号，开始执行任务")
     time.sleep(2)
-    event.set()  # 发送信号
+    print("子线程：任务完成")
+
+if __name__ == "__main__":
+    t = threading.Thread(target=worker)
+    t.start()
+
+    time.sleep(3)
+    print("主线程：发送启动信号")
+    e.set()  # 标记置True，唤醒子线程
+    t.join()
+
+----------------------------------------------------------
+# 带超时 wait 示例
+def worker2():
+    print("等待信号，最多等2秒")
+    # 最多等待2秒，没收到信号直接往下走
+    res = e.wait(timeout=2)
+    if res:
+        print("收到信号")
+    else:
+        print("等待超时，无信号")
 ```
 
 ### 6. 定时器 Timer
 
 - 作用：延迟指定时间后执行任务，本质是延迟启动的线程
 
-python
-
-运行
-
-```
+```python
 from threading import Timer
-t = Timer(3, task, args=("延迟任务",))  # 3秒后执行task
-t.start()
+
+def hello():
+    print("hello, world")
+
+t = Timer(3, hello)
+t.start()  # after 3 seconds, "hello, world" will be printed
 ```
 
 ### 7. 线程队列 queue
 
 线程安全的队列，和 multiprocessing.Queue 用法一致，用于线程间数据传递
 
-python
-
-运行
-
-```
+```python
 import queue
 q = queue.Queue()       # 先进先出
 q = queue.LifoQueue()   # 后进先出（栈）
 q = queue.PriorityQueue() # 优先级队列
+
+
+# 1. Queue 先进先出 FIFO（最常用）
+# 适用：普通生产者消费者、顺序处理任务
+import queue
+q = queue.Queue(maxsize=3)
+
+# 存
+q.put(1)
+q.put(2)
+# 取
+print(q.get()) # 1
+print(q.get()) # 2
+
+# 2. LifoQueue 后进先出 LIFO 栈
+# 适用：任务回溯、堆栈逻辑
+import queue
+q = queue.LifoQueue()
+
+q.put(1)
+q.put(2)
+print(q.get()) # 2
+print(q.get()) # 1
+
+# 3. PriorityQueue 优先级队列，数字越小越先出
+# 适用：任务分级、优先处理紧急任务
+import queue
+q = queue.PriorityQueue()
+
+# (优先级, 数据)
+q.put((2, "普通消息"))
+q.put((1, "紧急消息"))
+
+print(q.get()) # (1, '紧急消息')
+print(q.get()) # (2, '普通消息')
+
+通用共用方法
+put() / get() / put_nowait() / get_nowait() / empty() / full()
 ```
 
 ---
@@ -5363,11 +5449,26 @@ q = queue.PriorityQueue() # 优先级队列
 
 Python 统一的池化接口，`ThreadPoolExecutor` 和 `ProcessPoolExecutor` 用法完全一致。
 
-python
+```bash
+官网：https://docs.python.org/dev/library/concurrent.futures.html
+concurrent.futures模块提供了高度封装的异步调用接口
+ThreadPoolExecutor：线程池，提供异步调用
+ProcessPoolExecutor: 进程池，提供异步调用
+Both implement the same interface, which is defined by the abstract Executor class.
 
-运行
-
+#基本方法
+submit(fn, *args, **kwargs)   异步提交任务
+map(func, *iterables, timeout=None, chunksize=1)  取代for循环submit的操作
+shutdown(wait=True)  相当于进程池的pool.close()+pool.join()操作
+            wait=True，等待池内所有任务执行完毕回收完资源后才继续
+            wait=False，立即返回，并不会等待池内的任务执行完毕
+            但不管wait参数为何值，整个程序都会等到所有任务执行完毕
+            submit和map必须在shutdown之前
+result(timeout=None)   取得结果
+add_done_callback(fn)  回调函数
 ```
+
+```python
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import time
 
@@ -5402,6 +5503,66 @@ with ThreadPoolExecutor(max_workers=5) as pool:
 
 #### 第七阶段：协程编程
 
+##### 协程前置必备知识
+
+###### 一、先吃透进程、线程、运行状态
+
+###### 1. 三种调度单元层级
+
+进程：操作系统资源容器
+
+线程：OS 内核调度最小单位，切换由操作系统完成，开销大
+
+协程：**用户态轻量级任务**，切换由代码手动控制，不经过操作系统，切换开销极小
+
+###### 2. 线程标准 5 种运行状态
+
+1. 新建：创建未 start
+2. 就绪：等待 CPU 时间片
+3. 运行：CPU 正在执行
+4. 阻塞：sleep / 网络 IO / 锁，主动让出 CPU
+5. 终止：代码执行完毕
+
+> 关键：线程阻塞时操作系统会切换其他线程，有内核切换损耗；协程 IO 阻塞时**程序自己切换**，无内核参与。
+
+###### 二、必须懂的前置概念
+
+1. **并发与并行**
+   
+   协程只能并发（单线程交替执行），无法多核并行；CPU 密集不适合协程。
+
+2. **IO 密集 / CPU 密集**
+   
+   协程只适配 IO 密集（网络、文件、数据库等待）；纯计算用多进程。
+
+3. GIL 全局解释器锁
+   
+   协程运行在单线程内，全程只占用一把 GIL，不存在多线程争抢 GIL 切换损耗。
+
+4. IO 模型基础（阻塞 IO、非阻塞、IO 多路复用）
+   
+   协程底层依靠 IO 多路复用实现自动切换 IO 任务。
+
+5. 生产者消费者思想
+   
+   协程任务调度本质也是 “事件循环 + 待执行任务队列”。
+
+###### 三、线程 vs 协程核心区别（前置重点）
+
+1. 切换主体：线程由 OS 切换；协程由用户程序切换
+2. 切换开销：线程开销大；协程极轻量，可开上万协程
+3. 资源占用：线程栈内存大；协程内存占用极低
+4. 调度规则：线程抢占式调度；协程协作式（主动让出才切换）
+5. 数据共享：同线程内协程共享全局变量，无需频繁加锁
+
+###### 四、协程自身运行状态（asyncio）
+
+1. 新建 (coroutine)：定义 async 函数未调度
+2. 就绪：放入事件循环等待执行
+3. 运行：正在执行代码
+4. 挂起：遇到 await IO，主动让出循环
+5. 完成 / 异常：执行结束或抛出错误
+
 ### 1. 协程本质
 
 用户态的轻量级线程，**在单线程内实现任务切换**，完全由程序自己控制，没有操作系统线程切换的开销，并发效率极高，专为 IO 密集型场景设计。
@@ -5416,11 +5577,8 @@ with ThreadPoolExecutor(max_workers=5) as pool:
 
 第三方库，手动控制切换时机，非常底层，几乎不直接用
 
-python
-
-运行
-
-```
+```python
+#安装：pip3 install greenlet
 from greenlet import greenlet
 
 def func1():
@@ -5442,10 +5600,6 @@ gr1.switch()  # 启动
 
 第三方库，遇到 IO 自动切换协程，早期 Python 协程主流方案
 
-python
-
-运行
-
 ```python
 import gevent
 from gevent import monkey; monkey.patch_all()  # 猴子补丁：把所有阻塞IO改成非阻塞，自动触发切换
@@ -5466,30 +5620,126 @@ g2.join()
 
 Python3.5+ 官方标准，`async/await` 语法，现在是 Python 协程的主流方案
 
-python
+```python
+# 1. async / await 是Python内置关键字，不用import asyncio也存在
+# async def 定义协程函数，调用仅生成协程对象，不会执行内部代码
+# await 只能写在async函数内：IO阻塞时让出事件循环，切换其他协程
+# async/await 是语法糖，替代老式 @asyncio.coroutine + yield from
 
-运行
-
-```bash
 import asyncio
 
+# 协程函数
 async def task(name):
     for i in range(3):
         print(f"{name} 执行第{i}次")
-        await asyncio.sleep(1)  # 异步等待，让出CPU给其他协程
+        # asyncio.sleep(1)：异步休眠，不阻塞线程；await等待休眠完成
+        await asyncio.sleep(1)
 
+# 主协程
 async def main():
-    # 并发执行多个协程
+    # asyncio.gather(*coro_list)：批量并发执行多个协程，统一收集返回值
+    # await 等待gather内所有协程全部执行完成再往下走
     await asyncio.gather(
         task("协程1"),
         task("协程2")
     )
 
+# 程序入口，3.7+专用
+# 自动创建事件循环、执行协程、结束后关闭循环
 asyncio.run(main())
+```
+
+**核心 api 精简注释**
+
+```bash
+# 1. asyncio.run(coro) 异步程序标准入口
+# 2. asyncio.gather(*coros) 批量并发协程
+# 3. asyncio.sleep(sec) 非阻塞延时，搭配await使用
+# 4. asyncio.create_task(coro) 创建后台Task，提前调度执行
+
+# 老式等价写法（已淘汰，仅理解语法糖）
+@asyncio.coroutine
+def old_task():
+    yield from asyncio.sleep(1)  # yield from = await
 ```
 
 - 核心组件：事件循环（EventLoop）、任务（Task）、Future
 - 原理：单线程跑事件循环，遇到 IO 就挂起当前协程，调度下一个就绪的协程，全程无线程切换开销
+
+练习: 单线程使用协程多并发socket 连接
+
+- 服务端：`asyncio` 异步多 TCP 服务端（单协程并发处理连接）
+- 客户端：多线程并发大量 TCP 连接压测服务端
+
+```python
+# asyncio 异步TCP服务端
+import asyncio
+
+async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    """处理单个客户端连接协程"""
+    addr = writer.get_extra_info("peername")
+    print(f"[服务端] 新连接: {addr}")
+    try:
+        # 读取客户端数据
+        data = await reader.read(1024)
+        msg = data.decode("utf-8")
+        print(f"[{addr}] 收到消息: {msg}")
+        # 回写数据
+        resp = f"服务端已收到: {msg}".encode("utf-8")
+        writer.write(resp)
+        await writer.drain()
+    except Exception as e:
+        print(f"[{addr}] 连接异常: {e}")
+    finally:
+        writer.close()
+        await writer.wait_closed()
+        print(f"[{addr}] 连接关闭")
+
+async def start_tcp_server():
+    """启动异步TCP服务，监听127.0.0.1:8888"""
+    server = await asyncio.start_server(
+        handle_client,
+        host="127.0.0.1",
+        port=8888
+    )
+    addrs = server.sockets[0].getsockname()
+    print(f"异步TCP服务启动成功 {addrs}")
+    # 永久运行服务
+    async with server:
+        await server.serve_forever()
+
+# ---------------- 多线程TCP客户端 ----------------
+import threading
+import socket
+
+def tcp_client_task(client_id: int):
+    """单线程客户端函数，同步socket连接服务端"""
+    try:
+        sock = socket.socket()
+        sock.connect(("127.0.0.1", 8888))
+        send_msg = f"客户端{client_id} 测试消息"
+        sock.send(send_msg.encode("utf-8"))
+        recv_data = sock.recv(1024)
+        print(f"[客户端{client_id}] 服务端响应: {recv_data.decode()}")
+        sock.close()
+    except Exception as e:
+        print(f"[客户端{client_id}] 连接失败: {e}")
+
+def start_multi_thread_client(thread_num=10):
+    """开启thread_num个线程并发连接TCP服务端"""
+    thread_list = []
+    for i in range(thread_num):
+        t = threading.Thread(target=tcp_client_task, args=(i,))
+        thread_list.append(t)
+        t.start()
+    # 等待所有客户端线程执行完毕
+    for t in thread_list:
+        t.join()
+
+if __name__ == "__main__":
+    # 运行多线程客户端（先启动服务端再执行）
+    start_multi_thread_client(thread_num=10)
+```
 
 ---
 
@@ -5520,13 +5770,82 @@ asyncio.run(main())
 - 协程 + IO 多路复用 = 单线程高并发的核心实现
 - Nginx、Redis、Node.js 高性能的核心都是 IO 多路复用
 
+IO模型深度解析
+
+```bash
+1. IO 多路复用：「路」和「复用」到底是什么？
+路 = 一路 IO 流 = 一个 socket 连接（文件描述符 fd）
+多路 = 成千上万个客户端 TCP 连接、文件 IO 等多条数据流
+复用 = 只用单一线程 / 进程 **，同时监控、处理所有路 IO，不用一个连接开一个线程 **
+通俗比喻：
+多路复用 = 1 个前台服务员（单线程），大厅装统一叫号器（内核 epoll），同时看管几十桌客人（多路 socket）；哪一桌有数据就绪，服务员就去哪桌处理，不用每桌配专属服务员（多线程 BIO）。
+
+2. 多路复用工作流程（区分非阻塞轮询）
+程序把所有 socket 交给内核 epoll 统一监控
+调用epoll_wait阻塞线程，内核帮你等待所有 IO，不是代码自己循环轮询
+任意 socket 收到数据，内核主动唤醒线程，只返回就绪的 socket 列表
+线程只处理有数据的连接，闲置时完全休眠，无 CPU 空转
+对比非阻塞 IO：代码死循环不断recv()挨个查询所有 socket，全程占用 CPU 空跑。
+
+3. 信号驱动 IO（SIGIO）通俗理解
+提前给 socket 注册信号回调，告知内核：数据到了发 SIGIO 信号通知我
+程序正常运行，不用阻塞、不用轮询
+内核收到数据后，发信号打断当前代码，进入信号处理函数
+关键短板：信号只是通知「数据就绪」，你仍要手动调用recv拷贝内核数据到用户空间，拷贝阶段会阻塞线程
+比喻：鱼竿装铃铛，鱼上钩铃铛响（内核发信号），但你还是要亲手收线（拷贝数据）。
+缺点：信号容易丢失、多连接管理复杂，生产几乎不用，被 epoll 淘汰。
+
+4. 非阻塞 IO vs 异步 IO（AIO）核心区别
+共同点
+两者发起 IO 调用都会立刻返回，不会卡死线程，底层都交给内核收发数据。
+
+核心分界线（两步 IO 流程）
+所有 IO 分 2 阶段：
+① 内核等待网络数据到达缓冲区；
+② 将内核缓冲区数据拷贝到程序内存。
+
+阻塞IO,非阻塞 IO、多路复用、信号驱动：都属于同步 IO
+阶段①等待交给内核；阶段②拷贝数据必须程序主动调用 recv，会阻塞，需要你主动扫描 / 处理结果。
+真正异步 IO (AIO/io_uring)：全程托管内核
+发起请求后直接干别的，内核自动完成「等数据 + 拷贝到用户内存」两步；全部做完才主动通知程序，程序拿到直接用，无需再调用读写函数。
+
+5. 协程和多路复用的关系
+epoll（多路复用）负责内核监控所有 socket；
+asyncio 事件循环基于 epoll(epoll是基于IO多路复用实现的)遇到await时把当前协程挂起，切换执行其他就绪协程；
+单线程内用户态切换协程，切换开销远小于操作系统线程切换；
+多路复用是底层内核能力，协程是上层语言封装，二者搭配实现高并发 TCP 服务。
+
+五大 IO 模型极简对比总结
+阻塞 BIO：一个连接一个线程，调用 recv 直接卡死线程，并发极低。
+非阻塞 NIO：单线程管理多 socket，while 循环轮询全部连接，CPU 空转浪费。
+IO 多路复用 (epoll)：单线程监控万级连接，内核帮忙等待，只处理就绪 fd，Python asyncio 底层依赖它（生产主流）。
+信号驱动 IO：数据就绪发信号通知，仍需手动拷贝数据，极少使用。
+异步 AIO：内核完成全部 IO 操作后回调通知，Linux 老版本支持差，业务开发少见。
+
+
+信号驱动 IO、AIO 理论性能更高，实际却流行 epoll 多路复用，4 个核心原因 ?
+1 信号驱动 IO 缺陷多：信号全局中断、易丢失、多连接难管理，无商用价值。
+2 传统 libaio 局限大：仅支持裸磁盘 IO，不支持网络 socket，业务场景不匹配。
+3 io_uring 门槛高：依赖高版本 Linux 5.1内核，改造现有程序成本高。
+4 epoll 均衡好用：全 IO 场景兼容、API 简单、性能满足绝大多数网络业务，服务器普遍适配。
+
+
+io_uring 有没有配套开发模块、Python实现？
+1. C 底层：liburing
+官方 C 库，封装 io_uring 系统调用，操作系统自带。
+2. Python 第三方模块（已成熟可用）
+pyuring / liburing：底层封装，手动构造 IO 任务，原生 io_uring 调用
+uringcore：直接替换 asyncio 默认 epoll 事件循环，整个协程框架底层切换 io_uring，业务代码几乎不用改
+aiofiles_v2：基于 io_uring 的异步文件读写，替代旧版线程池模拟异步文件
+3. Python 官方发展
+Python3.15 计划原生支持 io_uring 作为 asyncio 可选后端（内核≥5.19），未来会内置支持，不用第三方库。
+```
+
 ---
 
 ### 第九阶段：IO 多路复用实现
 
 ### 1. select /poll/epoll 对比
-
-表格
 
 | 方案     | 最大连接数 | 工作机制       | 性能随连接数下降 | 平台支持  |
 | ------ | ----- | ---------- | -------- | ----- |
@@ -5538,51 +5857,193 @@ asyncio.run(main())
 
 Python 标准库对 IO 多路复用的高层封装，自动选择当前平台最优的实现（Linux 用 epoll，Windows 用 select）
 
+核心区别
+
+1. selectors：底层 API，手动管理 socket、事件、读写回调，无协程，纯同步事件循环。
+2. asyncio：高层封装，自带事件循环、协程 Task、gather、Stream 读写，自动处理调度，开发简单。
+
 ```python
+# 导入标准多路复用模块、原生socket
 import selectors
 import socket
 
+# 自动根据操作系统创建最优多路复用实例
+# Linux返回epoll、macOS返回kqueue、Windows返回select
 sel = selectors.DefaultSelector()
 
-def accept(sock, mask):
+def accept(sock: socket.socket, mask):
+    """
+    监听socket就绪时触发的回调函数
+    :param sock: 就绪的服务端监听socket
+    :param mask: 触发的事件掩码，这里是EVENT_READ（有新连接到来）
+    """
+    # 接收客户端连接，返回新通信套接字+客户端地址
     conn, addr = sock.accept()
+    # 将客户端连接设为非阻塞，多路复用必须配合非阻塞socket使用
     conn.setblocking(False)
+    print("新连接", addr)
+    # sel.register(fileobj, events, data=None)
+    # fileobj：要监听的fd/套接字；events：监听事件；data：绑定自定义回调函数
     sel.register(conn, selectors.EVENT_READ, read)
 
-def read(conn, mask):
+def read(conn: socket.socket, mask):
+    """
+    客户端socket有数据可读时触发的回调
+    :param conn: 有数据的客户端连接socket
+    :param mask: 事件类型EVENT_READ
+    """
+    # 从内核缓冲区读取1024字节数据
     data = conn.recv(1024)
     if data:
-        conn.send(data)
+        # 收到有效数据，打印并回复
+        print("收到:", data.decode())
+        conn.send(b"ok\n")
     else:
+        # data为空代表客户端正常关闭连接
+        # 先从多路复用器中注销该socket，不再监听
         sel.unregister(conn)
+        # 关闭套接字释放资源
         conn.close()
 
-sock = socket.socket()
-sock.bind(("0.0.0.0", 8080))
-sock.listen(100)
-sock.setblocking(False)
-sel.register(sock, selectors.EVENT_READ, accept)
+# ---------------------- 初始化服务端监听socket ----------------------
+# 创建TCP套接字
+server_sock = socket.socket()
+# 绑定本机8888端口
+server_sock.bind(("127.0.0.1", 8888))
+# 开启监听，等待客户端接入
+server_sock.listen()
+# 监听套接字设置为非阻塞
+server_sock.setblocking(False)
+# 将监听socket注册到多路复用器
+# EVENT_READ：监听读事件，有新连接到达时触发
+# data=accept：把accept函数绑定，事件就绪时自动调用
+sel.register(server_sock, selectors.EVENT_READ, accept)
 
+# ---------------------- 主事件循环，永久运行 ----------------------
 while True:
-    events = sel.select()  # 阻塞等待就绪的连接
+    # sel.select(timeout=None)：阻塞等待，直到有socket事件就绪
+    # 返回列表，每个元素是(key, mask)二元组
+    events = sel.select()
+    # 遍历所有就绪的socket事件
     for key, mask in events:
+        # key.data 就是register时绑定的自定义函数(accept / read)
         callback = key.data
+        # 执行回调：传入就绪socket、事件掩码
         callback(key.fileobj, mask)
+
+----------------------------------------------------#client.py
+import threading
+import socket
+
+def tcp_client_task(client_id: int):
+    """单线程客户端函数，同步socket连接服务端"""
+    try:
+        sock = socket.socket()
+        sock.connect(("127.0.0.1", 8888))
+        send_msg = f"客户端{client_id} 测试消息"
+        sock.send(send_msg.encode("utf-8"))
+        recv_data = sock.recv(1024)
+        print(f"[客户端{client_id}] 服务端响应: {recv_data.decode()}")
+        sock.close()
+    except Exception as e:
+        print(f"[客户端{client_id}] 连接失败: {e}")
+
+def start_multi_thread_client(thread_num=10):
+    """开启thread_num个线程并发连接TCP服务端"""
+    thread_list = []
+    for i in range(thread_num):
+        t = threading.Thread(target=tcp_client_task, args=(i,))
+        thread_list.append(t)
+        t.start()
+    # 等待所有客户端线程执行完毕
+    for t in thread_list:
+        t.join()
+
+if __name__ == "__main__":
+    # 运行多线程客户端（先启动服务端再执行）
+    start_multi_thread_client(thread_num=10)
 ```
 
 > 这就是单线程并发处理上千个连接的基础，也是 asyncio、Tornado 等异步框架的底层原理。
+> 
+> `selectors` 业务开发**基本不用**，属于底层原理理解用，写业务直接上 `asyncio`；
 
 ---
 
 ### 第十阶段：并发选型总结（最终落地）
 
-1. **CPU 密集型任务**：用**多进程**（multiprocessing / ProcessPoolExecutor），绕开 GIL 利用多核
-
-2. **IO 密集型任务**：
-   
+1. IO 密集高并发场景：
+   - 高并发、追求极致性能: 优先 asyncio（单线程协程）；
    - 简单场景、代码改造成本低：用**多线程**（threading / ThreadPoolExecutor）
-   - 高并发、追求极致性能：用**协程**（asyncio / gevent）
+2. CPU 密集计算：**多进程**（multiprocessing / ProcessPoolExecutor），绕开 GIL 利用多核；
+3. 大量短时并发请求、限制连接数：**多线程 + Semaphore 信号量**。
+4. **混合场景**：多进程 + 协程组合，每个进程跑一个事件循环
 
-3. **混合场景**：多进程 + 协程组合，每个进程跑一个事件循环
+#### 二、分场景：落地必学组合（生产真正常用）
 
-4. **任务数量多、频繁创建销毁**：优先用池化技术，减少创建开销
+##### 场景 1：网络 IO 高并发（爬虫、TCP 服务、接口网关、异步 Web FastAPI）
+
+##### 核心组合：asyncio 全家桶（必掌握）
+
+1. `async def / await` 基础语法
+
+2. `asyncio.run`、`asyncio.gather`、`asyncio.create_task`
+
+3. `asyncio.Semaphore`：协程并发限流（爬虫限制同时请求数）
+
+4. `asyncio.Queue`：协程生产者消费者
+
+5. `asyncio.Event`：协程开关、启停控制
+   
+   配套第三方：aiohttp、aiomysql、redis 异步客户端
+
+> 不需要线程池，纯协程单线程跑，性能远优于多线程。
+
+#### 场景 2：同步阻塞 IO（requests、同步数据库、老接口），需要并发压测 / 批量任务
+
+##### 核心组合：threading 线程池 + Semaphore
+
+1. `threading.Thread` 基础
+
+2. `concurrent.futures.ThreadPoolExecutor` 线程池（落地最频繁）
+
+3. `threading.Semaphore` 限流，防止瞬间上千线程打爆服务
+
+4. `queue.Queue` 线程安全队列存任务
+   
+   适用：简单批量脚本、同步接口批量调用，不想改异步代码。
+
+#### 场景 3：大量 CPU 计算（解析超大文件、数值运算）
+
+##### 核心组合：多进程 ProcessPoolExecutor
+
+GIL 限制线程无法多核并行，必须进程；几乎不和协程混用。
+
+#### 场景 4：混合场景（协程为主，少量同步阻塞代码）
+
+协程里同步代码会卡整个事件循环，两种标准搭配方案：
+
+1. `asyncio.to_thread()`：把同步函数丢进内置线程池执行，不阻塞协程循环；
+2. 复杂同步逻辑：单独开线程池，协程通过队列通信。
+
+#### 三、只需要理解、几乎不会手写落地的概念（看懂即可，不用硬背手写）
+
+1. IO 模型：阻塞 / 非阻塞 / 多路复用 / AIO、epoll、io_uring（面试考点，业务不写底层）
+2. `selectors` 模块、原生非阻塞 socket 轮询
+3. 信号驱动 IO、libaio 底层细节
+4. 老式生成器协程 `yield from`
+
+#### 四、线程模块里高频落地工具（必须会用）
+
+1. Lock / RLock：多线程共享变量加锁
+2. Queue：线程安全任务队列
+3. Semaphore：线程并发限流
+4. Event：线程启停开关
+5. Timer：延迟任务
+
+#### 五、极简总结（落地优先级）
+
+1. 主流首选：`asyncio` + asyncio.Semaphore + asyncio.Queue（网络 IO 天花板）
+2. 同步脚本首选：`ThreadPoolExecutor` + Semaphore
+3. CPU 计算：`ProcessPoolExecutor`
+4. 混合同步 + 异步：`asyncio.to_thread`

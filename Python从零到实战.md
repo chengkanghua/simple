@@ -8,8 +8,6 @@
 2. 安装代码编辑器：推荐 **VS Code**（最简单、免费）
 3. 测试是否成功：打开命令行输入 `python --version`，出现版本号就成功了
 
-
-
 ```bash
 企业生产最主流：Python 3.11.x
 生态兼容性最强，几乎所有第三方库都完美适配，维护到 2027 年 10 月，老项目、运维、数据分析岗位最常用。
@@ -33,10 +31,7 @@ Python 安装自带，极简无插件，仅适合临时写几行测试代码，�
 # python 国内下载地址
 https://www.python.org/ftp/python/3.12.10/
 https://mirrors.huaweicloud.com/python/
-
 ```
-
-
 
 ## vs code python插件
 
@@ -81,12 +76,9 @@ Data Preview：表格、Excel 数据可视化预览。
 打开.py 文件，右上角选择本机 3.12 解释器，即可开始写代码
 ```
 
-
-
 ## 虚拟环境创建
 
 ```bash
-
 vscode  ctrl+shift +p   输入 python: create Environments 
 选择 venv 新建项目虚拟环境
 
@@ -123,11 +115,6 @@ deactivate
 删除虚拟环境 
 直接删除.venv文件夹
 ```
-
-
-
-
-
 
 ## 推荐教程地址
 
@@ -278,8 +265,6 @@ print("你好：", name)
 - 想要转换为那种类型，就用这类型的英文包裹一下就行。
 ```
 
-
-
 ## 字符串内置方法
 
 ```bash
@@ -349,14 +334,6 @@ str.partition()        # 按第一个匹配的分隔符把字符串分割为：(
 str.rpartition()       # 从右侧第一个匹配分隔符分割为(前缀,分隔符,后缀)三元元组
 str.expandtabs()       # 将字符串中的制表符\t替换为指定个数的空格
 ```
-
-
-
-
-
-
-
-
 
 ## python运算符
 
@@ -529,25 +506,22 @@ not is
 
 运算符优先级
 常用的运算符： 算术> 比较 > 逻辑 >赋值
-运算符					 描述
-** 						指数运算符优先于表达式中使用的所有其他运算符。
-〜+ <->					</->否定，一元加减。
-* /％//					乘法，除法，模块，提醒和楼层划分。
-+ <->					</->二进制加减
->> << 					左移和右移
-＆						二进制和。
-^ |						二元xor和or
-<= <>> = 				比较运算符（小于，小于等于，大于，大于等于）。
-<> ==！=					比较运算符
-=％= / = // = - = + = 	等于运算符
-* = ** =				赋值运算符
-is is not				身份运算符
-in not in				成员运算符
-not and or				逻辑运算符
-
+运算符                     描述
+**                         指数运算符优先于表达式中使用的所有其他运算符。
+〜+ <->                    </->否定，一元加减。
+* /％//                    乘法，除法，模块，提醒和楼层划分。
++ <->                    </->二进制加减
+>> <<                     左移和右移
+＆                        二进制和。
+^ |                        二元xor和or
+<= <>> =                 比较运算符（小于，小于等于，大于，大于等于）。
+<> ==！=                    比较运算符
+=％= / = // = - = + =     等于运算符
+* = ** =                赋值运算符
+is is not                身份运算符
+in not in                成员运算符
+not and or                逻辑运算符
 ```
-
-
 
 ## python 的容器类型（数据结构）
 
@@ -627,7 +601,7 @@ tuple[::-1]  # 步长为-1，对元组进行反转，返回元素倒序排列的
 
 # str、list、tuple set 可以被for循环
 for item in tuple:
-	pass 
+    pass 
 
 
 
@@ -674,7 +648,7 @@ v1.discard("alex")
 # 场景：存储结构化数据（用户信息、接口返回JSON数据），开发最高频容器
 字典中对键值得要求：
 - 键：必须可哈希。 int/bool/str/tuple；
-	不可哈希的类型：list/set/dict。
+    不可哈希的类型：list/set/dict。
 - 值：任意类型。
 
 dict_demo = {
@@ -711,18 +685,18 @@ dict.values()
 dict.items()
 
 for item in dict_data: # for item in dict_data.key():
-	print(item)
+    print(item)
 
 for key,value in info.items():
-	print(key,values)  
+    print(key,values)  
 
 for item in info.items():
-	print(item[0],item[1])
+    print(item[0],item[1])
 
 if ("age",12) in dict_data:
-	print("is in")
-	
-	
+    print("is in")
+
+
 # dict1 | dict2 # 3.9版本新增功能  并集：
 len(dict_data)
 "age" in dict_data #是否包含
@@ -743,8 +717,6 @@ len(dict_data)
 # 可变容器：list、set、dict → 可以在原内存地址修改内部元素
 # 不可变容器：tuple → 无法修改内部元素，只能重新创建
 ```
-
-
 
 ## 列表推导式和切片
 
@@ -867,17 +839,11 @@ data = (i for i in range(10))
 print(data)
 for item in data:
     print(item)
-
-
 ```
-
-
 
 ## 深浅拷贝
 
 ```python
-
-
 #深拷贝
 #不可变类型，不拷贝
 import copy
@@ -926,12 +892,7 @@ v1 = ['nolocal','root',[11,22]]
 v2 = copy.copy(v1)
 print(v1 is v2)  #True
 print(v1[2] is v2[2]) #False
-
 ```
-
-
-
-
 
 ## Python 类型系统深度解析：从底层原理到设计哲学
 
@@ -1111,8 +1072,6 @@ print(hash(t))  # 有固定哈希值
 # 比如：只做成员判断用set，存结构化数据用dict，固定配置用tuple，动态列表用list
 ```
 
-
-
 ## Python vs Shell 核心差异
 
 ```bash
@@ -1142,91 +1101,88 @@ print(hash(t))  # 有固定哈希值
 # Python: 复杂逻辑、结构化数据处理、跨平台脚本、需长期维护的代码
 ```
 
-
-
 ## 字符串格式化打印
 
- ```bash
- #读取用户指令
- name = input("What is your name?")
- print("Hello " + name )
- 
- # ===================== Python字符串格式化打印 三种主流方式 =====================
- # 推荐优先级：f-string > str.format() > % 占位符
- 
- # ===================== 1. % 占位符格式化（老式C风格，兼容老版本） =====================
- # %s 字符串  %d 整数  %f 浮点数  %x 十六进制
- name = "张三"
- age = 22
- height = 1.756
- 
- # 基础用法：按顺序匹配
- print("姓名：%s，年龄：%d，身高：%.2f" % (name, age, height))
- # %.2f 表示浮点数保留2位小数
- 
- # 字典方式传参，不用按顺序
- print("姓名：%(name)s，年龄：%(age)d" % {"name": name, "age": age})
- 
- # 常用格式符
- # %s: 字符串  %d: 十进制整数  %f: 浮点数  %x: 十六进制  %o: 八进制  %%: 输出百分号本身
- 
- 
- # ===================== 2. str.format() 方法（Python2.6+ 引入） =====================
- # 方式A：位置占位，按顺序匹配
- print("姓名：{}，年龄：{}，身高：{}".format(name, age, height))
- 
- # 方式B：指定索引，可重复使用
- print("姓名：{0}，年龄：{1}，重复姓名：{0}".format(name, age))
- 
- # 方式C：关键字参数，可读性强
- print("姓名：{name}，年龄：{age}".format(name=name, age=age))
- 
- # 格式控制：精度、对齐、填充、宽度
- print("保留2位小数：{:.2f}".format(height))   # 保留2位小数
- print("左对齐占10位：{:<10d}".format(age))   # 左对齐，总宽度10
- print("右对齐占10位：{:>10d}".format(age))   # 右对齐，总宽度10
- print("居中对齐：{:^10d}".format(age))       # 居中对齐
- print("补零填充：{:0>4d}".format(age))       # 右对齐，不足4位左侧补0
- print("千分位分隔：{:,}".format(1234567))    # 数字千分位逗号分隔
- print("十六进制：{:x}".format(255))          # 转十六进制
- print("百分比：{:.1%}".format(0.856))        # 转百分比，保留1位小数
- 
- 
- # ===================== 3. f-string 字面量格式化（Python3.6+ 官方推荐） =====================
- # 语法：f"xxx{变量/表达式}xxx"，直接在{}内嵌入变量、表达式、函数调用，性能最高
- 
- # 基础用法
- print(f"姓名：{name}，年龄：{age}，身高：{height}")
- 
- # 嵌入表达式、函数调用
- print(f"年龄明年：{age + 1}，姓名大写：{name.upper()}")
- 
- # 格式控制，语法和format一致，写在冒号后
- print(f"身高保留2位：{height:.2f}")
- print(f"年龄补零4位：{age:0>4d}")
- print(f"数字千分位：{1234567:,}")
- print(f"百分比：{0.856:.1%}")
- print(f"居中对齐：{age:^10d}")
- 
- # 调试专用：= 符号，同时输出变量名和值（Python3.8+）
- print(f"{age=}")  # 输出 age=22，调试不用重复写变量名
- 
- 
- # ===================== 常用格式控制符总结 =====================
- # :.nf      浮点数保留n位小数
- # :nd       整数总宽度n位，默认右对齐
- # :<n       左对齐，总宽度n
- # :>n       右对齐，总宽度n
- # :^n       居中对齐，总宽度n
- # :0>n      右对齐，不足n位左侧补0
- # :,        数字千分位逗号分隔
- # :x / :o / :b  十六/八/二进制
- # :.n%      转百分比，保留n位小数
- ```
+```bash
+#读取用户指令
+name = input("What is your name?")
+print("Hello " + name )
+
+# ===================== Python字符串格式化打印 三种主流方式 =====================
+# 推荐优先级：f-string > str.format() > % 占位符
+
+# ===================== 1. % 占位符格式化（老式C风格，兼容老版本） =====================
+# %s 字符串  %d 整数  %f 浮点数  %x 十六进制
+name = "张三"
+age = 22
+height = 1.756
+
+# 基础用法：按顺序匹配
+print("姓名：%s，年龄：%d，身高：%.2f" % (name, age, height))
+# %.2f 表示浮点数保留2位小数
+
+# 字典方式传参，不用按顺序
+print("姓名：%(name)s，年龄：%(age)d" % {"name": name, "age": age})
+
+# 常用格式符
+# %s: 字符串  %d: 十进制整数  %f: 浮点数  %x: 十六进制  %o: 八进制  %%: 输出百分号本身
 
 
+# ===================== 2. str.format() 方法（Python2.6+ 引入） =====================
+# 方式A：位置占位，按顺序匹配
+print("姓名：{}，年龄：{}，身高：{}".format(name, age, height))
+
+# 方式B：指定索引，可重复使用
+print("姓名：{0}，年龄：{1}，重复姓名：{0}".format(name, age))
+
+# 方式C：关键字参数，可读性强
+print("姓名：{name}，年龄：{age}".format(name=name, age=age))
+
+# 格式控制：精度、对齐、填充、宽度
+print("保留2位小数：{:.2f}".format(height))   # 保留2位小数
+print("左对齐占10位：{:<10d}".format(age))   # 左对齐，总宽度10
+print("右对齐占10位：{:>10d}".format(age))   # 右对齐，总宽度10
+print("居中对齐：{:^10d}".format(age))       # 居中对齐
+print("补零填充：{:0>4d}".format(age))       # 右对齐，不足4位左侧补0
+print("千分位分隔：{:,}".format(1234567))    # 数字千分位逗号分隔
+print("十六进制：{:x}".format(255))          # 转十六进制
+print("百分比：{:.1%}".format(0.856))        # 转百分比，保留1位小数
+
+
+# ===================== 3. f-string 字面量格式化（Python3.6+ 官方推荐） =====================
+# 语法：f"xxx{变量/表达式}xxx"，直接在{}内嵌入变量、表达式、函数调用，性能最高
+
+# 基础用法
+print(f"姓名：{name}，年龄：{age}，身高：{height}")
+
+# 嵌入表达式、函数调用
+print(f"年龄明年：{age + 1}，姓名大写：{name.upper()}")
+
+# 格式控制，语法和format一致，写在冒号后
+print(f"身高保留2位：{height:.2f}")
+print(f"年龄补零4位：{age:0>4d}")
+print(f"数字千分位：{1234567:,}")
+print(f"百分比：{0.856:.1%}")
+print(f"居中对齐：{age:^10d}")
+
+# 调试专用：= 符号，同时输出变量名和值（Python3.8+）
+print(f"{age=}")  # 输出 age=22，调试不用重复写变量名
+
+
+# ===================== 常用格式控制符总结 =====================
+# :.nf      浮点数保留n位小数
+# :nd       整数总宽度n位，默认右对齐
+# :<n       左对齐，总宽度n
+# :>n       右对齐，总宽度n
+# :^n       居中对齐，总宽度n
+# :0>n      右对齐，不足n位左侧补0
+# :,        数字千分位逗号分隔
+# :x / :o / :b  十六/八/二进制
+# :.n%      转百分比，保留n位小数
+```
 
 ## 编码
+
 ```py
 axcii   字符与二进制对照表
 unicode 字符与二进制对照表
@@ -1301,8 +1257,6 @@ with open("test.txt", "r", encoding="utf-8") as f:
 # 3. 业务逻辑全用str处理，仅在输入输出边界（文件、网络）做编解码
 # 4. 遇乱码第一步：核对编码与解码格式是否一致
 ```
-
-
 
 ## 流程控制
 
@@ -1445,8 +1399,6 @@ match day:
     case _:  # 通配符，相当于else
         print("其他")
 ```
-
-
 
 ## 函数基础
 
@@ -1603,10 +1555,7 @@ Python参数的这一特性有两个好处：
 函数名就是一个变量，这个变量代指函数。
 函数名可以放入列表中。
 函数同时也可被哈希，所以函数名也可以当做集合的元素、字典的键。
-
 ```
-
-
 
 ## 函数高级
 
@@ -1863,8 +1812,6 @@ print(demo_func.__globals__)   # 函数所在的全局命名空间
 print(demo_func.__closure__)   # 闭包变量，非闭包函数为 None
 ```
 
-
-
 ## 可迭代对象 / 迭代器 / 生成器 深度解析
 
 ```python
@@ -1903,7 +1850,7 @@ print(isinstance(open("test.txt"), Iterable)) # True 文件对象
 # python for循环可以作用在可迭代对象上
 L = ["a",'b',"c"]
 for i,value in enumerate(L):
-	print(i,value)
+    print(i,value)
 
 2. 常见的可迭代对象汇总
 序列类：str、list、tuple、range
@@ -2040,7 +1987,7 @@ close()：主动关闭生成器
 可迭代对象（Iterable）
     └── 迭代器（Iterator）：实现了 __next__
             └── 生成器（Generator）：用 yield / () 创建的简化迭代器
-        
+
 一句话总结：
 可迭代对象不一定是迭代器（比如列表、字符串），但都能转成迭代器；
 迭代器一定是可迭代对象（因为__iter__返回自己），可以直接 for 循环；
@@ -2071,11 +2018,7 @@ def infinite_odd():
 ❌ 迭代器可以反复遍历 → ✅ 迭代器是一次性的，遍历完就空了
 ❌ 生成器是和迭代器并列的类型 → ✅ 生成器属于迭代器，是特殊实现
 ❌ 生成器越快越省内存 → ✅ 省内存是真的，但单次执行比列表略慢，是时间换空间的取舍
-        
-
 ```
-
-
 
 ## 内置函数
 
@@ -2143,10 +2086,7 @@ open()              # 打开文件，进行读写操作
 map()               # 遍历序列，每个元素执行指定函数
 filter()            # 根据条件过滤可迭代对象元素
 lambda              # 创建匿名函数
-
 ```
-
-
 
 ## 模块与函数导入
 
@@ -2205,8 +2145,6 @@ print(add(1, 2))
 # 6. 减少副作用：尽量避免修改全局变量，通过 return 返回结果，降低代码耦合度
 ```
 
-
-
 ## 模块
 
 ### 自定义模块 > package >  库
@@ -2245,7 +2183,6 @@ import x1.x2 as pg
 
 #执行py文件时
 __name__ = "__main__"
-
 ```
 
 ### 第三方库
@@ -2268,11 +2205,11 @@ pip3 install  xxxx.
 
 #安装的第三方模块路径
 Max系统：
-	/Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages
+    /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages
 Windows系统：
-	C:\Python39\Lib\site-packages\
-
+    C:\Python39\Lib\site-packages\
 ```
+
 ### 标准库自带的常用模块
 
 ```python
@@ -2318,7 +2255,7 @@ for path,folder_list,file_list in data:
         if ext == "py":
             print(file_abs_path)
 
-            
+
 # 9. shutil：高级文件操作，文件复制、移动、递归删除文件夹
 import shutil os
 shutil.copy("1.txt","2.txt")
@@ -2382,10 +2319,10 @@ time.timezone        #时区
 
 datatime
 时间三种格式
-	datetime
-	字符串
-	时间戳
-    
+    datetime
+    字符串
+    时间戳
+
 # 4. datetime：时间格式化、日期计算、时区处理（推荐替代time做日期业务）
 from datetime import datetime, timedelta
 datetime.now()                 # 获取当前时间 # 年,月,日,时,分,秒,微秒
@@ -2502,7 +2439,7 @@ res = re.findall(r"\d+", s)  # 提取所有数字字符串
 res_iter = re.finditer(r"\d", "a123b45c6")
 for match in res_iter:
     print(match.group())  # 依次输出 1  2  3 ...
-   
+
 
 # 2. re.search(正则, 字符串)
 # 作用：从左往右匹配第一个符合规则的内容，返回匹配对象；没匹配到返回None
@@ -2512,7 +2449,7 @@ if ret:
     print(ret.group())
 
 
-    
+
 # 3. re.match(正则, 字符串)
 # 只从字符串开头位置匹配，开头不符合直接返回None
 re.match(r"^\d", "123abc")   #匹配到1
@@ -2594,19 +2531,7 @@ hash_object = hashlib.md5("dskfjksdjf".encode('utf-8')) #加盐
 hash_object.update("李小璐".encode("utf-8"))
 result = hash_object.hexdigest()
 print(result)
-
-
-
-
-
-
-
-
 ```
-
-
-
-
 
 ### Python re 默认正则（PCRE 扩展正则）符号大全
 
@@ -2624,20 +2549,20 @@ Python re 默认正则（PCRE 扩展正则）符号大全
 () ：分组捕获，放在分组与或小节
 
 1. 边界符
-符号	说明
-^	匹配字符串开头；多行模式下匹配每行开头
-$	匹配字符串结尾；多行模式下匹配每行结尾
-\b	单词边界（字母 / 数字 / 下划线和其他字符之间）
-\B	非单词边界
+符号    说明
+^    匹配字符串开头；多行模式下匹配每行开头
+$    匹配字符串结尾；多行模式下匹配每行结尾
+\b    单词边界（字母 / 数字 / 下划线和其他字符之间）
+\B    非单词边界
 
 2. 量词（控制前面字符出现次数）格
-符号	说明
-*	出现 0 次 或 多次（≥0）
-+	出现 1 次 或 多次（≥1）
-?	出现 0 次 或 1 次（最多 1 次）
-{n}	 精确匹配 n 次
-{n,}	至少 n 次
-{n,m}	n ~ m 次（包含两端）
+符号    说明
+*    出现 0 次 或 多次（≥0）
++    出现 1 次 或 多次（≥1）
+?    出现 0 次 或 1 次（最多 1 次）
+{n}     精确匹配 n 次
+{n,}    至少 n 次
+{n,m}    n ~ m 次（包含两端）
 
 贪婪 / 非贪婪（? 修饰量词）
 .* 贪婪：尽可能多匹配
@@ -2658,13 +2583,13 @@ a\|b：匹配 a 或者 b
 加 re.DOTALL 可让 . 匹配换行
 
 二、预定义字符类（转义简写）
-符号	等价	含义
-\d	[0-9]	任意数字
-\D	[^0-9]	非数字
-\w	[a-zA-Z0-9_]	字母、数字、下划线
-\W	[^a-zA-Z0-9_]	非单词字符
-\s	[ \t\n\r\f\v]	空白字符（空格、制表符、换行等）
-\S	非空白字符	
+符号    等价    含义
+\d    [0-9]    任意数字
+\D    [^0-9]    非数字
+\w    [a-zA-Z0-9_]    字母、数字、下划线
+\W    [^a-zA-Z0-9_]    非单词字符
+\s    [ \t\n\r\f\v]    空白字符（空格、制表符、换行等）
+\S    非空白字符    
 
 三、常用修饰符（re 标志）
 re.I / re.IGNORECASE：忽略大小写匹配
@@ -2681,13 +2606,7 @@ re.X / re.VERBOSE：正则可以换行、加注释，忽略空格
 (?!xxx)：负向先行断言，后面不能是 xxx
 (?<=xxx)：正向后行断言，前面必须是 xxx
 (?<!xxx)：负向后行断言，前面不能是 xxx
-
-
-
-
 ```
-
-
 
 ## 自动化运维高频 Python 模块（标准库 + 第三方运维常用）
 
@@ -2729,7 +2648,6 @@ from fabric import Connection
 c = Connection(host="10.0.0.6", user="root", connect_kwargs={"password":"1"})
 result = c.run("free -h", hide=True)  #hide=True 取消控制台输出
 print(result.stdout)
-
 ```
 
 #### 1.3 subprocess（本地执行本机 Shell 命令，标准库无需安装）
@@ -2778,7 +2696,6 @@ with open("env.yaml","w",encoding="utf-8") as f:
 with open("env.yaml","r",encoding="utf-8") as f:
     conf = yaml.safe_load(f)
     print(conf)
-    
 ```
 
 #### 2.3 python-dotenv
@@ -2821,8 +2738,6 @@ print(psutil.virtual_memory().percent)       # 内存使用率
 print(psutil.disk_usage("/").percent)       # 磁盘使用率
 print(psutil.net_io_counters())       # 网络流量
 print(psutil.process_iter())       # 遍历所有进程
-
-
 ```
 
 #### 3.2 platform（标准库）
@@ -2833,7 +2748,6 @@ print(psutil.process_iter())       # 遍历所有进程
 import platform
 print(platform.system())        # Windows/Linux
 print(platform.uname())        # 系统详细信息
-
 ```
 
 ### 4. 日志运维模块：logging（标准库）
@@ -2849,7 +2763,6 @@ logging.basicConfig(
 )
 logging.info("运维脚本正常执行")
 logging.error("服务器连接失败")
-
 ```
 
 ### 5. 定时运维任务模块
@@ -2930,8 +2843,6 @@ jobstores = {
 scheduler = BackgroundScheduler(jobstores=jobstores)
 ```
 
-
-
 ### 6. 运维文件处理扩展模块
 
 #### shutil（标准库）python
@@ -2968,7 +2879,6 @@ total, used, free = shutil.disk_usage("/")
 
 # 8. 查询文件/文件夹所属终端程序(Windows常用) #返回python绝对路径
 shutil.which("python")
-
 ```
 
 #### zipfile/tarfile（标准库）
@@ -3024,8 +2934,6 @@ with tarfile.open("data.tar.gz") as tar:
     content = f.read().decode("utf-8")
 ```
 
-
-
 ### 7. 接口运维模块：requests
 
 调用监控平台、CMDB、钉钉 / 企业微信告警接口，批量推送运维异常消息
@@ -3035,7 +2943,6 @@ with tarfile.open("data.tar.gz") as tar:
 import requests
 webhook = "钉钉告警地址"
 requests.post(webhook,json={"msgtype":"text","text":{"content":"磁盘使用率过高"}})
-
 ```
 
 ### 8. 进程管理模块
@@ -3104,12 +3011,9 @@ def deploy_server(port):
     print("服务部署完成")
 ```
 
-
-
 #### supervisor 第三方：Python 进程托管，后台守护进程运维
 
 ```bash
-
 # 1. 安装
 # pip install supervisor
 
@@ -3146,13 +3050,7 @@ user=root
 # 2. 统一管理多个进程，集中查看日志
 # 3. 支持开机自启、分组批量启停
 # 4. 相比nohup、&，可管控进程，防止僵尸进程
-
-
 ```
-
-
-
-
 
 ### 9. 云原生运维常用
 
@@ -3195,11 +3093,7 @@ apps_api.patch_namespaced_deployment_scale(
 
 # 4.4 删除Pod
 core_api.delete_namespaced_pod(name="test-pod", namespace="default")
-
-
 ```
-
-
 
 - boto3：AWS 云服务器、对象存储运维 SDK
 - aliyun-python-sdk：阿里云资源自动化管理
@@ -3213,16 +3107,6 @@ core_api.delete_namespaced_pod(name="test-pod", namespace="default")
 5. 本机 Shell 执行：`subprocess`
 6. 告警推送：`requests` + 企业微信 / 钉钉
 7. 文件批量处理：`shutil`、`zipfile`
-
-
-
-
-
-
-
-
-
-
 
 ## 面向对象
 
@@ -3522,10 +3406,10 @@ print(v3)  #alex-sb
     1.当类中定义了 __iter__ 和 __next__ 两个方法。
     2.__iter__ 方法需要返回对象本身，即：self
     3. __next__ 方法，返回下一个数据，如果没有数据了，则需要抛出一个StopIteration的异常。
-	官方文档：https://docs.python.org/3/library/stdtypes.html#iterator-types
-        
+    官方文档：https://docs.python.org/3/library/stdtypes.html#iterator-types
+
 # 创建 迭代器类型 ：
-	class IT(object):
+    class IT(object):
         def __init__(self):
             self.counter = 0
         def __iter__(self):
@@ -3541,7 +3425,7 @@ print(v3)  #alex-sb
     # v1 = obj1.__next__()
     # v2 = obj1.__next__()
     # v3 = obj1.__next__() # 抛出异常
-    
+
     v1 = next(obj1) # obj1.__next__()
     print(v1)
     v2 = next(obj1)
@@ -3552,7 +3436,7 @@ print(v3)  #alex-sb
     obj2 = IT()
     for item in obj2:  # 首先会执行迭代器对象的__iter__方法并获取返回值，一直去反复的执行 next(对象) 
         print(item)
-        
+
 迭代器对象支持通过next取值，如果取值结束则自动抛出StopIteration。
 for循环内部在循环时，先执行__iter__方法，获取一个迭代器对象，然后不断执行的next取值（有异常StopIteration则终止循环）。
 
@@ -3562,7 +3446,7 @@ for循环内部在循环时，先执行__iter__方法，获取一个迭代器对
     def func():
         yield 1
         yield 2
-    
+
 # 创建生成器对象（内部是根据生成器类generator创建的对象），生成器类的内部也声明了：__iter__、__next__ 方法。
     obj1 = func()
 
@@ -3583,17 +3467,13 @@ for循环内部在循环时，先执行__iter__方法，获取一个迭代器对
 class Foo(object): 
     def __iter__(self):
         return self迭代器对象(生成器对象)
-    
+
 obj = Foo() # obj是 可迭代对象。
 
 # 可迭代对象是可以使用for来进行循环，在循环的内部其实是先执行 __iter__ 方法，获取其迭代器对象，然后再在内部执行这个迭代器对象的next功能，逐步取值。
 for item in obj:
     pass
-
-
 ```
-
-
 
 ## Python 面向对象所有成员
 
@@ -3746,7 +3626,132 @@ print(Student.__name__)
 print(Student.__bases__)
 ```
 
+## Python 函数与面向对象：底层原理与设计哲学
 
+```bash
+Python 函数与面向对象：底层原理与设计哲学
+Python 的函数与 OOP 并非语法层面的简单封装，其背后是一套高度统一的「一切皆对象」模型，以及「实用主义优先、不执着于范式纯粹」的设计思想。理解到这个层级，你才能看懂框架源码、写出 Pythonic 的代码，而不是停留在「语法怎么写」的表层。
+
+一、函数：从字节码到一等公民
+
+1. 底层本质：函数是堆上的普通对象
+Python 中函数没有任何特殊地位，它和 int、list、字典一样，都是堆内存中的对象。
+核心是两个底层对象的分离：
+PyCodeObject（代码对象）：存储函数的字节码指令、常量池、变量名表、行号映射，是「静态的代码本身」，同一个函数定义只会生成一份代码对象。
+PyFunctionObject（函数对象）：运行期创建的实例，包裹代码对象，并绑定运行环境：全局命名空间、默认参数、闭包自由变量、函数名 / 文档等元信息。
+这就是为什么函数可以被赋值、当作参数传递、作为返回值、塞进列表里 ——它和普通数据没有任何本质区别，这也是「函数是一等公民」的底层含义。
+
+你可以直接触达它的底层属性：
+
+def add(a, b=10):
+    return a + b
+
+print(add.__code__)      # 代码对象，存字节码
+print(add.__defaults__)  # 默认参数元组
+print(add.__globals__)   # 绑定的全局命名空间
+print(add.__closure__)   # 闭包自由变量，非闭包为None
+
+2. 函数调用的真相：栈帧与可挂起的执行流
+每调用一次函数，Python 都会在堆内存中创建一个栈帧对象（PyFrameObject），而不是像 C 语言那样在系统栈上分配。
+栈帧里存着：局部变量表、求值栈、指令指针（当前执行到哪条字节码）、返回地址、上一层栈帧的引用。
+这个设计带来了两个深远影响：
+递归深度受限：Python 有默认递归深度限制（约 1000 层），不是因为栈溢出，而是解释器主动做了保护，避免无限制创建栈帧对象。
+执行流可挂起恢复：因为栈帧在堆上，函数可以执行到一半暂停、保存栈帧、之后再恢复 —— 这就是生成器、协程（async/await）的底层基石，C 语言的函数根本做不到。
+
+3. 闭包与装饰器：不是语法糖，是环境的封装
+闭包的本质：函数 + 它捕获的自由变量环境。自由变量存在 cell 对象里，通过 __closure__ 属性关联，实现了「函数退出后，变量依然存活」的效果。
+装饰器的本质：高阶函数的语法糖，用「函数包裹函数」的方式，在不修改原函数代码、不改变调用方式的前提下扩展功能。
+functools.wraps 的价值：解决装饰后函数元信息（函数名、文档、参数签名）丢失的问题，本质是把原函数的属性拷贝到包装函数上。
+
+4. 函数的设计哲学
+一等公民原则：消除函数与数据的边界，赋予极致的灵活性。这也是装饰器、回调、函数式编程特性的基础。
+显式优于隐式：最典型的就是 self 必须显式写在方法第一个参数里。Python 没有隐藏的 this 指针，方法和普通函数本质完全统一，只是调用时自动传入第一个参数。
+实用主义的多范式融合：Python 不是纯函数式语言，它以命令式为主体，只吸收函数式最有价值的部分 —— 高阶函数、生成器、推导式，不追求无副作用、不可变数据等纯粹性，兼顾开发效率和可读性。
+
+二、面向对象：从元类到鸭子类型
+Python 的 OOP 和 Java、C++ 有着本质区别：它没有强制的封装、没有接口语法、多继承是一等公民、类型检查靠行为不靠声明。这不是残缺，而是刻意的设计选择。
+
+1. 底层基石：一切皆对象，类也是对象
+这是 Python 对象模型最核心的认知：
+普通实例是类的实例
+类本身也是对象，是元类 type 的实例
+type 自己也是自己的实例，构成类型金字塔的顶端
+对应的内存结构：
+实例对象：靠 __dict__ 字典存储自身属性，非常轻量，只存数据，不存方法。
+类对象：__dict__ 里存方法、类属性、魔法方法，所有实例共享类的方法，节省内存。
+属性查找的完整链路（从左到右，找到即停止）：
+实例自身 __dict__ → 类的 __dict__ → 按 MRO 顺序遍历所有父类的 __dict__ → 触发 __getattr__ 兜底
+
+2. self 与方法的真相
+self 不是关键字，只是约定俗成的第一个参数名，你改成 this、me 也完全能运行。
+「实例。方法 ()」自动传入 self，是描述符协议的效果：类里的函数是一个非数据描述符，通过实例访问时，会自动把实例和函数绑定成「绑定方法（Bound Method）」，调用时自动把 self 作为第一个参数传入。
+类方法（@classmethod）、静态方法（@staticmethod）也是同理：它们是不同的描述符，分别绑定类对象、不绑定任何对象，实现了参数的差异化。
+3. 继承、MRO 与 super () 的真相
+绝大多数人对 super() 的理解都是错的：
+❌ 错误：super() 是调用「父类」的方法
+✅ 正确：super() 是调用「MRO 线性化链上的下一个类」的方法
+MRO（方法解析顺序）采用 C3 线性化算法，解决了多继承的菱形二义性问题，保证每个类在链中只出现一次，且满足「子类先于父类、声明顺序优先」的规则。
+super() 的设计初衷不是为了「少写父类名」，而是为了在多继承场景下保证调用链正确、不重复、不遗漏—— 这也是 Mixin 模式能正常工作的基础。
+
+4. 魔法方法与协议编程：Python OOP 的灵魂
+Python 没有 interface 关键字，它的面向对象核心是协议（Protocol）：
+只要实现了 __iter__ + __next__，就是迭代器
+只要实现了 __enter__ + __exit__，就能用 with 语法
+只要实现了 __getitem__，就能用下标 [] 访问
+只要实现了 __call__，对象就能像函数一样被调用
+这就是鸭子类型的底层支撑：不检查你是什么类型，只检查你有没有对应的行为。不需要继承某个基类、不需要声明实现某个接口，只要满足协议约定，就能被对应语法使用。
+这种设计带来了极致的解耦和灵活性，也是 Python 生态丰富的重要原因 —— 第三方库很容易无缝接入语言原生语法。
+
+5. 元类：类的创造者，99% 场景不需要
+元类是「类的类」，默认元类是 type，所有普通类都是 type 创建出来的。
+元类可以拦截类的创建过程：修改类属性、注入方法、校验类结构，Django ORM、SQLAlchemy 等框架的核心魔法就来自元类。
+设计哲学上的明确态度：元类是黑魔法，普通开发者 99% 的场景都不需要。Python 官方的建议是：能用装饰器、Mixin 解决的，就不要用元类。它的复杂度远高于收益，只会让代码变得难以维护。
+
+6. 面向对象的设计哲学
+鸭子类型优先于接口：行为重于身份，灵活胜于严谨。不做强制类型约束，靠约定而非语法保证协作，大幅降低了代码的耦合度。
+我们都是成年人：没有真正的私有变量。_xxx 是约定的内部变量，__xxx 只是名称改写，并不是强制私有。Python 相信开发者的自律，不用语法强制限制访问权限，避免了过度封装带来的僵化。
+组合优于继承：Python 虽然支持多继承，但社区共识是「优先用组合，少用继承，必要时用 Mixin」。继承是强耦合的白盒复用，组合是弱耦合的黑盒复用，扩展性和可维护性天差地别。
+协议驱动，而非继承驱动：能力通过实现魔法方法获得，而非继承抽象基类。这让 Python 的 OOP 非常轻量，不需要为了一个能力就引入一整套继承体系。
+
+三、贯穿始终的核心设计思想
+高度统一的对象模型：函数、类、实例、模块、甚至异常，全都是对象，遵循同一套属性查找、引用计数、垃圾回收规则。一致性带来了极低的认知成本，也赋予了极强的动态扩展能力。
+透明而非黑盒：底层机制不刻意隐藏。你可以通过 __code__、__dict__、__mro__ 直接触及对象的底层结构，想深入就能深入，日常使用又感知不到复杂度。
+拒绝教条，实用至上：不执着于某一种编程范式，不追求理论上的纯粹。函数式、面向对象、命令式、过程式，哪种场景好用就用哪种。这也是 Python 能覆盖从脚本到大型系统全场景的核心原因。
+默认简单，上限极高：新手可以快速上手写业务代码，高手可以用描述符、元类、协程实现复杂框架。语言本身不设天花板，但把复杂能力藏在底层，默认路径永远是最简单的。
+```
+
+堆(Heap)和栈(Stack)
+
+```bash
+# === 核心结论 ===
+# 堆(Heap)和栈(Stack)是操作系统划分的两块内存区域，几乎所有编程语言都基于二者管理内存
+# 栈负责临时、自动回收的数据；堆负责长期、灵活的数据
+
+# === 栈 Stack ===
+# 结构：后进先出，由操作系统自动分配、自动回收
+# 生命周期：与函数绑定，函数调用时分配，函数结束立即释放
+# 特点：空间小（几MB）、速度极快、无内存碎片
+# 存放内容：函数参数、局部变量、返回地址、调用上下文
+# 类比：厨房操作台，用完即清
+
+# === 堆 Heap ===
+# 结构：无序大块内存，由手动申请或垃圾回收器管理
+# 生命周期：灵活可控，不会随函数结束自动销毁
+# 特点：空间大（GB级）、速度较慢、易产生内存碎片
+# 存放内容：对象、大数组、需跨函数长期存活的数据
+# 类比：储物仓库，需主动清理或等保洁（GC）回收
+
+# === Python 特殊设计（与C语言核心差异）===
+# C语言：函数栈帧直接放在系统栈上，函数结束即清空，执行流无法中途暂停
+# Python：解释器自行在堆上创建栈帧对象(PyFrameObject)，模拟函数调用栈
+# 核心收益：栈帧可保存、可恢复，是生成器(yield)、协程(async/await)的底层基础
+# 补充：Python递归深度限制是解释器主动限制，并非系统栈溢出
+
+# === 回扣Python核心特性 ===
+# 1. 一切皆对象：函数、类、变量值全部存在堆上，函数天然是一等公民
+# 2. 闭包生效原理：自由变量随函数对象存在堆上，外层函数结束仍可保留
+# 3. 强动态性：栈帧、对象全在堆上，支持运行时修改、执行流暂停恢复
+```
 
 ## 模块与类的导入
 
@@ -3770,8 +3775,8 @@ class ElectricCar(Car):
 
     def describe_battery(self):
         print(f"电池容量：{self.battery_size}kWh")
-        
-        
+
+
 9.4.1 导入单个类
 # 从car模块只导入Car类
 from car import Car
@@ -3821,10 +3826,7 @@ from electric_car import ElectricCar
 # 类别名
 from car import ElectricCar as EC
 my_e = EC("Tesla", "Y", 2025)
-
 ```
-
-
 
 ## Python类编程风格规范(PEP8精简版)
 
@@ -3882,11 +3884,7 @@ class Goods:
 # 清理废弃注释代码
 ```
 
-
-
 ## 文件操作
-
-
 
 ```python
 # 一、基础打开文件：open(文件路径, 打开模式, 编码)
@@ -3932,17 +3930,11 @@ os.listdir("目录路径")       # 获取目录下所有文件名称列表
 
 # 四、上下文管理器优势
 # with执行完毕自动调用close()释放资源，避免忘记关闭导致文件占用
-
-
-
 ```
-
-
 
 扩展
 
 ```python
-
 #文件打开模式
 ========= ===============================================================
 Character Meaning
@@ -3974,31 +3966,31 @@ The default mode is 'rt' (open for reading text).
   - 不存在，创建再写。
 
 
-file_object.read() 		#读所有
-file_object.read(1) 	#都一个字节
+file_object.read()         #读所有
+file_object.read(1)     #都一个字节
 file_object.readline()  #读一行
 file_object.readlines() #读所有行，每行为列表的一个元素
 file_object.flush()     #缓冲区内容刷到硬盘
-file_object.seek(3)  	#移动光标位置 移动到字节的位置
+file_object.seek(3)      #移动光标位置 移动到字节的位置
 file_object.tell()      #返回光标位置
 
 
 #循环读大文件  
 f = open('info.txt',mode='r',encoding='utf-8')
 for line in f:
-	print(line.strip())
+    print(line.strip())
 f.close()
 
 #上下文管理
 with open("xx.txt", mode='rb') as file_object:
-	data = file_object.read()
-	print(data)
+    data = file_object.read()
+    print(data)
 
 with open("xx.txt", mode='rb') as f1, open("xxx.txt", mode='rb') as f2:
-	data = file_object.read():
-	pass
+    data = file_object.read():
+    pass
 
-# 文件当前路径	
+# 文件当前路径    
 import os
 base_dir = os.path.dirname(os.path.abspath(__file__))
 file_path = os.path.join(base_dir, 'files', 'info.txt')
@@ -4026,10 +4018,7 @@ os.remove("文件路径")
 shutil.copytree("","") #拷贝文件夹
 shutil.copy("","")     #拷贝文件
 shutil.move("","")     #文件或文件夹重命名
-
 ```
-
-
 
 ## 异常处理
 
@@ -4075,7 +4064,7 @@ try:
         content = f.read()
 except FileNotFoundError:
     print("异常：目标文件不存在")
-    
+
 # 10.3.6 分析文本：统计单词数量
 try:
     with open("article.txt", "r", encoding="utf-8") as f:
@@ -4142,7 +4131,7 @@ def greet_user():
         print("用户名已保存")
 
 greet_user()
-    
+
 -------------------------------------------------
 
 try:
@@ -4172,16 +4161,11 @@ UnboundLocalError 试图访问一个还未被设置的局部变量，基本上�
 导致你以为正在访问它
 ValueError 传入一个调用者不期望的值，即使值的类型是正确的
 """
-
-
-
-    
 ```
 
 ## 测试代码
 
 ```python
-
 # 测试代码（pytest）
 # 11.1 pip安装pytest
 # 11.1.1 更新pip
@@ -4205,7 +4189,7 @@ def get_formatted_name(first, last):
 def test_full_name():
     result = get_formatted_name("li", "hua")
     assert result == "Li Hua"  # 断言相等，成立测试通过
-    
+
 test_full_name()
 # 11.2.3 运行测试命令
 # pytest test_name.py -v
@@ -4284,16 +4268,11 @@ class TestAnonymousSurveyFix:
 # 2. 单元测试+断言校验函数逻辑正确性3试类，对类的各个方法编写多场景用例
 # 4. fixture夹具复用测试前置数据，精简重复代码
 # 5. 测试失败优先修正业务代码，保证测试用例可靠
-
-
 ```
-
-
 
 ## python软件开发目录设计规范
 
 ```bash
-
 # Python 软件开发标准目录规范（企业通用）
 # 项目名：crm_project（小写+下划线，禁止中文、驼峰）
 """
@@ -4357,10 +4336,6 @@ crm_project/
 # 文件夹、py文件：全部小写+下划线
 # 包内必须保证可导入，尽量使用绝对导入规范
 ```
-
-
-
-
 
 ## Socket 网络编程
 
@@ -4445,12 +4420,9 @@ crm_project/
 
 写 Socket 代码核心吃透 4 点：IP 与端口的作用、TCP 和 UDP 的区别与选型、TCP 三次握手 / 四次挥手逻辑、TCP 粘包解决方案；底层网络知识了解即可，无需深入硬件实现。
 
-
-
 ### python socket代码
 
 ```python
-
 # ========== Socket 网络编程核心（TCP/UDP 双模式）==========
 import socket
 
@@ -4510,83 +4482,99 @@ udp_client.close()
 # UDP：直播、DNS查询、游戏帧同步、广播消息
 ```
 
+### TCP 粘包的本质
 
+TCP 是**面向字节流**的协议，内核会自动合并小数据包（Nagle 算法）、拆分大数据包，接收端拿到的是连续的无边界字节流，应用层无法自动区分两条独立消息，就会出现「一次 recv 读到多条数据」或「一条数据分多次读到」的粘包 / 半包问题。
 
+**必须在应用层自定义协议拆分数据**，工业界最通用的两种方案：
 
+1. **长度前缀法（推荐，企业级标准）**
 
+2. 特殊分隔符法（简单文本场景）
+   
+   **方案 1：长度前缀法（最常用、最可靠）**
 
+原理
 
+每条消息固定分成两部分：
 
+- 头部：固定 4 字节，用大端序（网络字节序）存储后续数据的字节长度
+- 本体：真实业务数据
+
+接收方先读 4 字节拿到数据长度，再精确读取对应长度的字节，彻底避免粘包。
+
+ 依赖
+
+Python 标准库 `struct` 实现整数与字节的互转。
 
 ```py
-
-#服务端
+服务端-----------------------------------------------------
 import socket
+import struct
 
-# 1.监听本机的IP和端口
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1', 8001))  # 127.0.0.1 或 查看自己局域网本地IP地址
-sock.listen(5)
+def send_msg(conn, msg: str):
+    """发送带长度前缀的消息"""
+    data = msg.encode("utf-8")
+    # ! 表示网络字节序（大端），I表示4字节无符号整数
+    head = struct.pack("!I", len(data))
+    conn.send(head)   # 先发4字节长度头
+    conn.send(data)   # 再发真实数据
 
-while True:
-    # 2.等待，有人来连接（阻塞）
-    conn, addr = sock.accept()
-    print("有人来连接了...")
+# 启动服务
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(("0.0.0.0", 8080))
+server.listen(5)
+conn, addr = server.accept()
 
-    # 3.连接成功后立即发送
-    conn.sendall("欢迎使用xx系统，请输入您想要办理的业务！".encode("utf-8"))
+# 连续发两条消息，模拟粘包场景
+send_msg(conn, "第一条消息")
+send_msg(conn, "第二条消息，内容更长一点")
 
-    while True:
-        # 3.等待接受信息
-        data = conn.recv(1024)
-        if not data:
-            break
-        data_string = data.decode("utf-8")
+conn.close()
+server.close()
 
-        # 4.回复消息
-        conn.sendall("你说啥？".encode("utf-8"))
-    print("断开连接了")
-    # 5.关闭与此人的连接
-    conn.close()
 
-# 6.停止服务端程序
-sock.close()
--------------------------------------------------------
+客户端--------------------------------------------------------
 
-#客户端
 import socket
+import struct
 
-# 1. 向指定IP发送连接请求
+def recv_msg(conn) -> str | None:
+    """精确接收一条完整消息"""
+    # 1. 先收4字节头部，拿到数据长度
+    head = conn.recv(4)
+    if not head:
+        return None  # 连接断开
+    data_len = struct.unpack("!I", head)[0]
+
+    # 2. 循环收满指定长度的数据（解决半包）
+    data = b""
+    while len(data) < data_len:
+        chunk = conn.recv(data_len - len(data))
+        if not chunk:
+            return None
+        data += chunk
+    return data.decode("utf-8")
+
+# 连接服务端
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect(('127.0.0.1', 8001))
+client.connect(("127.0.0.1", 8080))
 
-# 2.连接成功后，获取系统登录信息
-message = client.recv(1024)
-print(message.decode("utf-8"))
+# 可以准确拆分出两条独立消息
+print(recv_msg(client))  # 第一条消息
+print(recv_msg(client))  # 第二条消息，内容更长一点
 
-while True:
-    content = input("请输入(q/Q退出)：")
-    if content.upper() == 'Q':
-        break
-    client.sendall(content.encode("utf-8"))
-
-    # 3. 等待，消息的回复
-    reply = client.recv(1024)
-    print(reply.decode("utf-8"))
-
-# 关闭连接，关闭连接时会向服务端发送空数据。
 client.close()
 
 
-
-
-
+# 方案优势
+# 精准拆分，不存在歧义，适合二进制、文本、图片等任意数据
+# 性能高，解析速度快，工业级 RPC、游戏服务器普遍采用
 ```
 
+### osi 7层模型 模拟过程
 
-### osi 7层模型
 ```text
-
 - 应用层：规定数据的格式。
       "GET /s?wd=你好 HTTP/1.1\r\nHost:www.baidu.com\r\n\r\n"
 - 表示层：对应用层数据的编码、压缩（解压缩）、分块、加密（解密）等任务。
@@ -4596,138 +4584,1005 @@ client.close()
 - 传输层：建立端口到端口的通信，其实就确定双方的端口信息。
       数据："GET /s?wd=你好 HTTP/1.1\r\nHost:www.baidu.com\r\n\r\n你好".encode('utf-8')
       端口：
-      	- 目标：80
-      	- 本地：6784
+          - 目标：80
+          - 本地：6784
 - 网络层：标记目标IP信息（IP协议层）
       数据："GET /s?wd=你好 HTTP/1.1\r\nHost:www.baidu.com\r\n\r\n你好".encode('utf-8')
       端口：
-      	- 目标：80
-      	- 本地：6784
+          - 目标：80
+          - 本地：6784
       IP：
-      	- 目标IP：110.242.68.3（百度）
-      	- 本地IP：192.168.10.1
+          - 目标IP：110.242.68.3（百度）
+          - 本地IP：192.168.10.1
 - 数据链路层：对数据进行分组并设置源和目标mac地址
       数据："POST /s?wd=你好 HTTP/1.1\r\nHost:www.baidu.com\r\n\r\n你好".encode('utf-8')
       端口：
-      	- 目标：80
-      	- 本地：6784
+          - 目标：80
+          - 本地：6784
       IP：
-      	- 目标IP：110.242.68.3（百度）
-      	- 本地IP：192.168.10.1
+          - 目标IP：110.242.68.3（百度）
+          - 本地IP：192.168.10.1
       MAC：
-      	- 目标MAC：FF-FF-FF-FF-FF-FF 
-      	- 本机MAC：11-9d-d8-1a-dd-cd
+          - 目标MAC：FF-FF-FF-FF-FF-FF 
+          - 本机MAC：11-9d-d8-1a-dd-cd
 - 物理层：将二进制数据在物理媒体上传输。
-		通过网线将二进制数据发送出去
+        通过网线将二进制数据发送出去
 
 
-```
-
-### udp和tcp协议
-```py
+-----------------------------------------------------
 - UDP（User Data Protocol）用户数据报协议， 是⼀个⽆连接的简单的⾯向数据报的传输层协议。 UDP不提供可靠性， 它只是把应⽤程序传给IP层的数据报发送出去， 但是并不能保证它们能到达⽬的地。 由于UDP在传输数据报前不⽤在客户和服务器之间建⽴⼀个连接， 且没有超时重发等机制， 故⽽传输速度很快。
       常见的有：语音通话、视频通话、实时游戏画面 等。
 - TCP（Transmission Control Protocol，传输控制协议）是面向连接的协议，也就是说，在收发数据前，必须和对方建立可靠的连接，然后再进行收发数据。
       常见有：网站、手机APP数据获取等。
+```
 
-UDP 
-#server
-import socket
+### 后话
 
-server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server.bind(('127.0.0.1', 8002))
+```bash
+# === Socket 核心定位 ===
+# 所有网络通信的底层基石，几乎所有联网软件底层都依赖；
+# 日常Web/业务开发极少手写原生Socket，上层框架/服务器已完成封装。
 
-while True:
-    data, (host, port) = server.recvfrom(1024) # 阻塞
-    print(data, host, port)
-    server.sendto("好的".encode('utf-8'), (host, port))
-#client
-import socket
+# === Socket 典型应用场景 ===
+# 1. 私有协议服务：物联网设备、游戏服务器、金融私有交易、工业控制
+# 2. 网络中间件：内网穿透(frp/ngrok)、端口转发、反向代理、VPN、抓包工具
+# 3. 运维底层：paramiko/pymysql/redis-py 底层均基于Socket；自定义监控探针、运维Agent
+# 4. 即时通信：IM聊天、直播弹幕、实时对战游戏长连接
 
-client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-while True:
-    text = input("请输入要发送的内容：")
-    if text.upper() == 'Q':
-        break
-    client.sendto(text.encode('utf-8'), ('127.0.0.1', 8002))
-    data, (host, port) = client.recvfrom(1024)
-    print(data.decode('utf-8'))
+# === 知名开源软件底层依赖 ===
+# Web服务器：Nginx、Apache 底层通过Socket监听端口、处理请求
+# 数据库/中间件：MySQL、Redis、Kafka、RabbitMQ 服务端与客户端交互基于TCP Socket
+# Python生态库：requests、paramiko、pymysql 均封装了标准库socket模块
 
-client.close()
---------------------------------------------------------
-TCP
-#server
-import socket
+# === Django 与 Socket 分层关系 ===
+# 业务层：Django 路由/视图/模型（仅处理业务逻辑）
+# 协议层：WSGI 规范接口（Django实现该规范）
+# 服务层：Gunicorn/uWSGI/runserver 负责Socket监听、连接处理、HTTP解析
+# 底层：操作系统Socket + 网卡硬件
+# 说明：Django本身不集成手写Socket代码，底层网络能力由WSGI服务器提供
 
-# 1.监听本机的IP和端口
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.bind(('127.0.0.1', 8001))
-sock.listen(5)
+浏览器 → Nginx(80/443端口) → 反向代理 → Gunicorn/uWSGI(8000端口) → 调用WSGI接口 → Django业务逻辑 → 原路返回
+uWSGI可以算作Web服务器,「Python 专属的应用级 Web 服务器（WSGI 服务器）」，不是通用型 Web 服务器。
+Nginx是通用高性能 Web 服务器 + 反向代理服务器，是整个服务的流量入口，不直接运行 Python 代码
+浏览器（客户端Socket）
+    ↓ TCP 连接
+Nginx（服务端Socket，监听80/443）
+    ↓ 解析HTTP、反向代理，新建TCP连接
+uWSGI（服务端Socket，监听内网端口/Unix套接字）
+    ↓ 按WSGI规范，内存级函数调用
+Django（无Socket，仅执行业务逻辑）
 
-while True:
-    # 2.等待，有人来连接（阻塞）
-    conn, addr = sock.accept()
+# === 学习价值与替代方案 ===
+# 1. 日常开发不用手写：HTTP协议、Web服务器、数据库客户端已封装完成
+# 2. 核心价值：排查端口占用/连接超时/粘包/TIME_WAIT等线上问题；
+#             理解框架底层原理；对接私有协议硬件、定制化工具开发
+# 3. Python替代框架：asyncio、Twisted、Tornado、FastAPI+WebSocket、gRPC
+#    本质仍是Socket封装，已处理并发、协议解析、异常等细节
+```
 
-    # 3.等待，连接者发送消息（阻塞）
-    client_data = conn.recv(1024)
-    print(client_data)
+## Python 并发编程
 
-    # 4.给连接者回复消息
-    conn.sendall(b"hello world")
+按照「**基础理论 → 多进程 → 多线程 → 同步工具 → 池化技术 → 协程 → IO 模型 → IO 多路复用**」的认知顺序编排，
 
-    # 5.关闭连接
-    conn.close()
+---
 
-# 6.停止服务端程序
-sock.close()
+### 第一阶段：前置操作系统知识（学并发必先懂）
 
-#client
-import socket
+### 1. 核心概念辨析
 
-# 1. 向指定IP发送连接请求
-client = socket.socket()
-client.connect(('127.0.0.1', 8001))
+#### 并发 vs 并行
 
-# 2. 连接成功之后，发送消息
-client.sendall(b'hello')
+- **并发**：同一时间段内多个任务交替执行（单核 CPU 也能实现并发，靠操作系统快速切换任务）
+- **并行**：同一时刻多个任务同时执行（必须多核 CPU 才能实现）
+- 理解：并发是「伪同时」，并行是「真同时」；Python 协程、单 CPU 多线程都属于并发，多进程在多核下属于并行。
 
-# 3. 等待，消息的回复（阻塞）
-reply = client.recv(1024)
-print(reply)
+#### CPU 密集型 vs IO 密集型
 
-# 4. 关闭连接
-client.close()
+- **CPU 密集型**：任务主要消耗 CPU 计算资源（循环计算、加密、视频编码），全程 CPU 在干活
+- **IO 密集型**：任务大部分时间在等待 IO 结果（网络请求、文件读写、数据库查询），CPU 处于空闲状态
+- 这是后续「多进程 / 多线程 / 协程选型」的核心依据。
+
+#### 进程 vs 线程（操作系统层面）
+
+- **进程**：操作系统资源分配的最小单位，每个进程有独立的内存空间、文件描述符，进程间隔离，切换开销大
+- **线程**：操作系统调度的最小单位，线程隶属于进程，同一个进程内的所有线程共享同一块内存空间，切换开销小
+- 关系：一个进程至少有一个主线程，可以有多个子线程；线程不能脱离进程独立存在。
+
+---
+
+### 第二阶段：多进程编程
+
+### 1. 进程基础与内存隔离
+
+Python 中使用 `multiprocessing` 模块实现多进程，**进程间内存完全隔离**，全局变量互不影响。
+
+### 2. 开启进程的两种方式
+
+```python
+from multiprocessing import Process
+import time
+
+# 方式1：函数式（最常用）
+def task(name):
+    print(f"{name} 任务开始")
+    time.sleep(2)
+    print(f"{name} 任务结束")
+
+# 方式2：继承Process类，重写run方法
+class MyProcess(Process):
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+    def run(self):
+        print(f"{self.name} 任务开始")
+        time.sleep(2)
+        print(f"{self.name} 任务结束")
+
+if __name__ == "__main__":
+    # 方式1调用
+    p1 = Process(target=task, args=("任务1",))
+    # 方式2调用
+    p2 = MyProcess("任务2")
+
+    p1.start()  # 启动进程（向操作系统发申请）
+    p2.start()
+    p1.join()   # 主进程等待子进程结束
+    p2.join()
+    print("所有进程执行完毕")
+```
+
+> 注意：Windows 下开启进程必须写在 `if __name__ == "__main__":` 里，否则会递归导入报错。
+
+### 3. Process 对象常用属性
+
+```bash
+Process([group [, target [, name [, args [, kwargs]]]]])，由该类实例化得到的对象，可用来开启一个子进程
+强调：
+1. 需要使用关键字的方式来指定参数
+2. args指定的为传给target函数的位置参数，是一个元组形式，必须有逗号
+
+参数介绍
+group参数未使用，值始终为None
+target表示调用对象，即子进程要执行的任务
+args表示调用对象的位置参数元组，args=(1,2,'egon',)
+kwargs表示调用对象的字典,kwargs={'name':'egon','age':18}
+name为子进程的名称
+
+方法介绍
+p.start()：启动进程，并调用该子进程中的p.run() 
+p.run():进程启动时运行的方法，正是它去调用target指定的函数，我们自定义类的类中一定要实现该方法  
+p.terminate():强制终止进程p，不会进行任何清理操作，如果p创建了子进程，该子进程就成了僵尸进程，使用该方法需要特别小心这种情况。如果p还保存了一个锁那么也将不会被释放，进而导致死锁
+p.is_alive():如果p仍然运行，返回True
+p.join([timeout]):主线程等待p终止（强调：是主线程处于等的状态，而p是处于运行的状态）。timeout是可选的超时时间。
+
+属性介绍：
+- `pid`：进程 ID
+- `name`：进程名
+- `is_alive()`：判断进程是否存活
+- `daemon`：是否为守护进程
+- `join()`：主进程阻塞等待子进程结束
+- `terminate()`：强制终止进程
+```
+
+### 4. 守护进程
+
+- 特性：守护进程会在**主进程代码执行结束时立刻终止**，不管自己任务有没有做完
+- 用途：后台监控、日志上报等随主进程同生共死的辅助任务
+
+守护进程核心规则（唯一区别于普通子进程）
+
+普通子进程：就算主进程代码跑完退出，子进程会继续把自己任务跑完才结束。
+
+守护子进程：**一旦主进程所有代码执行完毕、主进程要退出，不管守护进程任务有没有跑完，直接强制杀死守护进程**。
+
+```python
+p = Process(target=task)
+p.daemon = True  # 必须在start()之前设置
+p.start()
+```
+
+### 5. 互斥锁（进程间）
+
+- 解决问题：多个进程同时操作同一个共享资源（如文件、终端输出），导致数据错乱
+- 本质：把并发的临界区代码变成串行，牺牲效率保证数据安全
 
 
+
+```python
+from multiprocessing import Process,Lock
+import time
+
+def task(lock, name):
+    # with lock: #相当于lock.acquire(),执行完自代码块自动执行lock.release()
+    lock.acquire()  # 加锁
+    # 临界区：同一时间只能有一个进程执行
+    print(f"{name} 正在操作共享资源")
+    time.sleep(1)
+    lock.release()  # 解锁
+
+if __name__ == "__main__":
+    lock = Lock()
+    for i in range(3):
+        Process(target=task, args=(lock, f"进程{i}")).start()
+```
+
+#### 互斥锁 vs join
+
+- `join()`：让整个子进程全部串行，粒度大，效率低
+- `互斥锁`：只让共享资源的那部分代码串行，其他代码依然并发，粒度细，效率更高
+
+
+
+小结:
+
+多进程并发修改共享数据，加锁可串行执行保障数据安全，但会降低运行速度。
+
+若通过硬盘文件实现进程数据共享存在两大缺陷：
+
+1. 读写硬盘，效率极低；
+2. 需要手动自行实现锁逻辑。
+
+multiprocessing 提供内存级 IPC 方案：管道、队列，兼顾高性能与自动锁机制：
+
+1. 数据存放在内存，读写速度快；
+2. 队列底层由管道 + 内置锁封装，自动处理同步互斥，不用手动加锁，是进程通信首选。
+
+开发规范：尽量不用共享内存 / 文件传数据，优先队列消息通信，减少锁的复杂处理，进程量大时扩展性更好。
+
+
+
+
+
+### 6. 进程间通信（IPC）
+
+进程内存隔离，必须借助专门的机制传递数据，常用 3 种：
+
+#### ① 队列 Queue（最常用，线程 / 进程安全）
+
+先进先出，基于「管道 + 锁」实现，自动处理同步
+
+
+
+```python
+
+from multiprocessing import Queue
+import queue
+q = Queue(3)  # 最大容量3
+q.put("数据1")  # 放数据，满了则阻塞
+q.put("数据2")
+q.put("数据3")
+try:
+    q.put_nowait("4")  # 放数据，满了则抛异常
+except queue.Full:
+    print("队列已满，无法放入")
+
+print(q.get())        # 取数据，空了则阻塞
+print(q.get())        # 取数据，空了则阻塞
+print(q.get())        # 取数据，空了则阻塞
+try:
+    res = q.get_nowait()
+except queue.Empty:
+    print("队列暂无数据")
+
+
+print(q.empty())      # 是否为空
+print(q.full())       # 是否已满
+```
+
+#### ② 管道 Pipe
+
+双向通信，性能比队列高，但需要自己处理同步锁，适合两个进程通信
+
+#### ③ 共享内存 Manager/Value/Array
+
+直接在内存中开辟共享空间，速度最快，但需要自己加锁，容易出问题
+
+### 7. 生产者消费者模型
+
+- 核心思想：解耦生产端和消费端，平衡生产速度和消费速度
+- 三要素：生产者、队列（缓冲区）、消费者
+
+
+
+```python
+from multiprocessing import Process, Queue
+import time, random
+
+def producer(q, name):
+    for i in range(5):
+        time.sleep(random.random())
+        food = f"{name}做的包子{i}"
+        q.put(food)
+        print(f"生产者{name}生产了{food}")
+
+def consumer(q, name):
+    while True:
+        food = q.get()
+        if food is None: break  # 结束信号
+        time.sleep(random.random())
+        print(f"消费者{name}吃了{food}")
+
+if __name__ == "__main__":
+    q = Queue()
+    # 2个生产者
+    p1 = Process(target=producer, args=(q, "厨师A"))
+    p2 = Process(target=producer, args=(q, "厨师B"))
+    # 2个消费者
+    c1 = Process(target=consumer, args=(q, "顾客1"))
+    c2 = Process(target=consumer, args=(q, "顾客2"))
+
+    p1.start(); p2.start()
+    c1.start(); c2.start()
+
+    p1.join(); p2.join()
+    # 生产完后发结束信号，有几个消费者发几个None
+    q.put(None); q.put(None)
+```
+
+普通 Queue 痛点
+
+1. 需要手动向队列塞 `None` 作为结束标识；
+2. 多消费者场景必须发送对应数量的结束标记，极易写错；
+3. 无法判断**队列里所有数据是否全部被消费完毕**，只能靠自定义标记。
+
+### JoinableQueue 生产者消费者（自带任务计数，无需手动标记）
+
+核心新增两个方法
+
+1. `q.task_done()`：消费者取完一条数据调用，告知队列本条消息处理完成；
+2. `q.join()`：阻塞等待，直到队列中所有数据都调用过 `task_done()`。
+
+
+
+```python
+from multiprocessing import Process, JoinableQueue
+import time, random
+
+def producer(q):
+    for i in range(3):
+        food = f"包子{i}"
+        q.put(food)
+        print(f"生产者生产：{food}")
+        time.sleep(random.random())
+
+def consumer(q):
+    while True:
+        food = q.get()
+        print(f"消费者吃掉：{food}")
+        time.sleep(random.random())
+        q.task_done()  # 标记当前这条消息处理完毕
+
+if __name__ == "__main__":
+    q = JoinableQueue()
+    p = Process(target=producer, args=(q,))
+    c = Process(target=consumer, args=(q,))
+    p.start()
+    c.daemon = True  # 消费者设为守护进程
+    c.start()
+
+    p.join()        # 等待生产者全部生产完成
+    q.join()        # 阻塞：等待队列所有数据被消费+全部task_done
+    print("所有商品已消费完毕")
+```
+
+多消费者兼容示例（不用多发结束符）
+
+```python
+if __name__ == "__main__":
+    q = JoinableQueue()
+    p = Process(target=producer, args=(q,))
+    c1 = Process(target=consumer, args=(q,))
+    c2 = Process(target=consumer, args=(q,))
+    p.start()
+    c1.daemon = True
+    c2.daemon = True
+    c1.start()
+    c2.start()
+
+    p.join()
+    q.join()
+    print("所有包子吃完") 
+```
+
+生产者消费者模型精简总结
+
+```python
+1. 组成
+生产者（生成任务）、队列缓冲区、消费者（处理任务）
+作用：解耦生产消费，平衡二者速度，提升并发。
+2. 两种队列实现
+普通 Queue
+仅存数据，无任务计数；需手动塞结束标记退出循环；多消费者易出错，适合简单传数据。
+JoinableQueue（推荐）
+内置任务计数器；
+消费者处理完调用task_done()
+主进程q.join()阻塞等待全部任务消费完成
+搭配守护进程，不用手动发结束信号，多消费者逻辑简洁。
+3. 关键 API
+put()/get()：阻塞读写，标准场景使用
+put_nowait()/get_nowait()：非阻塞，满抛 Full、空抛 Empty，需捕获异常
+4. 标准执行流程
+创建 JoinableQueue
+启动生产者、守护消费者
+生产者.join()等待生产完成
+q.join()等待全部任务处理完，程序退出
+5. 适用场景
+爬虫、批量运维任务、日志 / 数据清洗、异步消息处理
+6. 优缺点
+优点：代码解耦、可横向扩容、缓冲瞬时峰值任务
+缺点：大量数据占用内存，多进程队列有少量传输损耗
+7. 选型
+简单临时传输用 Queue；批量任务、需确认全部执行完毕用 JoinableQueue。
 ```
 
 
 
 
 
+### 补充：僵尸进程与孤儿进程
+
+- **孤儿进程**：父进程先结束，子进程还在运行，会被系统 init 进程收养，无害
+- **僵尸进程**：子进程结束了，父进程没有调用 join 回收资源，子进程残留 PCB 信息，占用进程号，过多会耗尽系统资源
+- 解决：父进程及时 join 回收，或用守护进程
+
+---
+
+### 第三阶段：多线程编程
+
+#### 前置必备知识
+
+1. 操作系统基础：CPU 调度、并发 / 并行、IO 密集 / CPU 密集任务
+2. 进程概念：进程是资源分配单位，内存独立
+3. 锁、临界区、竞态条件（共享数据修改会错乱）
+4. 队列缓冲区、生产者消费者模型思想
+
+#### 什么是线程
+
+线程是操作系统**最小调度单位**，依附进程存在；
+
+一个进程至少 1 条主线程，同进程内多条线程共享进程内存、文件句柄等资源。
+
+#### 线程 vs 进程
+
+1. 资源隔离：进程内存完全隔离；线程共享同一块进程内存
+2. 切换开销：进程切换开销大；线程切换轻量、速度快
+3. 通信难度：进程需 IPC 队列 / 管道；线程直接读写全局变量
+4. 崩溃影响：一个进程崩溃互不干扰；一条线程崩溃会整个进程退出
+5. Python GIL：多线程无法多核并行计算；多进程可利用多核
+
+#### 多线程适用场景举例（全是 IO 密集型）
+
+1. 爬虫：并发请求大量网页，网络 IO 等待时切换线程
+2. 运维批量操作：多台服务器 ssh 执行命令、文件上传下载
+3. 文件读写：同时读取多个本地 / 远程文件
+4. 接口服务：Web 后端处理大量客户端请求，等待数据库 / Redis IO
+5. 监控采集：多线程同时拉取多台机器指标、日志
 
 
 
+### 1. 线程基础
+
+Python 中使用 `threading` 模块实现多线程，**同一进程内的所有线程共享全局内存**，数据可以直接互相访问。
 
 
 
+### 2. 开启线程的两种方式
+
+```python
+import threading
+import time
+
+# 方式1：函数式
+def task(name):
+    print(f"{name} 线程开始")
+    time.sleep(2)
+    print(f"{name} 线程结束")
+
+# 方式2：继承Thread类
+class MyThread(threading.Thread):
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+    def run(self):
+        print(f"{self.name} 线程开始")
+        time.sleep(2)
+        print(f"{self.name} 线程结束")
+
+t1 = threading.Thread(target=task, args=("线程1",))
+t2 = MyThread("线程2")
+t1.start()
+t2.start()
+```
+
+### 3. Thread 对象常用属性 / 方法
+
+```bash
+- `ident`：线程 ID
+- `name`：线程名
+- `is_alive()`：是否存活
+- `join()`：主线程等待子线程结束
+- `daemon`：是否守护线程
+- `threading.current_thread()`：获取当前线程对象
+- `threading.active_count()`：当前存活线程数
+
+
+Thread实例对象的方法
+  # isAlive(): 返回线程是否活动的。
+  # getName(): 返回线程名。
+  # setName(): 设置线程名。
+threading模块提供的一些方法：
+  # threading.currentThread(): 返回当前的线程变量。
+  # threading.enumerate(): 返回一个包含正在运行的线程的list。正在运行指线程启动后、结束前，不包括启动前和终止后的线程。
+  # threading.activeCount(): 返回正在运行的线程数量，与len(threading.enumerate())有相同的结果。
+```
+
+### 4. 守护线程
+
+- 特性：守护线程会在**所有非守护线程都结束时自动终止**
+- 注意：和守护进程的区别 —— 守护进程看主进程代码是否结束，守护线程看所有非守护线程是否结束
 
 
 
+```python
+t = threading.Thread(target=task)
+t.daemon = True
+t.start()
+```
+
+### 5. 多进程 vs 多线程 核心区别
+
+| 维度     | 多进程            | 多线程                      |
+| ------ | -------------- | ------------------------ |
+| 内存     | 相互隔离，独立空间      | 共享同一块进程内存                |
+| 切换开销   | 大              | 小                        |
+| 通信难度   | 难，需 IPC 机制     | 易，直接读写全局变量               |
+| 稳定性    | 高，一个进程崩溃不影响其他  | 低，一个线程崩溃可能挂掉整个进程         |
+| GIL 影响 | 不受 GIL 限制，多核并行 | 受 GIL 限制，同一时刻只有一个线程执行字节码 |
+| 适用场景   | CPU 密集型任务      | IO 密集型任务                 |
+
+---
+
+### 第四阶段：GIL 全局解释器锁（Python 特有核心）
+
+### 1. 什么是 GIL
+
+CPython 解释器中的一把全局互斥锁，**同一时刻只能有一个线程执行 Python 字节码**，即使多核 CPU 也无法让多线程并行执行计算。
+
+### 2. 为什么要有 GIL
+
+早期为了简化内存管理、方便实现垃圾回收（引用计数），用一把大锁保证线程安全，避免复杂的细粒度锁设计。历史遗留设计，至今难以彻底移除。
+
+### 3. GIL 的释放时机
+
+1. **IO 阻塞时自动释放**：遇到 sleep、文件读写、网络请求等 IO 操作，线程会主动释放 GIL，让其他线程执行
+2. **时间片到期释放**：CPU 密集型线程执行一定字节码数量 / 时间后，强制释放 GIL，触发线程切换
+
+> 结论：GIL 对 IO 密集型多线程影响很小，对 CPU 密集型多线程几乎没有加速效果，甚至因为切换开销更慢。
+
+### 4. 经典问题：有 GIL 为什么还需要线程锁？
+
+- GIL 只保证「同一时刻只有一个线程执行字节码」，但不保证**原子性**
+- 比如 `count += 1` 底层是 3 条字节码，执行到一半可能被切走，其他线程修改了 count，切回来就会数据错乱
+- 结论：GIL 是解释器级别的锁，线程安全是业务数据级别的锁，二者不是一回事
 
 
 
+多线程用于IO密集型，如socket，爬虫，web
+多进程用于计算密集型，如金融分析
 
 
 
+### 第五阶段：线程同步与互斥工具
+
+### 1. 互斥锁 Lock
+
+和进程锁用法完全一致，解决线程间共享数据的竞态条件问题
 
 
 
+```python
+import threading
+
+lock = threading.Lock()
+count = 0
+
+def add():
+    global count
+    for _ in range(100000):
+        lock.acquire()
+        count += 1
+        lock.release()
+        
+```
+
+### 2. 死锁现象
+
+- 定义：两个线程互相持有对方需要的锁，同时等待对方释放，永远卡住
+- 四个必要条件：互斥、持有并等待、不可剥夺、循环等待
+- 规避：统一加锁顺序、设置超时时间、用递归锁
 
 
 
+```python
+import threading
+lock1 = threading.Lock()
+lock2 = threading.Lock()
+
+def func1():
+    lock1.acquire()
+    print("func1 拿到lock1")
+    threading.sleep(1)
+    lock2.acquire() # 等func2释放lock2，永远等不到
+
+def func2():
+    lock2.acquire()
+    print("func2 拿到lock2")
+    threading.sleep(1)
+    lock1.acquire() # 等func1释放lock1，互相等待→死锁
+
+t1 = threading.Thread(target=func1)
+t2 = threading.Thread(target=func2)
+t1.start()
+t2.start()
+```
+
+### 3. 递归锁 RLock
+
+- 特点：同一个线程可以多次 acquire，内部有计数器，acquire 几次就需要 release 几次
+- 用途：解决嵌套加锁导致的死锁问题
 
 
 
+- **Lock（互斥锁）**：同一线程**不能重复加锁**，`acquire()` 两次直接卡死死锁；只支持一层锁。
+- **RLock（递归锁）**：内部有计数器，**同一个线程可以多次 acquire 嵌套加锁**，acquire 几次必须 release 几次；跨线程依旧互斥。
+- 多个线程争抢多把锁互相等待，不管哪种锁都会死锁，只能靠统一加锁顺序规避。
+
+```python
+import threading
+
+lock = threading.Lock()
+
+def sub_func():
+    lock.acquire()
+    print("子函数拿到锁执行逻辑")
+    lock.release()
+
+def main_func():
+    lock.acquire()
+    print("主函数拿到锁")
+    # 内部调用另一个也要加同一把锁的函数
+    sub_func()
+    lock.release()
+
+t = threading.Thread(target=main_func)
+t.start()
+----------------------------------------------------
+执行流程卡死原因：
+main_func 先 acquire() 持有锁
+进入 sub_func 再次执行 lock.acquire()
+Lock 不允许同一个线程重复拿锁，自己阻塞自己，永久卡住
+-----------------------------------------------------
+# 换成 RLock 就能正常运行（解决嵌套加锁）
+import threading
+
+rlock = threading.RLock()
+
+def sub_func():
+    rlock.acquire()
+    print("子函数拿到锁执行逻辑")
+    rlock.release()
+
+def main_func():
+    rlock.acquire()
+    print("主函数拿到锁")
+    sub_func()
+    rlock.release()
+
+t = threading.Thread(target=main_func)
+t.start()
 
 
+
+```
+
+### 4. 信号量 Semaphore
+
+- 作用：控制同一时间最多有多少个线程并发执行，本质是多把锁
+- 场景：限制接口并发数、控制连接池数量
+
+
+
+```python
+sem = threading.Semaphore(3)  # 最多3个线程同时运行
+def task():
+    sem.acquire()
+    time.sleep(1)
+    sem.release()
+```
+
+### 5. 事件 Event
+
+- 作用：线程间信号通知，一个线程发信号，其他线程等待
+- 核心方法：`set()` 发信号、`wait()` 等待信号、`clear()` 清空信号、`is_set()` 是否有信号
+
+python
+
+运行
+
+```
+event = threading.Event()
+
+def wait_task():
+    print("等待信号...")
+    event.wait()  # 阻塞，直到收到set信号
+    print("收到信号，开始执行")
+
+def signal_task():
+    time.sleep(2)
+    event.set()  # 发送信号
+```
+
+### 6. 定时器 Timer
+
+- 作用：延迟指定时间后执行任务，本质是延迟启动的线程
+
+python
+
+运行
+
+```
+from threading import Timer
+t = Timer(3, task, args=("延迟任务",))  # 3秒后执行task
+t.start()
+```
+
+### 7. 线程队列 queue
+
+线程安全的队列，和 multiprocessing.Queue 用法一致，用于线程间数据传递
+
+python
+
+运行
+
+```
+import queue
+q = queue.Queue()       # 先进先出
+q = queue.LifoQueue()   # 后进先出（栈）
+q = queue.PriorityQueue() # 优先级队列
+```
+
+---
+
+### 第六阶段：进程池与线程池
+
+### 1. 池的作用
+
+进程 / 线程创建销毁开销大，池化技术预先创建好固定数量的进程 / 线程，任务来了直接复用，避免频繁创建销毁，提升性能。
+
+### 2. 标准实现：concurrent.futures
+
+Python 统一的池化接口，`ThreadPoolExecutor` 和 `ProcessPoolExecutor` 用法完全一致。
+
+python
+
+运行
+
+```
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import time
+
+def task(n):
+    time.sleep(1)
+    return n * n
+
+# 线程池
+with ThreadPoolExecutor(max_workers=5) as pool:
+    # 方式1：逐个提交
+    future = pool.submit(task, 10)
+    print(future.result())  # 获取结果，阻塞
+
+    # 方式2：批量提交，按提交顺序返回结果
+    results = pool.map(task, [1,2,3,4,5])
+    for res in results:
+        print(res)
+
+    # 方式3：回调函数：任务完成自动执行回调
+    def callback(fut):
+        print("任务完成，结果：", fut.result())
+    pool.submit(task, 20).add_done_callback(callback)
+```
+
+### 核心说明
+
+- `max_workers`：池内最大进程 / 线程数，CPU 密集型建议设为 CPU 核数，IO 密集型可以设大一些
+- `Future` 对象：封装了任务的未来结果，可以用`result()`等待结果，`done()`判断是否完成
+- 进程池同样要写在 `if __name__ == "__main__":` 下
+
+---
+
+#### 第七阶段：协程编程
+
+### 1. 协程本质
+
+用户态的轻量级线程，**在单线程内实现任务切换**，完全由程序自己控制，没有操作系统线程切换的开销，并发效率极高，专为 IO 密集型场景设计。
+
+### 2. 协程 vs 线程 vs 进程
+
+- 切换开销：进程 > 线程 > 协程
+- 并发量级：进程几十个、线程几百个、协程几万个
+- 适用场景：CPU 密集用多进程，IO 密集用协程 / 多线程
+
+### 3. 底层手动切换：greenlet
+
+第三方库，手动控制切换时机，非常底层，几乎不直接用
+
+python
+
+运行
+
+```
+from greenlet import greenlet
+
+def func1():
+    print("func1 第一步")
+    gr2.switch()  # 切换到func2
+    print("func1 第二步")
+
+def func2():
+    print("func2 第一步")
+    gr1.switch()  # 切回func1
+    print("func2 第二步")
+
+gr1 = greenlet(func1)
+gr2 = greenlet(func2)
+gr1.switch()  # 启动
+```
+
+### 4. 自动切换：gevent
+
+第三方库，遇到 IO 自动切换协程，早期 Python 协程主流方案
+
+python
+
+运行
+
+```python
+import gevent
+from gevent import monkey; monkey.patch_all()  # 猴子补丁：把所有阻塞IO改成非阻塞，自动触发切换
+import time
+
+def task(name):
+    for i in range(3):
+        print(f"{name} 执行第{i}次")
+        time.sleep(1)  # 被补丁替换，遇到IO自动切其他协程
+
+g1 = gevent.spawn(task, "协程1")
+g2 = gevent.spawn(task, "协程2")
+g1.join()
+g2.join()
+```
+
+### 5. 标准库原生协程：asyncio（补充，当前主流）
+
+Python3.5+ 官方标准，`async/await` 语法，现在是 Python 协程的主流方案
+
+python
+
+运行
+
+```bash
+import asyncio
+
+async def task(name):
+    for i in range(3):
+        print(f"{name} 执行第{i}次")
+        await asyncio.sleep(1)  # 异步等待，让出CPU给其他协程
+
+async def main():
+    # 并发执行多个协程
+    await asyncio.gather(
+        task("协程1"),
+        task("协程2")
+    )
+
+asyncio.run(main())
+```
+
+- 核心组件：事件循环（EventLoop）、任务（Task）、Future
+- 原理：单线程跑事件循环，遇到 IO 就挂起当前协程，调度下一个就绪的协程，全程无线程切换开销
+
+---
+
+### 第八阶段：IO 模型理论
+
+### 1. 两组概念辨析
+
+#### 阻塞 vs 非阻塞（调用者的状态）
+
+- **阻塞**：调用发起后，线程挂起，啥也干不了，直到结果返回
+- **非阻塞**：调用发起后，立刻返回，线程可以继续干别的，需要自己轮询结果
+
+#### 同步 vs 异步（消息通知机制）
+
+- **同步**：发起调用后，需要主动等待 / 轮询结果，自己去拿数据
+- **异步**：发起调用后立刻返回，不用等，结果准备好后系统主动通知你
+
+### 2. 五大 IO 模型（从低效到高效）
+
+1. **阻塞 IO（BIO）**：全程阻塞，最简单，并发能力最差
+2. **非阻塞 IO（NIO）**：非阻塞 + 轮询，浪费 CPU，实际很少用
+3. **IO 多路复用**：一个线程监听多个连接，哪个就绪就处理哪个，高并发基础（select/poll/epoll）
+4. **信号驱动 IO**：就绪了发信号通知，用得少
+5. **异步 IO（AIO）**：全程不阻塞，内核把数据拷贝完再通知，效率最高，实现复杂
+
+### 核心结论
+
+- 协程 + IO 多路复用 = 单线程高并发的核心实现
+- Nginx、Redis、Node.js 高性能的核心都是 IO 多路复用
+
+---
+
+### 第九阶段：IO 多路复用实现
+
+### 1. select /poll/epoll 对比
+
+表格
+
+| 方案     | 最大连接数 | 工作机制       | 性能随连接数下降 | 平台支持  |
+| ------ | ----- | ---------- | -------- | ----- |
+| select | 1024  | 轮询遍历所有     | 严重       | 全平台   |
+| poll   | 无限制   | 轮询遍历所有     | 严重       | 全平台   |
+| epoll  | 无限制   | 事件回调，就绪才通知 | 几乎不下降    | Linux |
+
+### 2. selectors 模块
+
+Python 标准库对 IO 多路复用的高层封装，自动选择当前平台最优的实现（Linux 用 epoll，Windows 用 select）
+
+```python
+import selectors
+import socket
+
+sel = selectors.DefaultSelector()
+
+def accept(sock, mask):
+    conn, addr = sock.accept()
+    conn.setblocking(False)
+    sel.register(conn, selectors.EVENT_READ, read)
+
+def read(conn, mask):
+    data = conn.recv(1024)
+    if data:
+        conn.send(data)
+    else:
+        sel.unregister(conn)
+        conn.close()
+
+sock = socket.socket()
+sock.bind(("0.0.0.0", 8080))
+sock.listen(100)
+sock.setblocking(False)
+sel.register(sock, selectors.EVENT_READ, accept)
+
+while True:
+    events = sel.select()  # 阻塞等待就绪的连接
+    for key, mask in events:
+        callback = key.data
+        callback(key.fileobj, mask)
+```
+
+> 这就是单线程并发处理上千个连接的基础，也是 asyncio、Tornado 等异步框架的底层原理。
+
+---
+
+### 第十阶段：并发选型总结（最终落地）
+
+1. **CPU 密集型任务**：用**多进程**（multiprocessing / ProcessPoolExecutor），绕开 GIL 利用多核
+
+2. **IO 密集型任务**：
+   
+   - 简单场景、代码改造成本低：用**多线程**（threading / ThreadPoolExecutor）
+   - 高并发、追求极致性能：用**协程**（asyncio / gevent）
+
+3. **混合场景**：多进程 + 协程组合，每个进程跑一个事件循环
+
+4. **任务数量多、频繁创建销毁**：优先用池化技术，减少创建开销

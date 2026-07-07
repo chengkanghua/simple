@@ -78,6 +78,8 @@ Data Preview：表格、Excel 数据可视化预览。
 
 ## 虚拟环境创建
 
+### venv
+
 ```bash
 vscode  ctrl+shift +p   输入 python: create Environments 
 选择 venv 新建项目虚拟环境
@@ -116,9 +118,7 @@ deactivate
 直接删除.venv文件夹
 ```
 
-
-
-## python虚拟化工具对比
+### python虚拟化工具对比
 
 | 工具     | 核心职责           | 是否自带 Python | 企业使用场景          | 必学程度       |
 | ------ | -------------- | ----------- | --------------- | ---------- |
@@ -127,6 +127,580 @@ deactivate
 | pipenv | 虚拟环境 + 依赖锁定    | 复用当前 Python | 中小型 web 项目      | 了解即可       |
 | poetry | 标准化依赖 + 打包发布   | 复用当前 Python | 开源库、规范微服务       | 建议掌握       |
 | conda  | Python + 底层科学库 | 自带整套 Python | AI / 数据分析 / 大模型 | 数据岗必学，后端了解 |
+
+```bash
+# 1. 入门学习、底层原理、服务器无额外工具 → venv + pip（必学）
+# 2. 接手多年前遗留小项目、老爬虫 → pipenv（仅了解，不新建）
+# 3. 开发开源Python库、需要打包上传PyPI → poetry（掌握）
+# 4. 新项目、Web后端、自动化脚本、CI流水线、主流企业 → uv（优先精通）
+# 5. 数据分析/深度学习带CUDA/C库 → conda（单独场景）
+```
+
+### pyenv
+
+```python
+# 安装（Mac/Linux bash）
+# 1. 安装pyenv核心
+git clone https://github.com/pyenv/pyenv.git ~/.pyenv
+# 写入bash环境变量
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
+echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
+echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+# 2. 安装虚拟环境插件
+git clone https://github.com/pyenv/pyenv-virtualenv.git ~/.pyenv/plugins/pyenv-virtualenv
+echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
+# 生效配置
+source ~/.bashrc
+# 校验
+pyenv --version
+
+# windows
+方式 1：Chocolatey 安装（最简单） 
+# 管理员 PowerShell 安装包管理器 choco
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+# 安装 pyenv-win
+choco install pyenv-win
+#配置环境变量（自动写入，关闭终端重开生效）
+
+方式 2：Git 克隆手动安装
+powershell
+git clone https://github.com/pyenv-win/pyenv-win.git $HOME\.pyenv
+# 手动把 .pyenv\bin 和 .pyenv\shims 加入系统PATH
+验证安装 powershell
+pyenv --version
+
+
+pyenv 核心版本管理命令
+# 查看可安装Python列表
+pyenv install --list
+# 安装指定版本
+pyenv install 3.12.4
+# 查看本地已装Python
+pyenv versions
+# 全局默认Python
+pyenv global 3.12.4
+# 当前项目目录绑定Python（生成.python-version，优先级高于global）
+pyenv local 3.12.4
+# 仅当前终端临时切换
+pyenv shell 3.10.15
+# 查看当前生效版本
+pyenv version
+# 卸载Python版本
+pyenv uninstall 3.8.20
+# 更新pyenv版本库
+pyenv update
+
+pyenv-virtualenv 虚拟环境全套命令
+
+# 1. 创建环境：格式 pyenv virtualenv python版本 环境名
+pyenv virtualenv 3.12.4 game-venv
+
+# 2. 项目自动绑定环境，cd目录自动激活
+pyenv local game-venv
+
+# 3. 手动激活/退出
+pyenv activate game-venv
+pyenv deactivate
+
+# 4. 删除虚拟环境
+pyenv virtualenv-delete game-venv
+
+标准项目完整流程（bash）
+
+# 1. 安装对应Python
+pyenv install 3.12.4
+# 2. 新建项目目录并进入
+mkdir pygame-demo && cd pygame-demo
+# 3. 绑定Python解释器版本
+pyenv local 3.12.4
+# 4. 创建该版本专属虚拟环境
+pyenv virtualenv 3.12.4 venv-game
+# 5. 目录自动绑定环境，进入即激活
+pyenv local venv-game
+# 安装依赖
+pip install pygame matplotlib
+# 退出环境
+pyenv deactivate
+
+
+六、优先级规则
+shell临时终端 > local项目目录 > global全局系统
+
+对比原生 venv
+# 原生venv用法（仅隔离包，无法切换Python解释器）
+python -m venv .venv
+# 激活bash
+source .venv/bin/activate
+# 退出
+deactivate
+```
+
+### pipenv
+
+```python
+一、核心定位（替代什么？）
+pipenv = venv + pip + requirements.txt 全自动整合工具
+彻底抛弃：手动建 .venv、手动激活、手动 pip freeze
+Python 官方推荐轻量项目管理工具，中小公司大量在用
+二、安装
+# 全局安装一次即可
+pip install pipenv
+
+三、自动生成的两个文件（重点：不重复、互补）
+1. Pipfile（人看、顶层依赖）
+只记录：你手动安装的包，区分生产/开发依赖
+可写版本范围，用于定义项目需要什么库
+2. Pipfile.lock（机器用、全局快照）
+锁定：所有依赖 + 子依赖 精确版本 + 哈希校验
+作用：保证团队所有人、线上线下版本100%一致
+结论：彻底不需要 requirements.txt、不需要 pip freeze
+四、日常开发全套命令（Bash）
+# 1. 安装生产依赖（自动创建虚拟环境 + 生成两个配置文件）
+pipenv install 包名
+
+# 2. 安装开发依赖（仅本地测试，不上线）
+pipenv install 包名 --dev
+
+# 3. 进入虚拟环境终端（长期开发用）
+pipenv shell
+
+# 4. 不进入终端、直接运行代码（临时执行用）
+pipenv run python main.py
+
+# 5. 卸载包
+pipenv uninstall 包名
+
+# 6. 查看依赖树
+pipenv graph
+
+# 7. 退出虚拟环境
+exit
+
+五、企业团队协作标准流程（最重要）
+1. 开发者本地开发
+pipenv install xxx
+# 自动更新 Pipfile + Pipfile.lock
+
+# 提交代码到 Git（只提交源码+两个配置文件）
+git add .
+git commit -m "update"
+
+2. 同事 / 服务器 拉取项目部署
+git pull
+
+# 一键还原 100% 一致环境（生产部署专用）
+pipenv install --deploy
+
+无需 pip freeze、无需改任何配置、无需激活环境
+六、pipenv vs 原生 venv 核心区别（你之前的疑问）
+# ========== 原生 venv 麻烦 ==========
+python -m venv .venv
+source .venv/bin/activate
+pip install xxx
+pip freeze > requirements.txt  # 需要手动维护！
+
+# ========== pipenv 全自动 ==========
+# 1. 项目目录干净，无 .venv 垃圾文件夹
+# 2. 自动区分生产/开发包
+# 3. 自动锁版本，不用手动导出依赖
+# 4. 环境统一存系统目录，不污染项目
+
+七、什么时候才需要 requirements.txt？
+仅兼容老旧项目时使用，正常团队完全不用
+# pipenv 导出 txt 兼容旧环境（备用）
+pipenv lock -r > requirements.txt
+
+八、清理命令（收尾）
+# 删除当前项目虚拟环境
+pipenv --rm
+
+九、最终一句话总结
+pipenv 干掉了 venv、activate、deactivate、pip freeze、requirements.txt，
+只需要提交两个配置文件，团队、服务器全自动统一环境，是中小型项目最省心的 Python 环境方案。
+
+
+pipenv 看着好用，为什么只建议了解、不推荐新项目用？
+1 长期维护停滞（核心硬伤）
+2018 年后几乎停更，依赖解析速度极慢，复杂依赖会卡死，官方 PyPA 早已不再主推它；
+2 标准不统一
+Pipfile 是当年临时方案，现代 Python 统一标准是 pyproject.toml（Poetry/uv 都遵循）；
+3 定位尴尬
+中小型老项目存量多，但2026 年所有新项目都不选它，只需要看得懂旧项目即可，不用深度主力学习。
+```
+
+### poetry
+
+```python
+Poetry 精简 Bash 学习手册（企业工程化专用，对比 venv/pipenv）
+一、定位
+现代 Python 标准工具：依赖管理 + 虚拟环境 + 打包发布三合一
+替代 venv+pip+requirements.txt+setup.py+pipenv
+标准配置文件 pyproject.toml（行业统一规范，Pipfile 已淘汰）
+适合：开源库开发、中大型后端工程、需要打包上传 PyPI；新项目优先 uv，存量库项目必须掌握 Poetry
+虚拟环境统一存放系统目录，项目内无臃肿.venv文件夹
+
+二、一键安装（Bash）
+# 跨平台官方安装脚本
+curl -sSL https://install.python-poetry.org | python3 -
+# 写入环境变量永久生效
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+# 校验
+poetry --version
+
+# 添加清华源为主源，优先使用国内镜像
+poetry source add --priority=primary tsinghua https://pypi.tuna.tsinghua.edu.cn/simple/
+# 查看已配置源
+poetry source show
+
+# Win11专用官方安装命令  # 卸载的话 后面接  --uninstall
+(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+
+自动独立虚拟环境安装，不污染系统全局 Python
+默认路径：C:\Users\kanghua\AppData\Roaming\Python\Scripts\poetry.exe
+# 添加到环境变量   
+echo "`nif (-not (Get-Command poetry -ErrorAction Ignore)) { `$env:Path += `";C:\Users\kanghua\AppData\Roaming\Python\Scripts`" }" | Out-File -Append $PROFILE
+# 检查修改的文件 真实文件路径C:\Users\kanghua\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
+# notepad $profile 
+# 验证
+poetry --version
+
+
+三、初始化项目两种方式
+# 1. 新建完整标准化项目（自动生成目录+pyproject.toml）
+poetry new demo-project
+cd demo-project
+
+# 2. 已有空目录交互式初始化
+poetry init
+
+四、两大核心配置文件（不重复，互补）
+pyproject.toml（人编辑，顶层项目定义）
+    项目名称、版本、Python 版本约束
+    生产依赖、开发依赖分组（test/dev/docs）
+    打包发布、脚本入口配置
+poetry.lock（机器锁定，完整依赖快照）
+    递归锁定所有子依赖精确版本，带哈希校验
+    团队 / 服务器 100% 复现环境，提交 Git
+    无需requirements.txt，仅对接老项目才导出兼容 txt
+
+五、依赖管理全套命令
+# 安装生产依赖（写入pyproject.toml，自动更新lock）
+poetry add requests matplotlib
+
+# 安装开发依赖（仅本地测试，部署忽略）
+poetry add pytest black --group dev
+
+# 卸载包
+poetry remove requests
+
+# 更新全部依赖版本
+poetry update
+
+# 仅重锁不升级版本（修复lock冲突）
+poetry lock --no-update
+
+# 查看依赖树
+poetry show --tree
+
+# 导出兼容老项目requirements.txt（备用）
+poetry export -f requirements.txt --without-hashes
+
+六、虚拟环境操作（核心）
+# 1. 根据lock文件一键还原完整环境（团队/服务器部署必用）
+# --without dev：线上部署剔除开发测试包
+poetry install --without dev
+
+# 2. 指定Python版本创建环境（配合pyenv多版本）
+poetry env use python3.12
+
+# 3. 进入虚拟交互终端（长期开发调试）
+poetry shell
+exit # 退出环境
+
+# 4. 不进终端，直接运行代码/脚本（CI/临时执行）
+poetry run python main.py
+poetry run pytest
+
+# 5. 查看当前虚拟环境路径
+poetry env info --path
+
+# 6. 删除当前项目全部虚拟环境（清空所有安装包）
+poetry env remove python3.12
+
+七、企业打包 & 发布独有能力（pipenv 不具备）
+
+# 修改版本（major/minor/patch）（自动写入pyproject.toml）
+poetry version patch
+
+# 构建分发包，生成dist/下 .whl + .tar.gz
+poetry build
+
+# 一键发布到官方PyPI
+poetry publish
+
+# 发布到私有仓库
+poetry publish --repository 私有仓库名  # PyPI 包仓库
+
+# 说明
+普通业务项目只推 Git 代码，几乎不用 publish；
+内部通用工具 / SDK 组件，中大型企业 100% 会搭建私有 PyPI 包仓库，高频发包；
+Release 存放 exe 可执行程序，是给终端用户直接运行；
+私有 PyPI 存放库包，是给其他 Python 项目做依赖导入，两种东西用途完全不同。
+
+八、标准团队协作完整流程（Bash）
+# 1. 本地开发，添加依赖
+poetry add flask
+# pyproject.toml + poetry.lock自动更新
+
+# 2. 提交代码（源码+两个配置文件提交Git）
+git add .
+git commit -m "feat: 接口依赖"
+
+# 3. 同事/服务器拉取代码，一键部署环境
+git pull
+poetry install --without dev
+poetry run python main.py
+
+九、venv /pipenv/poetry 核心区别精简
+# 1. python -m venv（底层必学）
+# 只有虚拟环境，无依赖锁、无打包，必须手动freeze导出txt
+
+# 2. pipenv（仅看懂旧项目，不新建）
+# 停更、解析慢，只能管理依赖，不能打包发布
+
+# 3. poetry（工程/库开发掌握）
+# 标准pyproject.toml，依赖分组严谨，自带打包发布，企业存量项目极多
+
+# 4. uv（2026新项目首选，速度远超poetry）
+# Rust开发，全能更快，兼顾多Python版本+虚拟环境+依赖
+
+十、清理 & 常用杂项命令
+# 清空pip缓存
+poetry cache clear pypi
+
+# 查看全局配置
+poetry config --list
+
+# 配置国内镜像源加速安装
+poetry config repositories.pypi https://pypi.tuna.tsinghua.edu.cn/simple
+
+一句话总结
+venv 是底层基础必须吃透；
+pipenv 过时仅看懂旧项目；
+Poetry 是工程 / 开源库必备，一套命令搞定依赖、虚拟环境、打包发布；
+新项目优先 uv。
+
+pipenv = 简化版 venv + 依赖锁，仅满足普通业务脚本；
+Poetry = 标准化工程工具，在 pipenv 所有功能基础上，叠加官方标准配置、多依赖分组、强依赖解析、版本管理、项目脚手架、脚本管理、一体化打包发布整套工程能力，打包只是其中一个附加功能，不是唯一区别。
+
+
+
+```
+
+### uv
+
+```bash
+
+uv 精简学习手册（2026 企业新项目首选，Bash 命令版）
+一、uv 定位
+Rust 开发，全能一体化工具：Python 版本管理 + 虚拟环境 + 依赖锁 + pip 兼容 + CI 加速
+优势：速度是 pip/poetry/pipenv 的 10~100 倍，遵循现代标准pyproject.toml，替代 venv/pip/pipenv，可平替 Poetry（仅库发布场景 Poetry 生态更成熟）
+核心文件：pyproject.toml（顶层依赖）+ uv.lock（全局精确锁，提交 Git）
+二、安装 & 升级
+# Linux/macOS 一键安装
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows PowerShell
+irm https://astral.sh/uv/install.ps1 | iex
+
+# 验证
+uv --version
+# 更新uv自身
+uv self update
+
+三、项目初始化（两种方式）
+# 1. 新建标准化项目（自动生成pyproject.toml、main.py、.gitignore）
+uv init demo-uv-project
+cd demo-uv-project
+
+# 指定Python版本初始化（自动安装对应解释器）
+uv init demo-project --python 3.12
+
+# 2. 已有空目录直接初始化
+uv init
+
+初始化后自动生成：
+pyproject.toml：记录项目信息、生产 / 开发依赖
+.python-version：锁定项目使用的 Python 版本
+开发时执行uv sync自动创建.venv虚拟环境（放在项目目录，直观可控）
+uv.lock：递归锁定所有子依赖精确版本 + 哈希
+
+四、依赖管理核心命令（日常开发）
+# 安装生产依赖（写入pyproject.toml，自动更新uv.lock）
+uv add requests fastapi
+
+# 安装开发依赖（测试/格式化，部署可忽略）
+uv add pytest ruff black --dev
+
+# 卸载包
+uv remove requests
+
+# 查看完整依赖树
+uv tree
+
+# 仅更新lock文件，不升级包版本
+uv lock --no-update
+
+# 批量升级全部依赖
+uv lock --upgrade
+
+# 仅升级单个包
+uv lock --upgrade-package fastapi
+
+# 导出兼容老项目requirements.txt
+uv export -o requirements.txt --without-hashes
+
+五、虚拟环境操作（uv 自动管理，不用手动 activate）
+# 一键同步环境（团队/服务器部署核心命令）
+# --frozen：严格按uv.lock版本安装，版本冲突直接报错（生产必加）
+uv sync --frozen
+
+# 线上部署，跳过开发依赖
+uv sync --frozen --no-dev
+
+# 临时运行代码，无需激活环境（最常用）
+uv run python main.py
+uv run pytest
+
+# 进入虚拟环境交互式终端（长时间调试）
+source .venv/bin/activate  # Linux/macOS
+.venv\Scripts\activate     # Windows
+exit                       # 退出
+
+# 手动创建自定义虚拟环境（极少用，uv sync自动生成）
+uv venv --python 3.12
+
+# 删除项目虚拟环境（清空所有安装包）
+rm -rf .venv
+
+六、多 Python 版本管理（独有优势，不用 pyenv）
+# 查看本地已有的Python版本
+uv python list
+
+# 自动下载安装指定Python
+uv python install 3.11 3.12
+
+# 给当前项目锁定Python版本
+uv python pin 3.12
+
+七、兼容原生 pip 语法（迁移老项目零成本）
+# 完全等价pip install
+uv pip install numpy pandas
+uv pip list
+uv pip show requests
+uv pip uninstall numpy
+
+# 从老requirements.txt批量安装
+uv pip install -r requirements.txt
+
+八、企业团队标准协作全流程
+# 1. 本地开发添加依赖
+uv add flask uvicorn
+
+# 2. 提交代码（源码 + pyproject.toml + uv.lock 入Git，忽略.venv）
+git add .
+git commit -m "add web framework"
+
+# 3. 同事/服务器拉取代码，一键复现100%一致环境
+git pull
+uv sync --frozen --no-dev
+
+# 4. 启动服务
+uv run python main.py
+
+九、uv vs venv/pipenv/poetry 精简对比
+# venv：底层基础必学，仅虚拟环境，无锁文件，手动freeze
+# pipenv：过时，Pipfile非标准，解析慢，仅看懂老项目
+# poetry：适合开源库打包发布，速度慢，不能管理Python版本
+# uv：2026新项目首选，速度极快，一套工具搞定版本+环境+依赖，CI友好
+
+十、清理 & 镜像配置
+# 清理缓存包
+uv cache clean
+
+# 配置清华源加速（全局）
+uv config set index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+一句话总结
+venv 是底层基础；
+pipenv 过时仅看懂旧项目；
+Poetry 适合开源库发布；
+uv 是后端 / 脚本 / 数据分析新项目最优选择，速度快、命令简洁、自带多 Python 版本管理，企业 CI / 容器部署主流工具。
+
+# uv vs Poetry 精简对比优势总结
+# uv 核心优势（对比 Poetry）
+1. 性能：Rust实现，依赖解析/安装速度快数十倍，CI构建耗时大幅缩短
+2. 内置Python版本管理，无需额外pyenv
+3. 完整兼容原生pip语法，老项目迁移成本极低
+4. 独立单二进制，裸机/Docker/CI无需预装Python
+5. 自带全局工具uvtool、多包workspace能力
+6. 缓存机制完善，提供CI专用缓存清理指令
+7. 命令统一简洁，uv sync一步完成环境构建
+
+# Poetry 唯一优势
+仅开源Python库打包、发布至PyPI生态更成熟
+
+# 选型结论
+业务服务/脚本/CI流水线项目选uv；开源SDK库开发选Poetry
+
+
+
+dockerfile 构建对比
+
+示例 1：Poetry 版本 Dockerfile（慢）
+-----------------------------------------
+FROM python:3.12-slim
+
+# 1. 先安装poetry本体（它本身是Python包，多一层耗时）
+RUN pip install poetry
+
+WORKDIR /app
+COPY pyproject.toml poetry.lock ./
+
+# 2. poetry install 解析依赖极慢、串行下载
+RUN poetry install --without dev --no-root
+
+COPY . .
+CMD ["poetry", "run", "python", "main.py"]
+------------------------------------------- docker build -t my-poetry-app .
+示例 2：uv 版本 Dockerfile（快）
+FROM python:3.12-slim
+
+# 直接下载独立二进制uv，不依赖pip安装工具本身
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.cargo/bin:$PATH"
+
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+
+# 并行解析、并行下载、秒级完成
+RUN uv sync --frozen --no-dev
+
+COPY . .
+CMD ["uv", "run", "python", "main.py"]
+----------------------------------------------docker build -t my-uv-app .
+
+
+
+```
+
+
+
+
+
+
+
+
 
 ## 推荐教程地址
 
@@ -2098,6 +2672,70 @@ open()              # 打开文件，进行读写操作
 map()               # 遍历序列，每个元素执行指定函数
 filter()            # 根据条件过滤可迭代对象元素
 lambda              # 创建匿名函数
+```
+
+## python关键字
+
+```python
+Python 全部关键字大全（Python3.12，附带逐行注释）
+导入内置模块，用来动态获取当前版本所有关键字
+import keyword
+1. 打印完整关键字列表
+print ("=== Python3.12 全部关键字 ===")
+all_keywords = keyword.kwlist
+遍历输出每个关键字并标注分类说明
+for word in all_keywords:
+    print(f"{word} | {keyword.iskeyword(word)}")
+
+2. 分类整理 + 单行注释解释每个关键字用途
+-------------------------- 1. 控制流程关键字 --------------------------
+if /elif/else： 条件判断分支
+for /while/break /continue：循环控制
+try /except/finally /raise：异常捕获与抛出
+match /case：Python3.10+ 模式匹配（高级分支）
+
+-------------------------- 2. 函数 / 类 / 作用域关键字 --------------------------
+def：定义函数
+class：定义类
+return：函数返回值
+yield：生成器返回
+global：声明全局变量
+nonlocal：声明外层嵌套函数变量
+
+-------------------------- 3. 逻辑布尔关键字 --------------------------
+and /or/not：逻辑与、或、非
+True / False：布尔常量
+None：空值常量
+
+-------------------------- 4. 导入模块关键字 --------------------------
+import：导入模块
+from：从模块导入指定对象
+as：导入时起别名
+
+-------------------------- 5. 内存 / 变量操作关键字 --------------------------
+del：删除变量、列表元素、对象属性
+pass：空占位语句，无实际逻辑
+assert：断言校验，用于调试
+
+-------------------------- 6. 上下文 / 异步专用关键字 --------------------------
+with：上下文管理器（自动释放资源，文件 / 数据库）
+async /await：Python3.7+ 异步 IO 编程专用
+
+-------------------------- 7. 匹配 / 类型相关关键字 --------------------------
+is：判断两个对象是否为同一个内存地址
+in：判断元素是否存在于容器（列表 / 字符串 / 字典）
+lambda：匿名函数
+type 不是关键字，是内置函数
+
+
+补充说明：
+1. 关键字不能作为变量名、函数名、类名使用，否则直接报语法错误 SyntaxError
+2. Python 版本差异：
+- 3.10 新增 match /case
+- 3.7 正式稳定 async /await（之前是装饰器形式）
+- print /input/type 是内置函数，不属于关键字
+3. 查看本机关键字：print (keyword.kwlist)  # import keyword
+4. 判断单词是否是关键字：keyword.iskeyword ("if") 返回 True/False
 ```
 
 ## 模块与函数导入

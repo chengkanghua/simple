@@ -493,15 +493,11 @@ Poetry 是工程 / 开源库必备，一套命令搞定依赖、虚拟环境、�
 
 pipenv = 简化版 venv + 依赖锁，仅满足普通业务脚本；
 Poetry = 标准化工程工具，在 pipenv 所有功能基础上，叠加官方标准配置、多依赖分组、强依赖解析、版本管理、项目脚手架、脚本管理、一体化打包发布整套工程能力，打包只是其中一个附加功能，不是唯一区别。
-
-
-
 ```
 
 ### uv
 
 ```bash
-
 uv 精简学习手册（2026 企业新项目首选，Bash 命令版）
 一、uv 定位
 Rust 开发，全能一体化工具：Python 版本管理 + 虚拟环境 + 依赖锁 + pip 兼容 + CI 加速
@@ -689,18 +685,7 @@ RUN uv sync --frozen --no-dev
 COPY . .
 CMD ["uv", "run", "python", "main.py"]
 ----------------------------------------------docker build -t my-uv-app .
-
-
-
 ```
-
-
-
-
-
-
-
-
 
 ## 推荐教程地址
 
@@ -1984,6 +1969,38 @@ match day:
         print("周三")
     case _:  # 通配符，相当于else
         print("其他")
+
+
+
+------------------------------Python 多层循环跳出实现方案
+方案 1：布尔标志位（最常用）
+模拟 Go break 外层标签 效果
+# 需求：j==2 直接终止两层循环
+flag = False
+for i in range(3):
+    if flag:
+        break
+    for j in range(3):
+        if j == 2:
+            flag = True
+            break  # 仅跳出内层
+        print(f"i={i}, j={j}")
+输出：
+i=0, j=0
+i=0, j=1
+
+方案 2：函数 return 快速跳出（更优雅）; 利用函数提前返回，替代标签 break
+def loop_demo():
+    for i in range(3):
+        for j in range(3):
+            if j == 2:
+                return  # 直接退出所有循环
+            print(f"i={i}, j={j}")
+
+loop_demo()
+
+
+        
 ```
 
 ## 函数基础

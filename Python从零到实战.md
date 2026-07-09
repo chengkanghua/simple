@@ -1998,9 +1998,6 @@ def loop_demo():
             print(f"i={i}, j={j}")
 
 loop_demo()
-
-
-        
 ```
 
 ## 函数基础

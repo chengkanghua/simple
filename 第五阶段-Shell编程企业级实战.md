@@ -22,15 +22,13 @@ Shell 脚本就是把一系列 Linux 命令、逻辑写在文件里批量自动�
 
 ## 主流 Shell 核心对比表
 
-
-
-| Shell      | 兼容性                | 特点                 | 典型使用场景                    |
-| :--------- | :-------------------- | :------------------- | :------------------------------ |
-| sh(Bourne) | POSIX 标准            | 极简、跨平台         | 系统开机脚本、通用兼容脚本      |
-| bash       | 完全兼容 sh           | 功能最全，Linux 默认 | 绝大多数 Shell 脚本、服务器交互 |
-| dash       | POSIX 精简            | 速度快、资源占用小   | Ubuntu 系统底层启动脚本         |
-| tcsh/csh   | C 语言风格，不兼容 sh | 老旧 Unix 遗留       | 几乎淘汰                        |
-| zsh        | 兼容 bash，扩展极强   | 高颜值、智能补全     | 个人开发、macOS 默认            |
+| Shell      | 兼容性           | 特点            | 典型使用场景              |
+|:---------- |:------------- |:------------- |:------------------- |
+| sh(Bourne) | POSIX 标准      | 极简、跨平台        | 系统开机脚本、通用兼容脚本       |
+| bash       | 完全兼容 sh       | 功能最全，Linux 默认 | 绝大多数 Shell 脚本、服务器交互 |
+| dash       | POSIX 精简      | 速度快、资源占用小     | Ubuntu 系统底层启动脚本     |
+| tcsh/csh   | C 语言风格，不兼容 sh | 老旧 Unix 遗留    | 几乎淘汰                |
+| zsh        | 兼容 bash，扩展极强  | 高颜值、智能补全      | 个人开发、macOS 默认       |
 
 ## 面试高频总结
 
@@ -96,8 +94,6 @@ bash 兼容 sh 语法，还集成 csh、ksh 特性，绝大多数 bash 脚本可
 
 `#` 开头为单行注释；也可使用语法实现多行注释，仅对代码做说明，不会被解释执行。
 
-
-
 ## Shell 编程设计思想
 
 1. 粘合型脚本语言不是用来独立开发大型软件，核心作用是调用 Linux 系统现有命令、工具，把零散命令组合串联，实现任务自动化，属于系统工具的 “粘合剂”。
@@ -117,6 +113,397 @@ bash 兼容 sh 语法，还集成 csh、ksh 特性，绝大多数 bash 脚本可
 7. **不适合海量浮点运算、高并发复杂业务**，只适合轻量级自动化场景。
 
 
+
+## shell编程关键字大全
+
+```bash
+#!/bin/bash
+# Bash Shell 核心关键字 & 语法级内置命令汇总
+# 关键字=语法保留字，不可作为变量/函数名；内置命令为Shell原生核心工具，写脚本必用
+
+# ========== 一、语法保留关键字（纯语法标记，Shell原生保留字） ==========
+
+## 1. 条件判断分支（成对出现，结束标记为起始倒写）
+# if     条件判断起始
+# then   条件成立后执行块起始
+# elif   否则如果，多分支条件
+# else   否则，所有条件不成立时执行
+# fi     if语句结束标志
+# case   多值匹配分支起始
+# in     case/for 中匹配/遍历标记
+# esac   case语句结束标志
+example_if() {
+  num=10
+  if [ $num -gt 5 ]; then
+    echo "大于5"
+  elif [ $num -eq 5 ]; then
+    echo "等于5"
+  else
+    echo "小于5"
+  fi
+
+  case $num in
+    10) echo "匹配10" ;;
+    20) echo "匹配20" ;;
+    *)  echo "默认分支" ;;
+  esac
+}
+
+## 2. 循环结构
+# for    遍历循环，支持列表、数值范围
+# while  条件循环，条件成立则持续循环
+# until  条件循环，条件不成立则持续循环
+# do     循环体起始标记
+# done   循环体结束标记
+# select 菜单式循环，自动生成选择列表
+example_loop() {
+  # for 遍历循环
+  for i in 1 2 3; do
+    echo "for遍历: $i"
+  done
+
+  # while 条件循环
+  n=0
+  while [ $n -lt 3 ]; do
+    echo "while循环: $n"
+    n=$((n+1))
+  done
+}
+
+## 3. 函数定义
+# function 声明函数，可省略（直接写 函数名() 也可定义函数）
+function example_func {
+  echo "这是一个函数"
+}
+
+## 4. 其他语法关键字
+# time   统计命令/代码块的执行耗时
+# !      逻辑取反，也可用于管道取退出状态
+# [[ ]]  增强型条件判断，支持字符串模式匹配、逻辑运算
+# { }    代码块，将多条命令组合为一个整体
+example_other() {
+  time sleep 0.1  # 统计sleep命令的耗时
+
+  str="hello"
+  if [[ $str == h* ]]; then  # 增强判断，支持通配符匹配
+    echo "以h开头"
+  fi
+}
+
+# ========== 二、核心内置命令（语法级必用，常归为关键字记忆） ==========
+
+## 1. 变量与作用域控制
+# local    声明函数内的局部变量，仅函数内生效
+# readonly 声明只读变量，声明后不可修改
+# export   声明环境变量，可被子进程继承
+# declare  声明变量属性（整型、数组、只读等）
+# unset    删除变量或函数
+example_var() {
+  local name="局部变量"  # 仅当前函数内有效，外部不可见
+  readonly PI=3.14       # 只读常量，后续修改会报错
+  export PATH="$PATH:/opt/bin" # 导出为环境变量，子进程可继承
+  declare -i num=10      # 强制声明为整型变量
+  unset name             # 删除变量，释放内存
+}
+
+## 2. 循环控制
+# break    跳出当前循环，break n 可跳出n层嵌套循环
+# continue 跳过本次循环剩余逻辑，直接进入下一轮
+example_control() {
+  for i in {1..5}; do
+    if [ $i -eq 3 ]; then
+      continue  # 跳过i=3，不执行后续打印
+    fi
+    if [ $i -eq 5 ]; then
+      break     # 终止整个循环
+    fi
+    echo $i
+  done
+}
+
+## 3. 函数与退出控制
+# return   函数内返回，可指定返回状态码，仅用于函数内部
+# exit     终止整个脚本进程，可指定退出状态码（0成功，非0失败）
+example_return() {
+  return 0  # 函数正常返回，状态码0
+}
+# exit 1   # 脚本异常退出，状态码1
+
+## 4. 脚本执行与控制
+# source / .  加载执行外部脚本，在当前Shell环境运行（不新开子进程）
+# exec        替换当前进程执行指定命令，执行后原脚本后续代码不再运行
+# eval        对字符串做二次解析，执行动态拼接的命令
+# shift       位置参数左移，丢弃$1，后续参数依次前移
+example_exec() {
+  # source ./config.sh  # 引入外部配置文件，等价于 . ./config.sh
+  # exec ls -l          # 替换当前进程执行ls，后续代码不执行
+  # cmd="echo hello"; eval $cmd  # 解析并执行字符串形式的命令
+}
+
+## 5. 运行环境控制
+# set    设置Shell运行属性（高频：set -e 遇错退出，set -x 调试打印）
+example_set() {
+  set -e  # 脚本中任意命令返回非0状态码，立即终止脚本
+  set -x  # 开启调试模式，打印每条执行的命令及参数
+}
+
+# ========== 精简记忆总结 ==========
+# 1. 条件分支：if-fi / case-esac 成对出现，结束标记为起始倒写
+# 2. 循环结构：for/while/until + do-done 固定语法结构
+# 3. 变量控制：local 局部、readonly 只读、export 环境变量
+# 4. 退出控制：函数内用 return，整体脚本用 exit
+# 5. 引入外部脚本用 source / . 点命令，在当前环境执行不新开进程
+
+
+```
+
+## shell编程 基础数据类型和容器类型 总结
+
+```bash
+# ==============================================
+# Bash 数据类型 + 容器类型 总览
+# 核心特性：无强类型，变量默认都是字符串；整数仅算术运算场景生效
+# ==============================================
+
+# -------------- 1. 基础数据类型 --------------
+## 1.1 字符串（唯一原生基础类型）
+str="hello shell"        # 双引号：可解析内部变量
+str2='pure text'         # 单引号：纯字面量，不解析变量
+
+echo ${#str}             # 取字符串长度 → 11
+echo ${str:0:5}          # 截取子串：${变量:起始下标:长度} → hello
+echo ${str/shell/bash}   # 单次替换子串 → hello bash
+echo ${str#hello }       # 删除前缀 → shell
+echo ${str%shell}        # 删除后缀 → hello 
+new_str="$str test"      # 字符串拼接
+
+## 1.2 整数（算术运算隐式转换，无原生浮点）
+n=10
+((n++))                  # 自增
+((n += 5))               # 复合运算
+res=$((n * 2))           # 运算后赋值
+((n > 10)) && echo "大于10"  # 整数大小比较
+
+# 浮点运算：需借助 bc/awk 外部工具
+echo "scale=2; 10/3" | bc
+
+
+# -------------- 2. 容器类型 --------------
+## 2.1 索引数组（数字下标，默认从0开始）
+arr=("java" "python" "go")  # 批量定义
+arr[3]="c++"                # 单个下标赋值
+
+echo ${arr[0]}              # 取单个元素
+echo "${arr[@]}"            # 取全部元素（带双引号保留空格元素）
+echo ${#arr[@]}             # 元素总个数
+
+arr+=("rust")               # 追加元素
+unset arr[1]                # 删除指定下标元素
+
+# 遍历元素（兼容带空格元素）
+for item in "${arr[@]}"; do
+    echo $item
+done
+
+# 按下标遍历
+for idx in "${!arr[@]}"; do
+    echo "下标$idx: ${arr[$idx]}"
+done
+
+## 2.2 关联数组（键值对，bash 4.0+ 支持）
+declare -A dict             # 必须先声明类型
+dict["name"]="lisi"
+dict["age"]=25
+
+echo ${dict["name"]}        # 按键取值
+echo "${!dict[@]}"          # 取所有键
+echo "${dict[@]}"           # 取所有值
+echo ${#dict[@]}            # 键值对总数
+
+unset dict["age"]           # 删除指定键值对
+
+# 遍历键值对
+for k in "${!dict[@]}"; do
+    echo "$k → ${dict[$k]}"
+done
+```
+
+## linux shell编程 内置函数大全 总结
+
+```bash
+# ==============================================
+# Bash 内置命令/能力大全（纯原生内置，无外部工具）
+# 特点：Shell进程内执行，不创建子进程，性能远高于外部命令
+# ==============================================
+
+# ---------------- 1. 变量与类型声明 ----------------
+declare -i num=10        # 声明整数变量，非数字自动转0
+declare -r passwd="123"  # 声明只读变量，不可修改
+declare -a arr           # 声明索引数组
+declare -A dict          # 声明关联数组（bash 4.0+）
+readonly MAX=100         # 等价 declare -r，定义常量
+export PATH=$PATH:/opt   # 导出为环境变量，子进程可继承
+unset num                # 删除变量/数组/函数
+local tmp=0              # 函数内声明局部变量，不污染全局
+
+# ---------------- 2. 字符串处理（参数扩展语法） ----------------
+str="hello world"
+echo ${#str}             # 取字符串长度 → 11
+echo ${str:0:5}          # 截取：${变量:起始:长度} → hello
+echo ${str: -5}          # 从末尾截取5位 → world（冒号后必须加空格）
+echo ${str/l/L}          # 单次替换 → heLlo world
+echo ${str//l/L}         # 全局替换 → heLLo worLd
+echo ${str#hello }       # 删除最短前缀 → world
+echo ${str%world}        # 删除最短后缀 → hello 
+echo ${str##* }          # 删除最长前缀（取最后一段）→ world
+echo ${str%% *}          # 删除最长后缀（取第一段）→ hello
+
+# 变量默认值
+echo ${var:-abc}         # var无值返回abc，不改变var本身
+echo ${var:=abc}         # var无值则赋值abc并返回
+echo ${var:+xyz}         # var有值返回xyz，无值返回空
+echo ${var:?未定义}      # var无值则报错退出脚本
+
+# ---------------- 3. 算术运算（仅整数） ----------------
+a=5; b=3
+((sum = a + b))          # 算术表达式，变量不用加$
+((a++))                  # 自增
+((b--))                  # 自减
+((a += 2))               # 复合运算
+let "res = a * b"        # let 等价 (( ))，字符串形式
+res=$((a / b))           # 算术扩展，结果赋值
+((a > b)) && echo "a大"  # 算术条件判断
+
+# ---------------- 4. 文件/条件测试（test / [ 内置） ----------------
+# 文件属性
+[ -f file.txt ]          # 是否普通文件
+[ -d /opt ]              # 是否目录
+[ -e file.txt ]          # 文件/目录是否存在
+[ -s file.txt ]          # 文件存在且非空
+[ -r file.txt ]          # 有读权限
+[ -w file.txt ]          # 有写权限
+[ -x file.sh ]           # 有执行权限
+[ f1 -nt f2 ]            # f1比f2新
+[ f1 -ot f2 ]            # f1比f2旧
+
+# 字符串测试
+[ -z "$str" ]            # 字符串为空
+[ -n "$str" ]            # 字符串非空
+[ "$a" = "$b" ]          # 字符串相等
+[ "$a" != "$b" ]         # 字符串不等
+
+# 数值比较
+[ $a -eq $b ]            # 等于
+[ $a -ne $b ]            # 不等于
+[ $a -gt $b ]            # 大于
+[ $a -lt $b ]            # 小于
+[ $a -ge $b ]            # 大于等于
+[ $a -le $b ]            # 小于等于
+
+# 逻辑组合
+[ $a -gt 0 -a $a -lt 10 ] # 且
+[ $a -eq 0 -o $a -eq 10 ] # 或
+[ ! -f file.txt ]        # 非取反
+
+# ---------------- 5. 数组操作 ----------------
+arr=("java" "python" "go")
+echo ${arr[0]}           # 按下标取值
+echo "${arr[@]}"         # 取所有元素（推荐，保留空格元素）
+echo ${#arr[@]}          # 元素总数
+echo ${!arr[@]}          # 取所有下标
+arr+=("rust")            # 追加元素
+unset arr[1]             # 删除指定下标
+
+# 关联数组
+declare -A user
+user[name]="tom"
+user[age]=20
+echo ${user[name]}       # 按键取值
+echo "${!user[@]}"       # 取所有键
+
+# 脚本入参（位置参数）
+echo $0                  # 脚本文件名
+echo $#                  # 入参总个数
+echo $1 $2               # 第1、2个参数
+echo $@                  # 所有参数列表
+echo $*                  # 所有参数拼接成【一个字符串】
+shift                    # 位置参数左移一位，丢弃$1
+shift 2                  # 左移两位
+
+# ---------------- 6. 输入输出 ----------------
+echo "hello"             # 简单输出
+echo -n "no newline"     # 输出不换行
+printf "%-10s %d\n" "name" 20  # 格式化输出
+
+read name                # 读取输入赋值
+read -p "请输入：" val   # -p 带提示语
+read -s passwd           # -s 静默输入（密码场景）
+read -a arr              # 读取一行按空格拆分数组
+
+exec > log.txt           # 全局标准输出重定向
+exec 2>&1                # 标准错误重定向到标准输出
+
+# ---------------- 7. 流程控制关键字 ----------------
+# 分支
+if [ $a -gt 10 ]; then
+    echo "大于10"
+elif [ $a -eq 10 ]; then
+    echo "等于10"
+else
+    echo "小于10"
+fi
+
+# 多选分支
+case $opt in
+    start) echo "启动" ;;
+    stop) echo "停止" ;;
+    *) echo "未知" ;;
+esac
+
+# 循环
+for i in 1 2 3; do echo $i; done
+for ((i=0; i<10; i++)); do echo $i; done
+while [ $i -lt 10 ]; do ((i++)); done
+until [ $i -ge 10 ]; do ((i++)); done
+
+break                    # 跳出循环
+continue                 # 跳过本次循环
+
+# ---------------- 8. 函数 ----------------
+# 定义函数
+func_name() {
+    local arg1=$1        # 接收第一个入参
+    echo $arg1
+    return 0             # 返回状态码，0成功非0失败
+}
+func_name "test"         # 调用函数并传参
+echo $?                  # 获取上一条命令/函数的返回状态码
+
+# ---------------- 9. 进程与作业控制 ----------------
+sleep 100 &
+jobs                     # 查看后台作业
+bg %1                    # 作业放后台
+fg %1                    # 作业切前台
+wait                     # 等待所有后台进程结束
+kill -9 1234             # 发信号终止进程
+trap "echo 收到信号; exit" SIGINT  # 捕获信号执行自定义逻辑
+
+# ---------------- 10. 其他常用内置 ----------------
+cd /opt                  # 切换目录
+pwd                      # 打印当前目录
+source ./config.sh       # 当前Shell执行脚本（不启动子进程）
+. ./config.sh            # 等价 source
+alias ll='ls -l'         # 设置命令别名
+unalias ll               # 取消别名
+history                  # 查看命令历史
+ulimit -n 65535          # 设置文件句柄数限制
+umask 022                # 设置默认文件权限掩码
+set -e                   # 命令失败立即退出
+set -u                   # 未定义变量报错
+set -x                   # 调试模式，打印执行命令
+set -o pipefail          # 管道任意命令失败则整体失败
+shopt -s extglob         # 开启扩展通配符
+```
 
 ## shell 支持的运算
 
@@ -149,24 +536,22 @@ echo "scale=2;10/3" | bc
 - 数组运算：遍历、下标取值
 - 逻辑布尔运算：`if` 判断、条件表达式
 
-
-
 ## Shell 脚本四种执行方式
 
 1. **bash/sh 脚本名**
-
+   
    无需脚本执行权限，会手动指定解释器运行；脚本未写 Shebang 时推荐用该方式。
 
 2. **./ 脚本名 / 绝对路径执行**
-
+   
    需要先用`chmod +x 脚本名`赋予执行权限，依赖脚本首行`#!`指定的解释器运行。
 
 3. **source 脚本名 或。脚本名**
-
+   
    在当前 Shell 进程内执行脚本，脚本内变量、函数会直接作用于当前终端环境。
 
 4. **sh < 脚本名 或 cat 脚本名 | sh**
-
+   
    通过标准输入将脚本内容交给解释器执行，不需要脚本具备执行权限。
 
 ## 脚本例子  父shell 子shell
@@ -183,13 +568,12 @@ source ./test.sh  #在当前shell执行 和.文件名.sh类似
 echo $user
 
 
-写法	           执行方式	            是否新建子Shel $0 值	      权限要求
-./test.sh	     执行可执行文件	      是	       ./test.sh	需要执行权限
-. ./test.sh	     内置点命令 (source)	    否	    -bash	     仅需读权限
-source ./test.sh  source 内置命令	    否	     -bash	      仅需读权限
+写法               执行方式                是否新建子Shel $0 值          权限要求
+./test.sh         执行可执行文件          是           ./test.sh    需要执行权限
+. ./test.sh         内置点命令 (source)        否        -bash         仅需读权限
+source ./test.sh  source 内置命令        否         -bash          仅需读权限
 
 . 是source的简写
-
 ```
 
 ## 一、Shell 脚本编写 7 条规范
@@ -234,11 +618,7 @@ chmod +x check_disk.sh
 
 # 4.执行脚本
 ./check_disk.sh
-
-
 ```
-
-
 
 范例2_3：写一个包含命令、变量和流程控制语句的清除/var/log下messages日志文件的Shell脚本。
 
@@ -369,12 +749,12 @@ declare -f
 脚本中定义数组、字典、规范类型变量，优先用declare。
 
 declare -p  VAR  会输出变量的属性 + 类型定义
-declare --	普通字符串（默认类型）
-declare -i	整型变量  i = integer，中文：整数
-declare -r	只读变量  readonly
-declare -a	索引数组  array （普通数字索引数组）
-declare -A	关联数组  Associative array（关联哈希数组）
-declare -x	已导出环境变量
+declare --    普通字符串（默认类型）
+declare -i    整型变量  i = integer，中文：整数
+declare -r    只读变量  readonly
+declare -a    索引数组  array （普通数字索引数组）
+declare -A    关联数组  Associative array（关联哈希数组）
+declare -x    已导出环境变量
 
 # declare -i num=10
 # declare -p num
@@ -385,10 +765,7 @@ declare -i num="10"
 底层稀疏线性顺序结构，下标只能是整数（字符串数字自动转 int），有序、支持切片、负索引，允许下标不连续稀疏赋值。
 关联数组-A：
 底层哈希表，所有键都是原生字符串，永不自动转数字，无序，只支持精确 key 查询，没有隐藏数字索引，不能切片。
-
 ```
-
-
 
 ### **Shell 所有变量底层永远都是字符串类型**：
 
@@ -413,19 +790,18 @@ declare -p num
 
 哪怕标记为整型，bash 依然用双引号包裹值，本质就是字符串。
 
-
-
 ## 变量分类
 
 #### 1. 自定义变量（用户自己定义）
 
 1. 定义规则
-
 - 变量名由字母、数字、下划线组成，**不能以数字开头**
-- 等号两边**不能有空格**：`name=test` 正确；`name = test` 错误
-- 默认字符串类型，Shell 无整数、浮点类型，数字运算需要特殊语法
-- 变量区分大小写
 
+- 等号两边**不能有空格**：`name=test` 正确；`name = test` 错误
+
+- 默认字符串类型，Shell 无整数、浮点类型，数字运算需要特殊语法
+
+- 变量区分大小写
 1. 调用：`$变量名` 或 `${变量名}`（推荐大括号，防止变量名粘连出错）
 
 ```bash
@@ -512,8 +888,6 @@ echo $((a+b))
 - `unset 变量名`：删除变量，不能删除只读变量
 - `readonly 变量名`：定义只读变量，无法修改、删除
 
-
-
 ## linux环境变量文件
 
 ```bash
@@ -541,8 +915,6 @@ su -：模拟完整登录，清空旧环境，加载目标用户所有登录配�
 ~/.bashrc（当前用户会话配置）--> /etc/bashrc（系统全局会话配置）
 ```
 
-
-
 ## 变量的知识进阶
 
 企业应用;
@@ -565,9 +937,6 @@ case "$1" in
         $1
         ;;
     stop)
-    
-    
-    
 ```
 
 $# 脚本后面所有参数的个数
@@ -584,8 +953,6 @@ then
 fi
 echo ok
 ```
-
-
 
 ```bash
 $*  获取脚本的所有参数合并成一个字符串，“$1 $2 $3”
@@ -665,10 +1032,7 @@ echo ${eric// /-}  #I-am-eric
 echo ${eric#I }  #左边删除 匹配到I 成功
 echo ${eric#am}  #左边删除,开头不是am,匹配不成, 如果是要删除到am,可以写成 ${eric#*am}
 echo ${eric%eric} # 右边删除  I am 
-
 ```
-
-
 
 ## expr 命令
 
@@ -725,13 +1089,7 @@ eric="hello"
 echo ${#eric}  # 直接输出5，比expr更快
 算术：$((a+b))
 字符串截取：${var:start:len}
-
-
 ```
-
-
-
-
 
 练习题：
 
@@ -751,11 +1109,7 @@ echo ${eric%a*c}
 echo ${eric%%a*c}
 echo ${eric#a*c}
 echo ${eric##a*c}
-
-
 ```
-
-
 
 ## Shell特殊变量扩展知识
 
@@ -776,11 +1130,11 @@ result=${variable:+word}
 # 变量未定义/为空：result为空，原变量不变
 # 变量有值：result=word，不修改原variable
 
-语法		  触发条件		行为                是否修改原变量
-${var:-w}	未定义/空	 取 w	              ❌
-${var:=w}	未定义/空	 取 w，同时赋值给 var	  ✅
-${var:?w}	未定义/空	 输出 w，脚本退出	      ❌
-${var:+w}	有值		  返回 w；空则返回空	   ❌
+语法          触发条件        行为                是否修改原变量
+${var:-w}    未定义/空     取 w                  ❌
+${var:=w}    未定义/空     取 w，同时赋值给 var      ✅
+${var:?w}    未定义/空     输出 w，脚本退出          ❌
+${var:+w}    有值          返回 w；空则返回空       ❌
 
 
 result=${eric1:-word}
@@ -798,19 +1152,14 @@ result=${eric2:+word}
 echo $result  #word
 
 echo $eric2  #2
-
 ```
 
-
-
 ## 变量的数值计算
-
-
 
 ```bash
 算数运算符                 意义
 
-+ -                    		加法  减法
++ -                            加法  减法
 * / %                      乘法  除法  取余(取模)
   **                        幂运算
   ++ --                     增加  减少  (步长1) 
@@ -894,14 +1243,6 @@ fi
 ckhedu 不是整数
 ```
 
-
-
-
-
-
-
-
-
 ```bash
 expr 字符串 : 正则表达式
 作用：从字符串开头做正则匹配，匹配成功返回捕获的字符长度；匹配失败返回 0。
@@ -927,12 +1268,7 @@ echo "a*b=$(($a*$b))"
 echo "a/b=$(($a/$b))"
 echo "a**b=$(($a**$b))"
 echo "a%b=$(($a%$b))"
-
-
-
 ```
-
-
 
 变量的赋值：
 
@@ -959,9 +1295,6 @@ a*b=6
 a/b=1
 a**b=9
 a%b=1
-
-
-
 ```
 
 3、read读入，读取用户输入。
@@ -977,8 +1310,6 @@ read -t 30 -p "请输入一个数字:"
 [root@web01 scripts]# a=11
 [root@web01 scripts]# echo $a
 11
-
-
 ```
 
 read读入有什么作用
@@ -994,7 +1325,6 @@ echo "a*b=$(($a*$b))"
 echo "a/b=$(($a/$b))"
 echo "a**b=$(($a**$b))"
 echo "a%b=$(($a%$b))"
-
 ```
 
 read企业应用
@@ -1053,10 +1383,7 @@ if [[ ! "$num" =~ ^[0-9]+$ ]];then echo "非数字";fi
 [0-9]：匹配任意一位数字 0~9
 +：前面的数字出现 至少 1 次（1 次或多次），不能是空
 $ 锚点：匹配字符串结尾
-
 ```
-
-
 
 ## Bash 内置数据类型
 
@@ -1097,7 +1424,6 @@ user["name"]="test"
 user["age"]=22
 
 declare -A user=(["name"]="test" ["age"]=22)
-
 ```
 
 ### 补充：不存在的类型
@@ -1110,8 +1436,6 @@ declare -A user=(["name"]="test" ["age"]=22)
 1. 设计思想：作为命令粘合剂，面向过程、解释执行，依托 Linux 现有工具实现自动化，主打轻量批量运维。
 2. 语言特点：语法简单、系统自带无需部署、弱类型、深度支持管道重定向、文本处理能力强，适合运维自动化，不适合复杂数值计算。
 3. 内置数据类型：字符串（默认）、整型（declare -i 声明）、索引数组、关联数组；无浮点、布尔、面向对象类型。
-
-
 
 ```bash
 # 内置变量判断真假  true false
@@ -1137,8 +1461,6 @@ if [ -f "/etc/passwd" ];then
 命令1 || 命令2
 # 命令1返回非0（假），才执行命令2
 ```
-
-
 
 ### []、[[]]、(()) 三者区别
 
@@ -1179,13 +1501,9 @@ bash 脚本做字符串、正则、多条件：优先 [[ ]]
 纯整数比较、数值运算：直接 (( ))
 ```
 
-
-
-
-
 ## 条件表达式
 
-````bash
+```bash
 条件表达式6种写法：if,while
 语法1: test <测试表达式>
 语法2: [ <测试表达式> ]    #两端有空格
@@ -1224,18 +1542,7 @@ bash 脚本做字符串、正则、多条件：优先 [[ ]]
 
 
 <测试表达式>有哪些：
-
-````
-
-
-
-
-
-
-
-
-
-
+```
 
 为什么需要文件测试表达式？
 操作一个对象，就要看对象条件是否满足，否则不要操作。
@@ -1261,8 +1568,6 @@ bash 脚本做字符串、正则、多条件：优先 [[ ]]
 [ f1 -nt f2 ] nt newer than       f1比f2文件新  真 根据文件修改时间算  
 [ f1 -or f2 ] or older than       f1比f2文件旧 真  根据文件修改时间算
 ```
-
-
 
 ## 字符串测试表达式
 
@@ -1302,17 +1607,9 @@ char="ckhedu"
 [ "dd" != "ff" ] && echo 1 || echo 0
 
 [ "dd" != "dd" ] && echo 1 || echo 0
-
 ```
 
-
-
-
-
-
-
 企业应用：
-
 
 ```bash
 [root@db03 scripts]# cat yunsuan.sh
@@ -1368,12 +1665,7 @@ echo "a%b=$(($a%$b))"
     大于
     等于
     小于
-    
-    
-    
 ```
-
-
 
 [root@web01 scripts]# cat com1.sh 
 
@@ -1526,11 +1818,7 @@ if [ -f $file ] && [ -x $file ]
 then
     bash $file
 fi
-
-
 ```
-
-
 
 ## shell 单分支  双分支  多分支 语法
 
@@ -1572,8 +1860,6 @@ case $变量 in
 esac
 ```
 
-
-
 范例7_2：开发Shell脚本判断系统剩余内存的大小，如果低于100MB就邮件报警给系统管理员，
 并且将脚本加入系统定时任务，即每3分钟执行一次检查。
 
@@ -1605,10 +1891,6 @@ fi
 如果低于500M，就报警空间严重不足，最后把结果邮件发给系统管理员，
 并且将脚本加入系统定时任务，即每3分钟执行一次检查。
 ```
-
-
-
-
 
 ## Shell函数的语法
 
@@ -1694,11 +1976,9 @@ chmod +x fun.lib main.sh
 ./main.sh
 ```
 
-
-
 企业案例：通过脚本传参的方式，检查Web 网站URL是否正常。
-```bash
 
+```bash
 wget命令：
 --spider 模拟爬虫
 -q 安静访问
@@ -1718,12 +1998,7 @@ curl命令：
 0
 [root@web01 ~]# curl -I -m 5 -s -w "%{http_code}\n" -o /dev/null  www.baidu.com
 200
-
-
-
 ```
-
-
 
 不用函数的实现写法
 
@@ -1778,7 +2053,6 @@ main(){
 }
 main $*
 EOF
-
 ```
 
 [root@ckhedu scripts]# cat 8_5_1.sh  
@@ -1826,8 +2100,6 @@ case $变量 in
 ;;
 esac
 ```
-
-
 
 范例9_2：执行shell脚本，打印一个如下的水果菜单：
 1.apple
@@ -1887,9 +2159,8 @@ chmod +x fruit.sh
 ./fruit.sh
 ```
 
-
-
 范例9_3：给内容加不同的颜色。
+
 ```bash
 内容的颜色用数字表示，范围为30-37，每个数字代表一种颜色。代码如下： 
 
@@ -1905,12 +2176,9 @@ echo -e "\033[37m 白色字ckhedu trainning \033[0m" #<==37m表示白色字。
 说明：不同的数字对应的字体颜色，见系统帮助（来源man console_codes命令的结果）。
 ```
 
-
-
 范例9_6： 给输出的字符串加不同的背景颜色。
 
 ```bash
-
 echo -e "\033[40;37m 黑底白字ckhedu\033[0m"   #<==40m表示黑色背景。
 echo -e "\033[41;37m 红底白字ckhedu\033[0m"   #<==41m表示红色背景。
 echo -e "\033[42;37m 绿底白字ckhedu\033[0m"   #<==42m表示绿色背景。
@@ -1921,14 +2189,12 @@ echo -e "\033[46;37m蓝绿底白字ckhedu\033[0m"   #<==46m表示蓝绿色背景
 echo -e "\033[47;30m 白底黑字ckhedu\033[0m"    #<==47m表示白色背景。
 ```
 
-
-
 范例9_10：利用case语句开发Rsync服务启动停止脚本，本例采用case语句以及新的思路来实现。
 
 ```bash
 分析：
 启动：
-	rsync --daemon
+    rsync --daemon
 停止：
     pkill rsync
     killall rsync
@@ -1969,22 +2235,15 @@ EOF
 /etc/init.d/rsyncd restart
 ```
 
-
-
 ## While循环语句
 
 ```bash
-
 While循环语法
 while <条件表达式>
 do
     指令...
 done
-
-
 ```
-
-
 
 范例10_1：每隔2秒输出一次系统负载（负载是系统性能的基础重要指标）情况。
 
@@ -2021,8 +2280,6 @@ strace：跟踪一个进程的系统调用情况。
 ltrace：跟踪进程调用库函数的情况。
 ```
 
-
-
 范例10_2：请使用while循环对下面的脚本进行修改，使得当执行脚本时，每次执行完脚本以后不退出脚本了，而是继续提示用户输入。
 
 ```bash
@@ -2034,7 +2291,6 @@ echo "a*b=$(($a*$b))"
 echo "a/b=$(($a/$b))"
 echo "a**b=$(($a**$b))"
 echo "a%b=$(($a%$b))"
-
 ```
 
 解答:
@@ -2064,10 +2320,7 @@ do
     echo "a%b=$(($a%$b))"
 done
 EOF
-
 ```
-
-
 
 范例10_4：猜数字游戏。首先让系统随机生成一个数字，给这个数字定一个范围（1-60），让用户输入猜的数字，对输入进行判断，如果不符合要求，就给予高或低的提示，猜对后则给出猜对用的次数，请用while语句实现。
 提示：可以赋予一个猜水果的价格游戏。
@@ -2100,8 +2353,6 @@ do
 done
 ```
 
-
-
 范例10_8：分析Apache访问日志(access_2010-12-8.log)，把日志中每行的访问字节数对应字段数字相加，计算出总的访问量。给出实现程序，请用while循环实现。（3分钟）
 
 方式1：在while循环结尾done通过输入重定向指定读取的文件。
@@ -2131,35 +2382,29 @@ while read line
 do
     cmd
 done
-
 ```
 
-## Shell 常用语句精简总结 
+## Shell 常用语句精简总结
 
 1. **while 循环**
-
+   
    适合守护进程、无限循环场景，需用`sleep`控制执行频率；常规循环可被 for 循环或 crontab 定时任务替代。
 
 2. **case 语句**
-
+   
    可由 if 替换，多用于服务启停、固定参数菜单类脚本；常规条件判断优先用 if。
 
 3. **使用优先级**
-
+   
    if、for 使用最频繁；while 用于常驻循环；case 用于固定参数启停脚本。
 
 4. **各语法适用场景**
-
 - 条件表达式：简短判断，如文件权限、字符串空值校验
 - if：多条件、范围、复杂逻辑判断
 - for：常规批量循环处理（最常用）
 - while：常驻守护、无限轮询任务
 - case：固定选项的菜单、服务启停脚本
 - 函数：封装重复代码，精简脚本、逻辑结构化
-
-
-
-
 
 ## for循环语句
 
@@ -2207,7 +2452,7 @@ for i in test{1..5}.txt;do touch $i;done
 范例1：用for循环竖向打印1、2、3、4、5共5个数字。
 for i in {1..5}
 do
-	echo $i
+    echo $i
 done
 
 
@@ -2233,9 +2478,9 @@ done
 范例3：计算从1加到100之和。
 for i in {1..100}
 do
-	# sum=$((sum+i))
-	# ((sum+=i))
-	let sum+=i
+    # sum=$((sum+i))
+    # ((sum+=i))
+    let sum+=i
 done
 echo $sum
 
@@ -2255,10 +2500,7 @@ for file in `ls ./*.jpg`
 do
     mv $file `echo ${file/_finished/}`
 done
-
 ```
-
-
 
 ## 循环和条件句等的控制
 
@@ -2292,14 +2534,7 @@ break：跳出循环，脚本继续往下走
 continue：跳过本次循环，下一轮继续
 exit：整个脚本直接结束
 return：仅退出当前函数，脚本继续执行
-
-
-
-
-
 ```
-
-
 
 ## shell数组
 
@@ -2351,11 +2586,9 @@ declare -a user='([0]="22")'
 declare -A user='([name]="test" [age]="22" )'
 ```
 
-
-
 数组内容的截取和替换
-```bash
 
+```bash
 array=(1 2 3 4 5)
 echo ${array[@]:1:3}        #<==从下标为1的元素开始截取，共取3个数组元素。
 
@@ -2386,10 +2619,7 @@ one two three
 
 提示：数组也是变量，因此也适合于前面讲解过的变量的子串处理的功能应用。
 数组的其他相关知识通过man bash然后搜Arrays来了解。
-
 ```
-
-
 
 ## Shell数组脚本开发实践
 
@@ -2452,7 +2682,6 @@ echo "array len:${#array[*]}"
 ```
 
 范例13_3：把命令结果作为数组元素定义并打印。
-
 
 ```bash
 准备数据：
@@ -2535,36 +2764,31 @@ for n in ${arr[*]}
 do
     echo "$n"
 done
-
-
 ```
 
-
-
-##  linux 通配符  基础正则  扩展正则
+## linux 通配符  基础正则  扩展正则
 
 ```bash
-
 # 1. Shell 通配符Globbing（用于文件名匹配：ls/cp/mv/find）
-符号		作用
-*		 匹配任意长度任意字符（不含隐藏文件开头.）
-?		 匹配单个任意字符
-[abc]	 匹配括号内任意一个字符
-[a-z]	 匹配区间内单个字符
-[^0-9]	 匹配不在区间内的单个字符
-[!字符集] 取反，匹配不在括号内的单个字符	
-{a,b,c}	批量匹配多个字符串，不属于正则，属于 bash 花括号扩展
+符号        作用
+*         匹配任意长度任意字符（不含隐藏文件开头.）
+?         匹配单个任意字符
+[abc]     匹配括号内任意一个字符
+[a-z]     匹配区间内单个字符
+[^0-9]     匹配不在区间内的单个字符
+[!字符集] 取反，匹配不在括号内的单个字符    
+{a,b,c}    批量匹配多个字符串，不属于正则，属于 bash 花括号扩展
 
 #POSIX 字符类（在 [] 内使用）
 # 用于更规范的字符范围匹配，避免不同编码下的范围异常。
-字符类			含义			示例
-[:digit:]	数字 0-9		 ls [[:digit:]]*.txt 数字开头的 txt 文件
-[:alpha:]	大小写字母	   ls [[:alpha:]]*.log 字母开头的 log 文件
-[:lower:]	小写字母		ls [[:lower:]]* 小写开头的所有文件
-[:upper:]	大写字母		ls [[:upper:]]* 大写开头的所有文件
-[:alnum:]	字母 + 数字		ls [[:alnum:]]*.conf 字母数字开头的 conf
-[:space:]	空白字符（空格、制表符等）	匹配含空格的文件名
-[:punct:]	标点符号	              匹配含标点的文件名
+字符类            含义            示例
+[:digit:]    数字 0-9         ls [[:digit:]]*.txt 数字开头的 txt 文件
+[:alpha:]    大小写字母       ls [[:alpha:]]*.log 字母开头的 log 文件
+[:lower:]    小写字母        ls [[:lower:]]* 小写开头的所有文件
+[:upper:]    大写字母        ls [[:upper:]]* 大写开头的所有文件
+[:alnum:]    字母 + 数字        ls [[:alnum:]]*.conf 字母数字开头的 conf
+[:space:]    空白字符（空格、制表符等）    匹配含空格的文件名
+[:punct:]    标点符号                  匹配含标点的文件名
 
 # 开启扩展通配符
 shopt -s extglob
@@ -2681,7 +2905,7 @@ Regular Expression，缩写：Regex / Regexp
 $  行结尾
 .  任意单个字符
 *  前面字符出现0次或多次
-[]   字符集合	
+[]   字符集合    
 [^]   取反
 \     转义符
 \{n\} 前面字符精准n次
@@ -2689,15 +2913,15 @@ $  行结尾
 \{n,m\} n~m次
 
 #组合示例
-^$	组合符，表示空行
-.*	组合符，匹配任意长度的任意字符
-^.*	组合符，匹配任意多个字符开头的内容
-.*$	组合符，匹配以任意多个字符结尾的内容
-[abc]	匹配[]集合内的任意一个字符，a或b或c，可以写[a-c]
-[^abc]	匹配除了^后面的任意字符，a或b或c，^表示对[abc]的取反
+^$    组合符，表示空行
+.*    组合符，匹配任意长度的任意字符
+^.*    组合符，匹配任意多个字符开头的内容
+.*$    组合符，匹配以任意多个字符结尾的内容
+[abc]    匹配[]集合内的任意一个字符，a或b或c，可以写[a-c]
+[^abc]    匹配除了^后面的任意字符，a或b或c，^表示对[abc]的取反
 
-<pattern>	匹配完整的内容
-<或>	定位单词的左侧，和右侧，如<chao> 可以找出"The chao ge"，缺找不出"yuchao"
+<pattern>    匹配完整的内容
+<或>    定位单词的左侧，和右侧，如<chao> 可以找出"The chao ge"，缺找不出"yuchao"
 
 
 # 3. 扩展正则（egrep/grep -E、sed -r、awk 默认支持）
@@ -2709,19 +2933,14 @@ $  行结尾
 
 
 组合:
-[:/]+	匹配括号内的":"或者"/"字符1次或多次
+[:/]+    匹配括号内的":"或者"/"字符1次或多次
 
 次数限制说明
-a{n}	匹配前一个字符正好n次
-a{n,}	匹配前一个字符最少n次
-a{,m}	匹配前一个字符最多m次
-a{n,m}	匹配前一个字符最少n次，最多m次
-
-
-
+a{n}    匹配前一个字符正好n次
+a{n,}    匹配前一个字符最少n次
+a{,m}    匹配前一个字符最多m次
+a{n,m}    匹配前一个字符最少n次，最多m次
 ```
-
-
 
 ## grep sed awk
 
@@ -2822,9 +3041,9 @@ ACTION：print、循环、判断、格式化输出等代码块
 参数
 -F：指定分隔符  --field-separator
 -v：定义外部变量  
-	在 awk 脚本执行前（包含BEGIN块）定义外部变量，用于把 Shell 变量传入 awk
-	awk -v 变量名=值 '条件{动作}' 文件
-	awk -v num=10 '$3>num' test.txt
+    在 awk 脚本执行前（包含BEGIN块）定义外部变量，用于把 Shell 变量传入 awk
+    awk -v 变量名=值 '条件{动作}' 文件
+    awk -v num=10 '$3>num' test.txt
 -f：从脚本文件执行 file;    awk -f script.awk data.txt
 高频内置变量
 $0 整行
@@ -2911,11 +3130,7 @@ mv {} {}.bak
 第二个{} = 原文件名，拼接后缀.bak
 执行后：app.log → app.log.bak
 ----------------------------------------------------------------
-
-
 ```
-
-
 
 ## awk语言详细介绍
 
@@ -2930,15 +3145,15 @@ AWK 只有两种基础类型，会自动隐式转换：
 1. **字符串类型**（默认所有内容都是字符串）
 
 2. 数值类型
-
+   
    （参与四则运算时自动转为数字）
-
+   
    无布尔类型：
-
+   
    ```
    0、空字符串
    ```
-
+   
     为假；非 0、非空字符串为真。
 
 ### 2. 核心数据结构：关联数组（唯一原生数据结构）
@@ -3009,15 +3224,15 @@ for(key in arr){}
 ### 5. 函数体系
 
 1. 内置函数
-
+   
    字符串：
-
+   
    ```
    sub/gsub/index/length/split/tolower/toupper
    ```
-
+   
    数值：
-
+   
    ```
    int/sqrt/rand/srand
    ```
@@ -3062,7 +3277,7 @@ BEGIN{}` → 逐行循环（分割字段→条件匹配→执行动作） → `E
 ### 4. 运行效率
 
 - 大文件（百万行日志）：AWK >> Shell
-
+  
   AWK 单次进程遍历文件；Shell 多次管道会创建多个子进程，频繁 IO 开销大。
 
 ### 5. 适用场景
@@ -3099,13 +3314,7 @@ BEGIN{}` → 逐行循环（分割字段→条件匹配→执行动作） → `E
 2. 拥有 if/for/while、switch case, 自定义函数、格式化 IO，擅长结构化文本统计；
 3. Shell 侧重系统命令调度，AWK 侧重行列数据聚合，运维中经常搭配使用。
 
-
-
-
-
 ## Vim 新建脚本自动模板（企业最通用）
-
-
 
 ```bash
 # 创建模板文件
@@ -3170,17 +3379,7 @@ autocmd BufNewFile *.sh call SetShellHeader()
 EOF
 
 vim +source ~/.vimrc +q
-
-
 ```
-
-
-
-
-
-
-
-
 
 ## Shell数组相关企业面试题及高级实战案例
 
@@ -3200,10 +3399,7 @@ echo ${#char}
 expr length $char
 
 echo $char|awk '{print length}'
-
 ```
-
-
 
 方法1：通过数组方法实现。
 
@@ -3250,10 +3446,9 @@ done
 ```bash
 chars="I am ckhedu teacher welcome to ckhedu training class"
 echo $chars|awk '{for(i=1;i<=NF;i++) if(length($i)<=6)print $i}'
-
 ```
 
-### 范例13_5：批量检查多个网站地址是否正常 
+### 范例13_5：批量检查多个网站地址是否正常
 
 要求：
 1）使用Shell数组方法实现，检测策略尽量模拟用户访问。
@@ -3332,8 +3527,6 @@ main                   #<==优美的显示成功结果，调用主函数运行�
 可将颜色这类通用基础函数抽离到独立函数文件（如/etc/init.d/functions），主脚本通过引入调用，实现代码解耦、结构整洁，这也是大型程序常用开发方式。
 ```
 
-
-
 ### 范例13_6：开发一个守护进程脚本，每30秒监控MySQL主从复制是否异常（包括不同步以及延迟），如果异常，则发送短信并发送邮件给管理员存档（此为生产实战案例）。
 
 提示：如果没主从复制的环境，可以把下面的文本放到文件里读取来模拟主从复制状态：
@@ -3380,8 +3573,6 @@ Master_SSL_Verify_Server_Cert: No
                Last_SQL_Error:                   
 ```
 
-
-
 ```
 解题思路：
 1）判断主从复制是否异常，主要就是检测如下参数对应的值是否和如下一致。
@@ -3390,11 +3581,7 @@ Slave_SQL_Running: Yes  #<==SQL线程状态必须为Yes。
 Seconds_Behind_Master: 0     #<==和主库比同步延迟的秒数，这个参数很重要。
 2）读取状态数据或状态文件，然后取出对应值，和正确时的值进行比对，如果不符合就表示故障了，即调用报警脚本报警。
 3）为了更专业，还可以在当主从不同步时，查看相应错误号，判断对应错误号以进行自动恢复主从复制故障（这些错误号也可以通过配置文件里配置参数实现自动忽略故障）。
-
-
 ```
-
-
 
 ```bash
 cat <<\EOF > slave.log
@@ -3438,7 +3625,6 @@ Master_SSL_Verify_Server_Cert: No
                Last_SQL_Errno: 0
                Last_SQL_Error:
 EOF
-
 ```
 
 然后开发脚本，开发脚本有多种方法，下面分别给出。
@@ -3465,8 +3651,6 @@ if [ $count -ne 0 ];then              #<==只要错误数不等于0，就表示�
 else
     echo "mysql replcation is sucess" #<==否则提示复制正常。
 fi
-
-
 ```
 
 测试结果如下：
@@ -3477,7 +3661,6 @@ mysql replcation is sucess
 [root@ckhedu scripts]# sed -i 's#Slave_IO_Running: Yes#Slave_IO_Running: No#g' slave.log  #<==提模拟IO线程故障。
 [root@ckhedu scripts]# sh 13_6_1.sh
 mysql replcation is failed
-
 ```
 
 方法2：本方法和方法1实现的功能差不多，但是开发手法就更高大上一些。
@@ -3511,8 +3694,6 @@ do
 done
 }
 main
-
-
 ```
 
 测试结果如下：
@@ -3529,7 +3710,6 @@ mysql replcation is sucess
 mysql replcation is failed
 mysql replcation is failed
 ^C
-
 ```
 
 方法3（此为企业生产正式检查脚本）：
@@ -3571,7 +3751,7 @@ status=($(awk -F ': ' '/_Running|Last_Errno|_Behind/{print $NF}' slave.log))
     if [ $? -ne 0 ];then #<==如果不为数字。
         status[3]=300 #<==赋值300，当数据库出现复制故障时，延迟这个状态值有可能是NULL，即非数字。
     fi
-    
+
     if [ "${status[0]}" == "Yes" -a "${status[1]}" == "Yes" -a ${status[3]} -lt 120 ]
  #<==两个线程都为Yes，并且延迟小于120秒，即认为复制状态是正常的。
       then
@@ -3624,11 +3804,7 @@ do
 done
 }
 main      
-
-
 ```
-
-
 
 ## shell实战企业面试题
 
@@ -3690,9 +3866,6 @@ do
 random=`echo "eric$RANDOM"|md5sum|tr "0-9" "m-z"|cut -c 2-11`
 touch $path/${random}_eric.html
 done
-
-
-
 ```
 
 ### 面试题 2：批量改名特殊案例
@@ -3707,7 +3880,6 @@ done
 
 file=arqordoamn_eric.html
 mv $file `echo ${file/eric.html/oldgirl.HTML}`
-
 ```
 
 2、 如果修改所有那就用 for 循环
@@ -3731,17 +3903,13 @@ do
   cd $path
   mv $file `echo ${file/eric.html/oldgirl.HTML}`
 done
-
 ```
 
 方法 3：
 
 ```bash
 rename "eric.html" "oldgirl.HTML" *.html
-
 ```
-
-
 
 ### 3：批量创建特殊要求用户案例
 
@@ -3756,7 +3924,7 @@ echo stu{01..10}|tr " " "\n"|sed -r 's#(.*)#useradd \1 ; pass=$((RANDOM+10000000
 useradd stu01 ;
 pass=$((RANDOM+10000000));
 echo "$pass"|passwd --stdin stu01;
-echo -e "stu01	`echo "$pass"`">>/tmp/eric.log
+echo -e "stu01    `echo "$pass"`">>/tmp/eric.log
 特别说明：如果用shell循环结构会更简单，
 
 方法2：
@@ -3774,11 +3942,9 @@ echo stu{21..30} | tr ' ' '\n' | sed -e 's/^/useradd /' -e 's/\(stu[0-9]\{2\}\)$
 
 方法4:
 echo stu{01..10} |tr ' ' '\n'|sed -rn 's@^(.*)$@useradd \1 ; echo $RANDOM|md5sum|cut -c 1-8 >/data/\1;cat /data/\1|passwd --stdin \1@gp'|bash
-
 ```
 
 解答：
-
 
 ```bash
 分析：
@@ -3870,7 +4036,7 @@ do
             echo -e "eric$n\t$pass" >>/tmp/user.list &&\
             action "eric$n is successful." /bin/true
         else
-        	action "eric$n is exist." /bin/false
+            action "eric$n is exist." /bin/false
     fi
 done
 ```
@@ -3910,11 +4076,7 @@ Nmap done: 256 IP addresses (3 hosts up) scanned in 4.98 seconds
 # nmap -sP 10.0.0.0/24 | awk '/for/{print $NF}'
 # /for/：正则匹配包含for的行（nmap输出中存活主机行带有for）
 # print $NF：打印当前行最后一列字段（目标IP地址）
-
-
 ```
-
-
 
 方法 2：
 
@@ -3975,14 +4137,9 @@ wait  # 等待所有后台子进程全部执行完毕再往下走
 
 # ()子 shell 后台执行
 (任务命令) &
-
-
-
 ```
 
 ### 面试题 5：解决 DOS 攻击生产案例
-
-
 
 ```bash
 写一个 Shell 脚本解决 DOS 攻击生产案例。
@@ -4023,7 +4180,6 @@ do
         echo "$ip" >>/tmp/accept.log
     fi
 done</tmp/ip.log
-
 ```
 
 参考答案 2：
@@ -4063,8 +4219,8 @@ done</tmp/ip.log
     mysqldump -B eric |gzip >bak.sql.gz
     mysqldump -B oldgirl |gzip >bak.sql.gz
     mysqldump -B test|gzip >bak.sql.gz
-    
-    
+
+
 参考答案：
 #!/bin/bash
 ##############################################################
@@ -4135,12 +4291,9 @@ do
         fi
     done
 done
-
 ```
 
 ### 面试题 8：筛选符合长度的单词案例
-
-
 
 ```bash
 利用 bash for 循环打印下面这句话中字母数不大于 6 的单词(某企业面试真题)。
@@ -4162,12 +4315,9 @@ do
         echo $word
     fi
 done
-
 ```
 
 ### 面试题 9：比较整数大小经典案例
-
-
 
 ```bash
 综合实战案例：开发 shell 脚本分别实现以脚本传参以及 read 读入的方式比较 2 个整数大小。
@@ -4203,13 +4353,9 @@ then
 else
     echo "$a<$b"
 fi
-
-
 ```
 
 ### 面试题 10：菜单自动化软件部署经典案例
-
-
 
 ```bash
 综合实例：打印选择菜单，按照选择一键安装不同的 Web 服务。
@@ -4231,11 +4377,7 @@ pls input the num you want:
 尽量用上前面讲解的知识点。
 
 解答：见第二模块 Shell 考试题答案
-
-
 ```
-
-
 
 ```bash
 #!/bin/bash
@@ -4269,12 +4411,9 @@ case $num in
         echo "Usage:$0 {1|2|3}"
         exit 1
 esac   
-
 ```
 
 ### 面试题 11：破解 RANDOM 随机数案例
-
-
 
 ```bash
 已知下面的字符串是通过 RANDOM 随机数变量 md5sum 后，再截取一部分连续字符串的结果，
@@ -4303,13 +4442,13 @@ a3da1677
 Funmd5(){
     for n in {0..32767}
     do
-    	# 命令块放入后台并发执行，加快批量计算速度
-        {	
-        	# 1. echo $n：输出当前循环的数字n
+        # 命令块放入后台并发执行，加快批量计算速度
+        {    
+            # 1. echo $n：输出当前循环的数字n
             # 2. 管道交给md5sum命令，计算该数字字符串的MD5哈希值
-            # 3. echo -e "$n\txxx"：制表符分隔，格式：数字	MD5值
+            # 3. echo -e "$n\txxx"：制表符分隔，格式：数字    MD5值
             # 4. >> 追加写入 /tmp/md5sum1.log，保存全部明文+密文映射
-        	echo -e "$n\t`echo $n|md5sum`" >>/tmp/md5sum1.log 
+            echo -e "$n\t`echo $n|md5sum`" >>/tmp/md5sum1.log 
         } &
     done
     # 等待上面所有后台并发进程全部执行完毕，再往下执行后续代码
@@ -4321,7 +4460,7 @@ FunJudge(){
     # tr " " "|"：将元素之间的空格替换成正则或符号 |
     # char变量最终结果：21029299|00205d1c|a3da1677|1f6d12dd|890684b
     char="`echo ${array[*]}|tr " " "|"`"
-    
+
     # egrep 支持扩展正则，匹配任意一个 | 分隔的密文
     # 从md5日志中筛选出包含目标密文的行，输出：原始数字对应MD5，实现md5暴力破解
     egrep "$char" /tmp/md5sum1.log
@@ -4344,12 +4483,9 @@ main
 10082   890684ba3685395c782547daf296935f  -
 25345   a3da1677501d9e4700ed867c5f33538a  -
 25667   2102929901ee1aa769d0f479d7d78b05  -  #21029299可能的对应的数字
-
 ```
 
 ### 面试题 12：批量检查多个网站地址是否正常
-
-
 
 ```bash
 要求：
@@ -4406,8 +4542,6 @@ main
 ```
 
 ### 面试题 13：单词及字母去重排序案例
-
-
 
 ```bash
 用 shell 处理以下内容
@@ -4483,15 +4617,9 @@ tr "[ ,.]" "\n"<eric.txt|awk '{for(i=1; i<=length($0); i++) ++S[substr($0,i,1)]}
 echo "the squid project provides a number of resources toassist users design,implement and support squid installations. Please browsethe documentation and support sections for more infomation"|sed 's# ##g'|sed -r 's#(.)#\1\n#g'|sort|uniq -c|sort -rn -k1
 
 echo "the squid project provides a number of resources toassist users design,implement and support squid installations. Please browsethe documentation and support sections for more infomation"|sed 's# ##g'|awk -F "" '{for(n=1;n<=NF;n++) print $n}'|sort|uniq -c|sort -k1 -nr
-
-
-
-
 ```
 
 ### 面试题 14：企业批量管理和分发文件案例实战
-
-
 
 ```bash
 3 台机器 A、B、C，实现从 A 到 B 和 C 免秘钥登录，
@@ -4517,8 +4645,6 @@ do
         action "10.0.0.$n is failure" /bin/false
     fi
 done
-
-
 ```
 
 查看脚本；
@@ -4535,11 +4661,7 @@ do
     echo "--------10.0.0.$n---------"
     ssh 10.0.0.$n $1
 done
-
-
 ```
-
-
 
 ## 合格运维人员必会的脚本列表
 
@@ -4558,19 +4680,17 @@ done
 13）TCP连接状态及IP统计报警脚本。
 14）批量创建用户并设置随机8位密码的脚本。
 
-
-
 # 一、运维必掌握 Shell 核心知识点
 
 ## 1. 基础必备
 
 1. 脚本规范：`#!/bin/bash`、脚本权限、执行三种方式、注释、set 脚本容错（`set -euo pipefail`）
 
-1. 变量：普通变量、环境变量、位置参数 `$0 $1 $2 $# $@ $* $?`、局部变量 `local`
-2. 字符串操作：拼接、截取、替换、去首尾空格、判断空 / 非空、字符串比较
-3. 算术运算：`$(( ))`、`let`、`bc` 浮点运算
+2. 变量：普通变量、环境变量、位置参数 `$0 $1 $2 $# $@ $* $?`、局部变量 `local`
 
+3. 字符串操作：拼接、截取、替换、去首尾空格、判断空 / 非空、字符串比较
 
+4. 算术运算：`$(( ))`、`let`、`bc` 浮点运算
 
 ## 2. 条件判断（高频）
 
@@ -4579,8 +4699,6 @@ done
 3. 字符串：`-z -n = !=`
 4. `[]`、`[[ ]]`、`(( ))` 三者区别、正则匹配 `=~`
 5. `if` 单 / 双 / 多分支、`case` 服务启停脚本
-
-
 
 ## 3. 循环结构
 
@@ -4687,11 +4805,7 @@ done < eric.txt # 输入重定向方式  不会创建子 Shell
 cat eric.txt | while read line; do ... done # 管道写法 管道符 | 左右两边都会新开子 Shell 进程
 (( ))：Bash 算术扩展语法;只支持整数运算，不支持小数；
 () 在 Shell 里代表开启 子 Shell 执行命令
-
-
 ```
-
-
 
 1. 数组带空格元素遍历为什么要加双引号 `"${arr[@]}"`  
 
@@ -4700,10 +4814,8 @@ ${arr[@]}：把数组每个元素独立拆分；加双引号后，带空格的�
 不加双引号 ${arr[@]}：Shell 会进行单词拆分，元素内的空格会变成分隔符，一个元素被拆成多个
 ```
 
-
-
 1. 浮点运算 Shell 原生不支持，用什么工具？
-
+   
    ```bash
    # 10 ÷ 3，保留2位小数
    echo "scale=2; 10/3" | bc
@@ -4723,8 +4835,6 @@ ${arr[@]}：把数组每个元素独立拆分；加双引号后，带空格的�
    echo | awk '{print 10/3}'
    ```
 
-   
-
 2. 脚本后台运行、nohup 与 & 区别、日志丢失问题
 
 ```bash
@@ -4734,8 +4844,6 @@ nohup ./test.sh > app.log 2>&1 &
 2>&1：把标准错误 (文件描述符 2) 重定向到标准输出 (文件描述符 1)。
 ```
 
-
-
 # 三、运维高频实战脚本方向
 
 1. 系统巡检、监控告警脚本
@@ -4744,12 +4852,9 @@ nohup ./test.sh > app.log 2>&1 &
 4. 服务启停、进程保活守护脚本
 5. 日志统计分析、安全审计脚本
 
-
-
 ## set 脚本容错
 
 ```bash
-
 写在脚本开头（企业生产最常用，全局生效）
 放在 #!/bin/bash 下面第一行，整个脚本所有命令都生效。
 
@@ -4791,6 +4896,3 @@ set -e 看到返回码是 0，不会退出脚本，继续执行后面 echo
 开启 pipefail：管道里任意一个命令失败，整条管道就判定为失败，set -e 可以正常捕获错误终止脚本。
 ----------------------------------------------------
 ```
-
-
-

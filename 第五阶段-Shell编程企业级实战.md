@@ -112,8 +112,6 @@ bash 兼容 sh 语法，还集成 csh、ksh 特性，绝大多数 bash 脚本可
 6. **擅长文本处理**，结合 grep、sed、awk 等三剑客，日志分析、数据过滤能力极强。
 7. **不适合海量浮点运算、高并发复杂业务**，只适合轻量级自动化场景。
 
-
-
 ## shell编程关键字大全
 
 ```bash
@@ -253,8 +251,6 @@ example_set() {
 # 3. 变量控制：local 局部、readonly 只读、export 环境变量
 # 4. 退出控制：函数内用 return，整体脚本用 exit
 # 5. 引入外部脚本用 source / . 点命令，在当前环境执行不新开进程
-
-
 ```
 
 ## shell编程 基础数据类型和容器类型 总结
@@ -4663,77 +4659,6 @@ do
 done
 ```
 
-## 合格运维人员必会的脚本列表
-
-1）系统及各类服务的监控脚本，例如：文件、内存、磁盘、端口，URL监控报警等。
-2）监控网站目录下文件是否被篡改，以及站点目录批量被篡改后如何批量恢复的脚本。
-3）各类服务Rsync、Nginx、MySQL等的启动及停止专业脚本（使用chkconfig管理）。
-4）MySQL主从复制监控报警以及自动处理不复制故障的脚本。
-5）一键配置MySQL多实例、一键配置MySQL主从部署脚本。
-6）监控HTTP/MySQL/Rsync/NFS/Memcached等服务是否异常的生产脚本。
-7）一键软件安装及优化的脚本，比如LANMP、Linux一键优化，一键数据库安装、优化等。
-8）MySQL多实例启动脚本，分库、分表自动备份脚本。
-9）根据网络连接数以及根据Web日志PV封IP的脚本。
-10）监控网站的PV以及流量，并且对流量信息进行统计的脚本。
-11）检查Web服务器多个URL地址是否异常的脚本，要可以批量处理且通用。
-12）系统的基础优化一键优化的脚本。
-13）TCP连接状态及IP统计报警脚本。
-14）批量创建用户并设置随机8位密码的脚本。
-
-# 一、运维必掌握 Shell 核心知识点
-
-## 1. 基础必备
-
-1. 脚本规范：`#!/bin/bash`、脚本权限、执行三种方式、注释、set 脚本容错（`set -euo pipefail`）
-
-2. 变量：普通变量、环境变量、位置参数 `$0 $1 $2 $# $@ $* $?`、局部变量 `local`
-
-3. 字符串操作：拼接、截取、替换、去首尾空格、判断空 / 非空、字符串比较
-
-4. 算术运算：`$(( ))`、`let`、`bc` 浮点运算
-
-## 2. 条件判断（高频）
-
-1. 文件测试：`-f -d -e -r -w -x -s`
-2. 数值比较：`-eq -ne -gt -lt -ge -le`
-3. 字符串：`-z -n = !=`
-4. `[]`、`[[ ]]`、`(( ))` 三者区别、正则匹配 `=~`
-5. `if` 单 / 双 / 多分支、`case` 服务启停脚本
-
-## 3. 循环结构
-
-1. `for` 两种写法：遍历列表、C 语言风格；批量运维场景（批量主机、文件、服务）
-2. `while` 循环：守护进程、无限轮询、按行读取文件 `while read line`
-3. `break continue exit return` 四者区别
-
-## 4. 函数
-
-1. 两种函数定义方式、传参、返回值（仅 0-255 状态码）
-2. 全局变量 / 局部变量、函数库分离（`source` 加载外部脚本）
-3. 封装重复运维逻辑
-
-## 5. 数组（面试高频）
-
-1. 普通索引数组：定义、遍历、截取、追加、删除、数组长度
-2. 关联数组 `declare -A`：必须显式声明、键值存储、遍历 key/value
-3. 字符串截取、前缀后缀删除、单个 / 全局替换
-
-## 6. 三剑客（Shell 灵魂，运维必考）
-
-grep sed awk
-
-- grep：过滤、正则、反向匹配、统计行数
-- sed：增删改查、替换、批量修改配置
-- awk：列截取、统计、求和、格式化输出、条件判断
-
-## 7. 高级常用
-
-1. 颜色输出、菜单 `here-doc`
-2. 定时任务结合脚本、日志输出重定向 `> >> 2>&1`
-3. 信号捕获 `trap`、脚本异常处理
-4. 静态数组、动态数组、批量巡检脚本开发
-5. 服务启停脚本、日志清理、数据备份脚本
-
 # 二、Shell 高频面试题（精简）
 
 ## 1. 基础类
@@ -4744,17 +4669,203 @@ grep sed awk
 4. 脚本三种执行方式区别（`./`、`sh`、`source`）
 5. `set -e`、`set -u` 作用
 
+答:
+
+```bash
+## 1. $@ 与 $\* 差异
+
+```
+# 无引号
+$*  # 所有参数视作1个字符串，空格分割
+$@  # 保留每个参数独立
+
+# 加双引号核心区别（重点）
+"$*"  # 合并成一整个字符串："$1 $2 $3"
+"$@"  # 分开独立参数："$1" "$2" "$3"（循环遍历必用）
+```
+
+## 2. 特殊内置变量含义
+
+```
+$?  # 上一条命令退出码，0成功非0失败
+$$  # 当前脚本进程PID
+$!  # 最后一个后台运行进程PID
+$0  # 当前脚本文件名
+$_  # 上一条命令最后一个参数
+```
+
+## 3. \[\] / \[\[\]\] / (( )) 区分与场景
+
+```
+# 1. [] 等价 test 命令，POSIX标准，功能弱
+# 仅支持简单字符串、文件判断；不支持&& || < > 原生逻辑
+if [ -f "a.txt" ]; then echo file; fi
+
+# 2. [[ ]] bash扩展，推荐字符串/文件匹配
+# 支持 && || 逻辑、正则 =~、通配符匹配，无语法坑
+if [[ $str == hello && $num -gt 10 ]]; then echo ok; fi
+
+# 3. (( )) 纯整数数学运算，只处理数字
+# 支持 > < +-*/、自增、逻辑判断，不用 -gt/-lt
+if (( num > 20 )); then echo big; fi
+```
+
+## 4. 三种脚本执行方式
+
+```
+./script.sh
+# 新开子shell运行；变量、cd切换不影响当前终端；需执行权限x
+
+sh script.sh
+# 新开子shell，无需执行权限；用sh解释器执行，忽略脚本#!头指定解释器
+
+source script.sh / . script.sh
+# 当前shell直接执行，无子进程；变量、cd、函数全部留存当前终端
+```
+
+## 5. set 安全参数
+
+```
+set -e  # 任意命令返回非0退出码，脚本立即终止，避免错误继续执行
+set -u  # 使用未定义变量直接报错退出，防止空变量引发逻辑异常
+# 组合使用：set -eu
+```
+```
+
+
+
 ## 2. 条件判断类
 
 1. 如何判断输入是否为纯数字（expr 加法 / 正则 /case）
 2. 文件常用测试参数、如何判断文件是否为空
 3. 正则 `^ $ [] +` 含义，如何匹配手机号、IP
 
+
+
+```bash
+# ====================== 2.条件判断类 ======================
+# 1、判断变量是否纯数字 三种方案
+num="12345"
+# 方案1 expr 运算，非数字报错返回非0
+expr "$num" + 0 >/dev/null 2>&1
+if [ $? -eq 0 ];then echo "纯数字";fi
+
+# 方案2 [[ ]] bash内置正则（推荐）
+if [[ "$num" =~ ^[0-9]+$ ]];then echo "纯数字";fi
+
+# 方案3 case 通配匹配
+case "$num" in
+    ''|*[!0-9]*) echo "非数字" ;;
+    *) echo "纯数字" ;;
+esac
+
+#case 匹配模式：`''|*[!0-9]*` 逐段拆解
+##  每部分含义
+1. `''`
+空字符串直接命中，空内容判定为非数字。
+2. `*[!0-9]*`
+
+- `[!0-9]`：`!` 在 `[]` 内部代表取反，**任意不是 0~9 的字符**（字母、符号、空格等）
+- 前后两个 `*`：任意长度任意字符（0 个或多个）
+整体逻辑：只要字符串里存在任意一个非数字字符，就匹配。
+
+# 2、文件测试参数 + 判断文件空文件
+# 常用文件测试
+[ -e file ]  # 文件存在
+[ -f file ]  # 普通文件
+[ -d dir ]   # 目录
+[ -r ]/[ -w ]/[ -x ] 读写执行权限
+[ -L file ] 软链接
+[ -s file ]  # 文件存在且非空
+
+# 判断文件为空两种写法
+if [ ! -s test.txt ];then echo "文件空/不存在";fi
+if [ $(wc -l < test.txt) -eq 0 ];then echo "无内容";fi
+
+# 3、正则元字符 ^ $ [] + 含义 + 手机号/IP匹配
+# 元字符说明
+# ^ 行开头；$ 行结尾
+# [] 字符集 [0-9]数字 [a-z]小写字母
+# + 前面字符出现1次及以上
+
+# 匹配国内手机号 1开头 第二位3-9 后9位数字
+phone="13800138000"
+if [[ "$phone" =~ ^1[3-9][0-9]{9}$ ]];then echo "合法手机号";fi
+
+# =~ 仅在 \[\[ \]\] 双括号内置条件中使用：正则匹配运算符
+
+
+# 匹配IPv4简单正则（0-255分段）
+ip="192.168.1.1"
+reg="^([0-9]{1,3}\.){3}[0-9]{1,3}$"
+if [[ "$ip" =~ $reg ]];then echo "IP格式正确";fi
+
+```
+
 ## 3. 循环类
 
 1. `while read` 按行读文件为什么不能用管道直接循环？如何避免变量失效？
 2. `break n`、`continue n` 多层循环跳出用法
 3. for 与 while 适用场景：批量处理 / 守护进程
+
+```bash
+# ====================== 3.循环类 ======================
+# 1. while read + 管道变量失效原因 & 两种解决办法
+# 原理：管道 | 会创建子Shell，循环运行在子进程，子Shell变量无法同步到父Shell
+# 错误示例，count最终还是0
+count=0
+cat test.txt | while read -r line; do
+    ((count++))
+done
+echo $count
+
+# 方案1 文件重定向（推荐，无额外进程）
+count=0
+while read -r line || [ -n "$line" ]; do
+    ((count++))
+done < test.txt
+echo $count
+
+# 方案2 进程替换 bash特有 < <(cmd)
+count=0
+while read -r line || [ -n "$line" ]; do
+    ((count++))
+done < <(cat test.txt)
+echo $count
+
+# read || [ -n "$line" ] 作用：捕获文件末尾无换行最后一行，兼容set -e不异常退出
+
+# 2. break n / continue n 多层循环控制
+# n = 跳出/跳过几层循环，省略n默认1层
+for i in {1..3}; do
+  for j in {1..3}; do
+    if [[ $j -eq 2 ]]; then
+      break 2  # 直接跳出内外两层循环
+      # continue 2 跳过当前内层+外层本次循环，直接外层下一轮
+    fi
+    echo "i=$i j=$j"
+  done
+done
+
+# 3. for / while 适用场景区分
+## for循环：已知次数、批量遍历固定集合（文件列表、数组、参数）
+# 批量处理文件
+for file in *.log; do
+  cp "$file" /tmp/
+done
+# 遍历数组
+for item in "${arr[@]}"; do echo "$item"; done
+
+## while循环：未知循环次数、持续监听/守护进程、逐行读取文件
+# 守护进程死循环
+while true; do
+  echo "服务运行中..."
+  sleep 3
+done
+# 逐行读取文件
+while read -r line; do echo "$line"; done < test.txt
+
+```
 
 ## 4. 函数 + 数组（重中之重）
 
@@ -4763,11 +4874,110 @@ grep sed awk
 3. 数组遍历两种方式、数组片段截取、批量元素替换
 4. 如何封装函数库、source 和./ 加载脚本区别
 
+```bash
+# ====================== 4.函数+数组 ======================
+# 1.return exit区别；函数返回字符串方案
+# exit：结束整个脚本，接收0-255数字状态码
+# return：仅退出当前函数，只能传0-255整数，不能传字符串
+test_func(){
+  return 10
+}
+test_func
+echo $? # 获取函数return数值
+
+# 函数返回字符串两种方式
+# 方式1：标准输出echo/printf，$()捕获
+get_str(){
+  echo "hello bash"
+}
+res=$(get_str)
+echo "$res"
+
+# 方式2：全局变量接收结果
+global_res=""
+set_str(){
+  global_res="test content"
+}
+set_str
+echo "$global_res"
+
+# 2.关联数组必须declare -A原因
+# bash4+ 区分索引数组/关联数组，不声明默认识别为数字下标索引数组
+# 错误示例：不declare -A，字符串键失效
+arr[name]="zhangsan" # 不会报错，但会当成下标计算，数据错乱
+# 正确
+declare -A dict
+dict[name]="zhangsan"
+echo "${dict[name]}"
+
+# 3.数组操作：遍历、截取、替换
+# 索引数组
+arr=("aa bb" "cc" "dd")
+# 遍历1：遍历元素（兼容空格元素必加双引号）
+for item in "${arr[@]}";do echo "$item";done
+# 遍历2：按下标遍历
+for idx in "${!arr[@]}";do echo "$idx:${arr[$idx]}";done
+
+# 数组片段截取 ${arr[@]:起始:长度}
+slice=("${arr[@]:0:2}")
+echo "${slice[@]}"
+
+# 数组全局替换
+new_arr=("${arr[@]//cc/CC}")
+echo "${new_arr[@]}"
+
+# 4.函数库封装；source 与 ./ 区别
+# 库文件 lib.sh：存放通用函数
+# 加载方式1 source / . ：在当前shell加载，函数全局可用，无新进程
+source ./lib.sh
+. ./lib.sh
+
+# 加载方式2 ./lib.sh ：新开子shell执行，子shell内函数、变量不污染父shell，外部无法调用库函数
+# 封装规范：库脚本尾部不加执行逻辑，只定义函数变量
+
+```
+
 ## 5. 三剑客高频面试
 
 1. sed 批量替换配置文件、只替换第 N 行
 2. awk 统计日志访问量、IP 访问次数、求和、去重
 3. grep 过滤空行、注释行、反向过滤
+
+```bash
+# ====================== 5.三剑客高频面试 ======================
+# 1.sed 替换操作
+# 全局替换文件所有行old→new，直接写入文件
+sed -i 's/old/new/g' test.conf
+# 只替换第3行
+sed -i '3s/old/new/g' test.conf
+# 只替换5-10行
+sed -i '5,10s/old/new/g' test.conf
+# 只替换匹配关键词的行
+sed -i '/bind/s/0.0.0.0/127.0.0.1/g' test.conf
+
+# 2.awk 日志统计场景
+# 统计每行第1列IP访问次数
+awk '{ip[$1]++}END{for(k in ip)print k,ip[k]}' access.log
+# 求和，第5列数值累加
+awk '{sum+=$5}END{print sum}' num.txt
+# 去重（打印唯一行）
+awk '!a[$0]++' test.txt
+# 统计200状态码行数
+awk '$9=="200"{cnt++}END{print cnt}' access.log
+
+# 3.grep 过滤常用
+# 过滤空行
+grep -v '^$' file.txt
+# 过滤#开头注释行
+grep -v '^#' file.txt
+# 反向过滤（排除包含error的行）
+grep -v 'error' log.txt
+# 同时过滤空行+注释
+grep -vE '^$|^#' nginx.conf
+# 匹配多行、忽略大小写
+grep -i 'warn' log.txt
+
+```
 
 ## 6. 实战脚本面试题（手写）
 
@@ -4777,6 +4987,67 @@ grep sed awk
 4. rsync/nginx 服务启停 case 脚本
 5. 监控端口 / 进程异常，异常则重启并告警
 6. 统计 Nginx 访问日志中 Top10 访问 IP
+
+```bash
+# ====================== 6.实战脚本面试手写题 ======================
+# 1.批量创建100用户+随机密码，保存到user.log
+#!/bin/bash
+#文件不存在 → 创建空文件;文件已存在 → 直接清空原有内容，从头写入
+> user.log
+for i in {1..100};do
+  user="test$i"
+  pass=$(openssl rand -base64 8)
+  id $user &>/dev/null || useradd $user
+  echo "$pass" | passwd --stdin $user
+  echo "$user $pass" >> user.log
+done
+
+# 2.日志清理：打包7天前日志，删除过期
+#!/bin/bash
+log_path="/var/log/nginx"
+save_day=7
+find $log_path -name "*.log" -mtime +$save_day | while read f;do
+  tar -czf ${f}.tar.gz $f
+  rm -f $f
+done
+
+# 3.系统简易巡检
+#!/bin/bash
+echo "====CPU负载===="
+uptime
+echo -e "\n====内存===="
+free -h
+echo -e "\n====磁盘===="
+df -h
+echo -e "\n====监听端口===="
+ss -tulnp
+echo -e "\n====nginx状态===="
+systemctl is-active nginx
+
+# 4.nginx服务case启停脚本
+#!/bin/bash
+case $1 in
+start) systemctl start nginx;echo "启动成功";;
+stop) systemctl stop nginx;echo "停止成功";;
+restart) systemctl restart nginx;echo "重启成功";;
+status) systemctl status nginx;;
+*) echo "用法:$0 start|stop|restart|status";;
+esac
+
+# 5.端口监控，异常重启+简单告警
+#!/bin/bash
+port=80
+if ! ss -ltnp | grep ":$port" &>/dev/null;then
+  systemctl restart nginx
+  echo "端口$port宕机，已重启nginx" >> /var/log/mon.log
+fi
+
+# 6.Nginx日志取Top10访问IP
+awk '{print $1}' access.log | sort | uniq -c | sort -nr | head -10
+
+```
+
+
 
 ## 7. 坑点面试题
 
@@ -4852,6 +5123,93 @@ nohup ./test.sh > app.log 2>&1 &
 4. 服务启停、进程保活守护脚本
 5. 日志统计分析、安全审计脚本
 
+
+
+```bash
+# ==================== 运维5大类生产脚本示例 ====================
+# 1.系统巡检+简单日志告警脚本
+#!/bin/bash
+# 巡检日志路径
+log_file=/var/log/check_system.log
+> $log_file
+echo "===== 巡检时间: $(date) =====" >> $log_file
+
+# CPU负载 超过4告警 $NF-2 最后一列15分钟负载减去2  #bc -l 涉及小数浮点比较，必须加 `-l`
+cpu_load=$(uptime | awk '{print $NF-2}')
+if (( $(echo "$cpu_load > 4" | bc -l) ));then
+    echo "【告警】CPU负载过高 $cpu_load" >> $log_file
+fi
+
+# 磁盘使用率 超过85%告警
+df -h | grep -v tmpfs | grep -v loop | awk 'NR>1{gsub(/%/,"");if($5>85)print "【告警】分区 "$1" 使用率 "$5"%"}' >> $log_file
+
+# 内存低于1G告警
+mem_free=$(free -m | awk '/Mem:/{print $7}')
+if [ $mem_free -lt 1024 ];then
+    echo "【告警】可用内存不足${mem_free}M" >> $log_file
+fi
+
+# 监听端口检查
+ss -tulnp >> $log_file
+cat $log_file
+
+# 2.日志清理备份脚本（保留7天，压缩旧日志）
+#!/bin/bash
+log_dir="/var/log/nginx"
+save_days=7
+back_dir="/data/log_backup"
+mkdir -p $back_dir
+# 查找7天前日志打包迁移
+find $log_dir -type f -name "*.log" -mtime +$save_days | while read logfile
+do
+    tar_name=$(basename $logfile).tar.gz
+    tar -czf $back_dir/$tar_name $logfile
+    rm -f $logfile
+done
+# 日志切割配合logrotate，此处为手动清理方案
+
+# 3.批量主机执行脚本（ssh免密前提）
+#!/bin/bash
+host_list=(192.168.1.10 192.168.1.11 192.168.1.12)
+cmd="df -h;free -h"
+for host in "${host_list[@]}"
+do
+    echo "===== 主机 $host ====="
+    ssh root@$host "$cmd"
+done
+
+# 4.进程保活守护脚本（nginx示例，放入crontab定时执行）
+#!/bin/bash
+service_name="nginx"
+if ! systemctl is-active --quiet $service_name;then
+    systemctl restart $service_name
+    echo "$(date) $service_name 异常，已重启" >> /var/log/service_mon.log
+fi
+
+# 5.Nginx日志审计统计脚本 Top10 IP、4xx/5xx错误统计
+#!/bin/bash
+log_path="/var/log/nginx/access.log"
+echo "====访问量TOP10 IP===="
+awk '{print $1}' $log_path | sort | uniq -c | sort -nr | head -10
+echo -e "\n====4xx客户端错误统计===="
+awk '$9 ~ /^4/' $log_path | wc -l
+echo -e "\n====5xx服务端错误统计===="
+awk '$9 ~ /^5/' $log_path | wc -l
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## set 脚本容错
 
 ```bash
@@ -4896,3 +5254,78 @@ set -e 看到返回码是 0，不会退出脚本，继续执行后面 echo
 开启 pipefail：管道里任意一个命令失败，整条管道就判定为失败，set -e 可以正常捕获错误终止脚本。
 ----------------------------------------------------
 ```
+
+
+
+## 合格运维人员必会的脚本列表
+
+1）系统及各类服务的监控脚本，例如：文件、内存、磁盘、端口，URL监控报警等。
+2）监控网站目录下文件是否被篡改，以及站点目录批量被篡改后如何批量恢复的脚本。
+3）各类服务Rsync、Nginx、MySQL等的启动及停止专业脚本（使用chkconfig管理）。
+4）MySQL主从复制监控报警以及自动处理不复制故障的脚本。
+5）一键配置MySQL多实例、一键配置MySQL主从部署脚本。
+6）监控HTTP/MySQL/Rsync/NFS/Memcached等服务是否异常的生产脚本。
+7）一键软件安装及优化的脚本，比如LANMP、Linux一键优化，一键数据库安装、优化等。
+8）MySQL多实例启动脚本，分库、分表自动备份脚本。
+9）根据网络连接数以及根据Web日志PV封IP的脚本。
+10）监控网站的PV以及流量，并且对流量信息进行统计的脚本。
+11）检查Web服务器多个URL地址是否异常的脚本，要可以批量处理且通用。
+12）系统的基础优化一键优化的脚本。
+13）TCP连接状态及IP统计报警脚本。
+14）批量创建用户并设置随机8位密码的脚本。
+
+
+
+# 一、运维必掌握 Shell 核心知识点
+
+## 1. 基础必备
+
+1. 脚本规范：`#!/bin/bash`、脚本权限、执行三种方式、注释、set 脚本容错（`set -euo pipefail`）
+
+2. 变量：普通变量、环境变量、位置参数 `$0 $1 $2 $# $@ $* $?`、局部变量 `local`
+
+3. 字符串操作：拼接、截取、替换、去首尾空格、判断空 / 非空、字符串比较
+
+4. 算术运算：`$(( ))`、`let`、`bc` 浮点运算
+
+## 2. 条件判断（高频）
+
+1. 文件测试：`-f -d -e -r -w -x -s`
+2. 数值比较：`-eq -ne -gt -lt -ge -le`
+3. 字符串：`-z -n = !=`
+4. `[]`、`[[ ]]`、`(( ))` 三者区别、正则匹配 `=~`
+5. `if` 单 / 双 / 多分支、`case` 服务启停脚本
+
+## 3. 循环结构
+
+1. `for` 两种写法：遍历列表、C 语言风格；批量运维场景（批量主机、文件、服务）
+2. `while` 循环：守护进程、无限轮询、按行读取文件 `while read line`
+3. `break continue exit return` 四者区别
+
+## 4. 函数
+
+1. 两种函数定义方式、传参、返回值（仅 0-255 状态码）
+2. 全局变量 / 局部变量、函数库分离（`source` 加载外部脚本）
+3. 封装重复运维逻辑
+
+## 5. 数组（面试高频）
+
+1. 普通索引数组：定义、遍历、截取、追加、删除、数组长度
+2. 关联数组 `declare -A`：必须显式声明、键值存储、遍历 key/value
+3. 字符串截取、前缀后缀删除、单个 / 全局替换
+
+## 6. 三剑客（Shell 灵魂，运维必考）
+
+grep sed awk
+
+- grep：过滤、正则、反向匹配、统计行数
+- sed：增删改查、替换、批量修改配置
+- awk：列截取、统计、求和、格式化输出、条件判断
+
+## 7. 高级常用
+
+1. 颜色输出、菜单 `here-doc`
+2. 定时任务结合脚本、日志输出重定向 `> >> 2>&1`
+3. 信号捕获 `trap`、脚本异常处理
+4. 静态数组、动态数组、批量巡检脚本开发
+5. 服务启停脚本、日志清理、数据备份脚本

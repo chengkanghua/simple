@@ -1094,6 +1094,338 @@ in not in                成员运算符
 not and or                逻辑运算符
 ```
 
+## 字符串格式化打印
+
+```bash
+#读取用户指令
+name = input("What is your name?")
+print("Hello " + name )
+
+# ===================== Python字符串格式化打印 三种主流方式 =====================
+# 推荐优先级：f-string > str.format() > % 占位符
+
+# ===================== 1. % 占位符格式化（老式C风格，兼容老版本） =====================
+# %s 字符串  %d 整数  %f 浮点数  %x 十六进制
+name = "张三"
+age = 22
+height = 1.756
+
+# 基础用法：按顺序匹配
+print("姓名：%s，年龄：%d，身高：%.2f" % (name, age, height))
+# %.2f 表示浮点数保留2位小数
+
+# 字典方式传参，不用按顺序
+print("姓名：%(name)s，年龄：%(age)d" % {"name": name, "age": age})
+
+# 常用格式符
+# %s: 字符串  %d: 十进制整数  %f: 浮点数  %x: 十六进制  %o: 八进制  %%: 输出百分号本身
+
+
+# ===================== 2. str.format() 方法（Python2.6+ 引入） =====================
+# 方式A：位置占位，按顺序匹配
+print("姓名：{}，年龄：{}，身高：{}".format(name, age, height))
+
+# 方式B：指定索引，可重复使用
+print("姓名：{0}，年龄：{1}，重复姓名：{0}".format(name, age))
+
+# 方式C：关键字参数，可读性强
+print("姓名：{name}，年龄：{age}".format(name=name, age=age))
+
+# 格式控制：精度、对齐、填充、宽度
+print("保留2位小数：{:.2f}".format(height))   # 保留2位小数
+print("左对齐占10位：{:<10d}".format(age))   # 左对齐，总宽度10
+print("右对齐占10位：{:>10d}".format(age))   # 右对齐，总宽度10
+print("居中对齐：{:^10d}".format(age))       # 居中对齐
+print("补零填充：{:0>4d}".format(age))       # 右对齐，不足4位左侧补0
+print("千分位分隔：{:,}".format(1234567))    # 数字千分位逗号分隔
+print("十六进制：{:x}".format(255))          # 转十六进制
+print("百分比：{:.1%}".format(0.856))        # 转百分比，保留1位小数
+
+
+# ===================== 3. f-string 字面量格式化（Python3.6+ 官方推荐） =====================
+# 语法：f"xxx{变量/表达式}xxx"，直接在{}内嵌入变量、表达式、函数调用，性能最高
+
+# 基础用法
+print(f"姓名：{name}，年龄：{age}，身高：{height}")
+
+# 嵌入表达式、函数调用
+print(f"年龄明年：{age + 1}，姓名大写：{name.upper()}")
+
+# 格式控制，语法和format一致，写在冒号后
+print(f"身高保留2位：{height:.2f}")
+print(f"年龄补零4位：{age:0>4d}")
+print(f"数字千分位：{1234567:,}")
+print(f"百分比：{0.856:.1%}")
+print(f"居中对齐：{age:^10d}")
+
+# 调试专用：= 符号，同时输出变量名和值（Python3.8+）
+print(f"{age=}")  # 输出 age=22，调试不用重复写变量名
+
+
+# ===================== 常用格式控制符总结 =====================
+# :.nf      浮点数保留n位小数
+# :nd       整数总宽度n位，默认右对齐
+# :<n       左对齐，总宽度n
+# :>n       右对齐，总宽度n
+# :^n       居中对齐，总宽度n
+# :0>n      右对齐，不足n位左侧补0
+# :,        数字千分位逗号分隔
+# :x / :o / :b  十六/八/二进制
+# :.n%      转百分比，保留n位小数
+```
+
+## 编码
+
+```py
+axcii   字符与二进制对照表
+unicode 字符与二进制对照表
+utf8    对unicode字符集的码位进行压缩处理，间接也维护了字符和二进制的对照表。
+
+# ===================== Python 编码核心原理 =====================
+# Python3 核心设计：str = Unicode字符序列（人类可读）；bytes = 二进制字节（机器存储/传输用）
+# 编码 encode：str → bytes（字符转字节，用于存文件、发网络）
+# 解码 decode：bytes → str（字节转字符，用于读文件、收数据）
+# 乱码本质：编码和解码使用的编码格式不一致
+
+# ===================== 1. 编码 encode：字符串转字节 =====================
+s = "你好Python"
+
+# 默认 utf-8 编码（全球通用，中文占3字节，英文占1字节）
+b_utf8 = s.encode("utf-8")
+print(b_utf8)  # b'\xe4\xbd\xa0\xe5\xa5\xbdPython'
+
+# gbk 编码（Windows简体中文默认，中文占2字节）
+b_gbk = s.encode("gbk")
+print(b_gbk)   # b'\xc4\xe3\xba\xc3Python'
+
+# 编码错误处理 errors 参数
+# strict：默认，无法编码直接报错
+# ignore：忽略无法编码的字符
+# replace：用 ? 替换无法编码的字符
+s_emoji = "你好😊"
+b = s_emoji.encode("gbk", errors="replace")  # emoji无法用gbk编码，替换为?
+print(b)
+
+# ===================== 2. 解码 decode：字节转字符串 =====================
+# 必须和编码时使用同一种格式，否则产生乱码
+b_data = b'\xe4\xbd\xa0\xe5\xa5\xbd'
+print(b_data.decode("utf-8"))  # 正确：你好
+# print(b_data.decode("gbk"))  # 错误：浣犲ソ，典型乱码
+
+# 解码错误处理
+b_bad = b'\xe4\xbd\xa0\xe5'
+print(b_bad.decode("utf-8", errors="ignore"))  # 忽略不完整字节
+
+# ===================== 3. 主流编码格式说明 =====================
+# utf-8：全球通用，可变长度，中文3字节、英文1字节，兼容ASCII，全场景推荐
+# gbk：简体中文Windows默认，中文2字节，仅国内老系统使用
+# gb2312：gbk子集，仅支持简体中文常用汉字
+# ASCII：仅支持英文、数字、符号，1字节，所有编码均兼容ASCII英文部分
+# Unicode：字符集标准，不是存储编码；utf-8/utf-16是Unicode的具体存储实现
+
+# ===================== 4. 文件读写编码控制 =====================
+# open 必须指定 encoding，否则使用系统默认编码（Windows默认gbk，Linux默认utf-8，跨平台必乱）
+
+# 写入文件，指定utf-8
+with open("test.txt", "w", encoding="utf-8") as f:
+    f.write("你好世界")
+
+# 读取文件，编码与写入保持一致
+with open("test.txt", "r", encoding="utf-8") as f:
+    content = f.read()
+    print(content)
+
+# 读取带BOM头的utf-8文件（Windows记事本生成）
+# with open("bom_file.txt", "r", encoding="utf-8-sig") as f:
+#     print(f.read())
+
+# ===================== 5. 常见坑点与最佳实践 =====================
+# 坑1：不指定encoding依赖系统默认，跨平台运行必乱码
+# 坑2：网络传输、文件存储只能使用bytes，不能直接传str
+# 坑3：BOM头：Windows记事本保存utf-8会自动带BOM，用utf-8-sig读取自动去除
+
+# 最佳实践
+# 1. 代码、文件、接口统一使用utf-8，杜绝gbk
+# 2. 文件读写强制指定 encoding="utf-8"
+# 3. 业务逻辑全用str处理，仅在输入输出边界（文件、网络）做编解码
+# 4. 遇乱码第一步：核对编码与解码格式是否一致
+```
+
+# 第三阶段：流程控制
+
+## 流程控制
+
+```python
+# ===================== Python 流程控制语句全集 =====================
+# 三大类：1.条件分支  2.循环语句  3.循环控制关键字
+# 核心作用：控制代码的执行顺序，实现分支判断、重复执行逻辑
+
+# ===================== 一、if 条件分支（判断选择） =====================
+score = 85
+
+# 1. 单分支：满足条件才执行
+if score >= 60:
+    print("及格")
+
+# 2. 双分支：二选一
+if score >= 60:
+    print("及格")
+else:
+    print("不及格")
+
+# 3. 多分支：多选一，按顺序判断，命中第一个就不再往下走
+if score >= 90:
+    print("优秀")
+elif score >= 80:
+    print("良好")
+elif score >= 60:
+    print("及格")
+else:
+    print("不及格")
+
+# 4. 嵌套分支：条件里再套条件
+if score >= 60:
+    if score >= 90:
+        print("优秀")
+    else:
+        print("及格")
+else:
+    print("不及格")
+
+# 5. 三元表达式（if-else简写）：适合简单二选一赋值
+# 语法：结果1 if 条件 else 结果2
+result = "及格" if score >= 60 else "不及格"
+
+
+# ===================== 二、while 循环（条件满足就循环） =====================
+# 1. 基础while：先判断条件，True就执行循环体
+count = 0
+while count < 5:
+    print(count)
+    count += 1  # 计数器自增，避免死循环
+
+# 2. while...else：循环正常结束（没被break打断）才执行else代码
+num = 0
+while num < 3:
+    print(num)
+    num += 1
+else:
+    print("循环正常结束")
+
+# 3. 死循环：条件永远为True，配合break主动退出
+while True:
+    print("循环中")
+    break  # 立刻退出循环
+
+
+# ===================== 三、for 循环（遍历循环，最常用） =====================
+# 作用：遍历可迭代对象（字符串、列表、元组、字典、range等）
+
+# 1. 遍历列表/字符串
+name_list = ["张三", "李四", "王五"]
+for name in name_list:
+    print(name)
+
+# 2. range() 生成数字序列，专门配合for循环
+# range(n)：生成 0 ~ n-1 的整数
+for i in range(5):
+    print(i)  # 0 1 2 3 4
+
+# range(start, end)：左闭右开
+for i in range(2, 6):
+    print(i)  # 2 3 4 5
+
+# range(start, end, step)：带步长
+for i in range(1, 10, 2):
+    print(i)  # 1 3 5 7 9
+
+# 3. 遍历字典
+user = {"name": "张三", "age": 22, "gender": "男"}
+# 遍历key
+for k in user:
+    print(k)
+# 遍历value
+for v in user.values():
+    print(v)
+# 遍历键值对（最常用）
+for k, v in user.items():
+    print(k, v)
+
+# 4. for...else：循环正常结束执行else，break打断则不执行
+for i in range(3):
+    print(i)
+else:
+    print("for循环正常结束")
+
+# 5. 嵌套循环：循环里套循环
+for i in range(3):
+    for j in range(2):
+        print(i, j)
+
+
+# ===================== 四、循环控制关键字 =====================
+# 1. break：立刻终止整个当前循环，跳出循环体
+for i in range(5):
+    if i == 3:
+        break  # 遇到3直接结束整个循环
+    print(i)  # 输出 0 1 2
+
+# 2. continue：跳过本次循环，直接进入下一轮循环
+for i in range(5):
+    if i == 2:
+        continue  # 遇到2跳过本次，不执行后面的print
+    print(i)  # 输出 0 1 3 4
+
+# 3. pass：空占位符，啥也不做，保证语法不报错
+if score > 90:
+    pass  # 后续逻辑待补充，先不写也不会报语法错误
+
+
+# ===================== 五、match-case 模式匹配（Python3.10+ 新增） =====================
+# 升级版多分支判断，支持复杂模式匹配
+day = 3
+match day:
+    case 1:
+        print("周一")
+    case 2:
+        print("周二")
+    case 3:
+        print("周三")
+    case _:  # 通配符，相当于else
+        print("其他")
+
+
+
+------------------------------Python 多层循环跳出实现方案
+方案 1：布尔标志位（最常用）
+模拟 Go break 外层标签 效果
+# 需求：j==2 直接终止两层循环
+flag = False
+for i in range(3):
+    if flag:
+        break
+    for j in range(3):
+        if j == 2:
+            flag = True
+            break  # 仅跳出内层
+        print(f"i={i}, j={j}")
+输出：
+i=0, j=0
+i=0, j=1
+
+方案 2：函数 return 快速跳出（更优雅）; 利用函数提前返回，替代标签 break
+def loop_demo():
+    for i in range(3):
+        for j in range(3):
+            if j == 2:
+                return  # 直接退出所有循环
+            print(f"i={i}, j={j}")
+
+loop_demo()
+```
+
+# 第四阶段：容器（数据结构）
+
 ## python 的容器类型（数据结构）
 
 ```bash
@@ -1289,7 +1621,7 @@ len(dict_data)
 # 不可变容器：tuple → 无法修改内部元素，只能重新创建
 ```
 
-## 列表推导式和切片
+列表推导式和切片
 
 ```bash
 # ===================== 一、切片：序列通用取值操作（list/tuple/str 均支持） =====================
@@ -1672,333 +2004,7 @@ print(hash(t))  # 有固定哈希值
 # Python: 复杂逻辑、结构化数据处理、跨平台脚本、需长期维护的代码
 ```
 
-## 字符串格式化打印
-
-```bash
-#读取用户指令
-name = input("What is your name?")
-print("Hello " + name )
-
-# ===================== Python字符串格式化打印 三种主流方式 =====================
-# 推荐优先级：f-string > str.format() > % 占位符
-
-# ===================== 1. % 占位符格式化（老式C风格，兼容老版本） =====================
-# %s 字符串  %d 整数  %f 浮点数  %x 十六进制
-name = "张三"
-age = 22
-height = 1.756
-
-# 基础用法：按顺序匹配
-print("姓名：%s，年龄：%d，身高：%.2f" % (name, age, height))
-# %.2f 表示浮点数保留2位小数
-
-# 字典方式传参，不用按顺序
-print("姓名：%(name)s，年龄：%(age)d" % {"name": name, "age": age})
-
-# 常用格式符
-# %s: 字符串  %d: 十进制整数  %f: 浮点数  %x: 十六进制  %o: 八进制  %%: 输出百分号本身
-
-
-# ===================== 2. str.format() 方法（Python2.6+ 引入） =====================
-# 方式A：位置占位，按顺序匹配
-print("姓名：{}，年龄：{}，身高：{}".format(name, age, height))
-
-# 方式B：指定索引，可重复使用
-print("姓名：{0}，年龄：{1}，重复姓名：{0}".format(name, age))
-
-# 方式C：关键字参数，可读性强
-print("姓名：{name}，年龄：{age}".format(name=name, age=age))
-
-# 格式控制：精度、对齐、填充、宽度
-print("保留2位小数：{:.2f}".format(height))   # 保留2位小数
-print("左对齐占10位：{:<10d}".format(age))   # 左对齐，总宽度10
-print("右对齐占10位：{:>10d}".format(age))   # 右对齐，总宽度10
-print("居中对齐：{:^10d}".format(age))       # 居中对齐
-print("补零填充：{:0>4d}".format(age))       # 右对齐，不足4位左侧补0
-print("千分位分隔：{:,}".format(1234567))    # 数字千分位逗号分隔
-print("十六进制：{:x}".format(255))          # 转十六进制
-print("百分比：{:.1%}".format(0.856))        # 转百分比，保留1位小数
-
-
-# ===================== 3. f-string 字面量格式化（Python3.6+ 官方推荐） =====================
-# 语法：f"xxx{变量/表达式}xxx"，直接在{}内嵌入变量、表达式、函数调用，性能最高
-
-# 基础用法
-print(f"姓名：{name}，年龄：{age}，身高：{height}")
-
-# 嵌入表达式、函数调用
-print(f"年龄明年：{age + 1}，姓名大写：{name.upper()}")
-
-# 格式控制，语法和format一致，写在冒号后
-print(f"身高保留2位：{height:.2f}")
-print(f"年龄补零4位：{age:0>4d}")
-print(f"数字千分位：{1234567:,}")
-print(f"百分比：{0.856:.1%}")
-print(f"居中对齐：{age:^10d}")
-
-# 调试专用：= 符号，同时输出变量名和值（Python3.8+）
-print(f"{age=}")  # 输出 age=22，调试不用重复写变量名
-
-
-# ===================== 常用格式控制符总结 =====================
-# :.nf      浮点数保留n位小数
-# :nd       整数总宽度n位，默认右对齐
-# :<n       左对齐，总宽度n
-# :>n       右对齐，总宽度n
-# :^n       居中对齐，总宽度n
-# :0>n      右对齐，不足n位左侧补0
-# :,        数字千分位逗号分隔
-# :x / :o / :b  十六/八/二进制
-# :.n%      转百分比，保留n位小数
-```
-
-## 编码
-
-```py
-axcii   字符与二进制对照表
-unicode 字符与二进制对照表
-utf8    对unicode字符集的码位进行压缩处理，间接也维护了字符和二进制的对照表。
-
-# ===================== Python 编码核心原理 =====================
-# Python3 核心设计：str = Unicode字符序列（人类可读）；bytes = 二进制字节（机器存储/传输用）
-# 编码 encode：str → bytes（字符转字节，用于存文件、发网络）
-# 解码 decode：bytes → str（字节转字符，用于读文件、收数据）
-# 乱码本质：编码和解码使用的编码格式不一致
-
-# ===================== 1. 编码 encode：字符串转字节 =====================
-s = "你好Python"
-
-# 默认 utf-8 编码（全球通用，中文占3字节，英文占1字节）
-b_utf8 = s.encode("utf-8")
-print(b_utf8)  # b'\xe4\xbd\xa0\xe5\xa5\xbdPython'
-
-# gbk 编码（Windows简体中文默认，中文占2字节）
-b_gbk = s.encode("gbk")
-print(b_gbk)   # b'\xc4\xe3\xba\xc3Python'
-
-# 编码错误处理 errors 参数
-# strict：默认，无法编码直接报错
-# ignore：忽略无法编码的字符
-# replace：用 ? 替换无法编码的字符
-s_emoji = "你好😊"
-b = s_emoji.encode("gbk", errors="replace")  # emoji无法用gbk编码，替换为?
-print(b)
-
-# ===================== 2. 解码 decode：字节转字符串 =====================
-# 必须和编码时使用同一种格式，否则产生乱码
-b_data = b'\xe4\xbd\xa0\xe5\xa5\xbd'
-print(b_data.decode("utf-8"))  # 正确：你好
-# print(b_data.decode("gbk"))  # 错误：浣犲ソ，典型乱码
-
-# 解码错误处理
-b_bad = b'\xe4\xbd\xa0\xe5'
-print(b_bad.decode("utf-8", errors="ignore"))  # 忽略不完整字节
-
-# ===================== 3. 主流编码格式说明 =====================
-# utf-8：全球通用，可变长度，中文3字节、英文1字节，兼容ASCII，全场景推荐
-# gbk：简体中文Windows默认，中文2字节，仅国内老系统使用
-# gb2312：gbk子集，仅支持简体中文常用汉字
-# ASCII：仅支持英文、数字、符号，1字节，所有编码均兼容ASCII英文部分
-# Unicode：字符集标准，不是存储编码；utf-8/utf-16是Unicode的具体存储实现
-
-# ===================== 4. 文件读写编码控制 =====================
-# open 必须指定 encoding，否则使用系统默认编码（Windows默认gbk，Linux默认utf-8，跨平台必乱）
-
-# 写入文件，指定utf-8
-with open("test.txt", "w", encoding="utf-8") as f:
-    f.write("你好世界")
-
-# 读取文件，编码与写入保持一致
-with open("test.txt", "r", encoding="utf-8") as f:
-    content = f.read()
-    print(content)
-
-# 读取带BOM头的utf-8文件（Windows记事本生成）
-# with open("bom_file.txt", "r", encoding="utf-8-sig") as f:
-#     print(f.read())
-
-# ===================== 5. 常见坑点与最佳实践 =====================
-# 坑1：不指定encoding依赖系统默认，跨平台运行必乱码
-# 坑2：网络传输、文件存储只能使用bytes，不能直接传str
-# 坑3：BOM头：Windows记事本保存utf-8会自动带BOM，用utf-8-sig读取自动去除
-
-# 最佳实践
-# 1. 代码、文件、接口统一使用utf-8，杜绝gbk
-# 2. 文件读写强制指定 encoding="utf-8"
-# 3. 业务逻辑全用str处理，仅在输入输出边界（文件、网络）做编解码
-# 4. 遇乱码第一步：核对编码与解码格式是否一致
-```
-
-## 流程控制
-
-```python
-# ===================== Python 流程控制语句全集 =====================
-# 三大类：1.条件分支  2.循环语句  3.循环控制关键字
-# 核心作用：控制代码的执行顺序，实现分支判断、重复执行逻辑
-
-# ===================== 一、if 条件分支（判断选择） =====================
-score = 85
-
-# 1. 单分支：满足条件才执行
-if score >= 60:
-    print("及格")
-
-# 2. 双分支：二选一
-if score >= 60:
-    print("及格")
-else:
-    print("不及格")
-
-# 3. 多分支：多选一，按顺序判断，命中第一个就不再往下走
-if score >= 90:
-    print("优秀")
-elif score >= 80:
-    print("良好")
-elif score >= 60:
-    print("及格")
-else:
-    print("不及格")
-
-# 4. 嵌套分支：条件里再套条件
-if score >= 60:
-    if score >= 90:
-        print("优秀")
-    else:
-        print("及格")
-else:
-    print("不及格")
-
-# 5. 三元表达式（if-else简写）：适合简单二选一赋值
-# 语法：结果1 if 条件 else 结果2
-result = "及格" if score >= 60 else "不及格"
-
-
-# ===================== 二、while 循环（条件满足就循环） =====================
-# 1. 基础while：先判断条件，True就执行循环体
-count = 0
-while count < 5:
-    print(count)
-    count += 1  # 计数器自增，避免死循环
-
-# 2. while...else：循环正常结束（没被break打断）才执行else代码
-num = 0
-while num < 3:
-    print(num)
-    num += 1
-else:
-    print("循环正常结束")
-
-# 3. 死循环：条件永远为True，配合break主动退出
-while True:
-    print("循环中")
-    break  # 立刻退出循环
-
-
-# ===================== 三、for 循环（遍历循环，最常用） =====================
-# 作用：遍历可迭代对象（字符串、列表、元组、字典、range等）
-
-# 1. 遍历列表/字符串
-name_list = ["张三", "李四", "王五"]
-for name in name_list:
-    print(name)
-
-# 2. range() 生成数字序列，专门配合for循环
-# range(n)：生成 0 ~ n-1 的整数
-for i in range(5):
-    print(i)  # 0 1 2 3 4
-
-# range(start, end)：左闭右开
-for i in range(2, 6):
-    print(i)  # 2 3 4 5
-
-# range(start, end, step)：带步长
-for i in range(1, 10, 2):
-    print(i)  # 1 3 5 7 9
-
-# 3. 遍历字典
-user = {"name": "张三", "age": 22, "gender": "男"}
-# 遍历key
-for k in user:
-    print(k)
-# 遍历value
-for v in user.values():
-    print(v)
-# 遍历键值对（最常用）
-for k, v in user.items():
-    print(k, v)
-
-# 4. for...else：循环正常结束执行else，break打断则不执行
-for i in range(3):
-    print(i)
-else:
-    print("for循环正常结束")
-
-# 5. 嵌套循环：循环里套循环
-for i in range(3):
-    for j in range(2):
-        print(i, j)
-
-
-# ===================== 四、循环控制关键字 =====================
-# 1. break：立刻终止整个当前循环，跳出循环体
-for i in range(5):
-    if i == 3:
-        break  # 遇到3直接结束整个循环
-    print(i)  # 输出 0 1 2
-
-# 2. continue：跳过本次循环，直接进入下一轮循环
-for i in range(5):
-    if i == 2:
-        continue  # 遇到2跳过本次，不执行后面的print
-    print(i)  # 输出 0 1 3 4
-
-# 3. pass：空占位符，啥也不做，保证语法不报错
-if score > 90:
-    pass  # 后续逻辑待补充，先不写也不会报语法错误
-
-
-# ===================== 五、match-case 模式匹配（Python3.10+ 新增） =====================
-# 升级版多分支判断，支持复杂模式匹配
-day = 3
-match day:
-    case 1:
-        print("周一")
-    case 2:
-        print("周二")
-    case 3:
-        print("周三")
-    case _:  # 通配符，相当于else
-        print("其他")
-
-
-
-------------------------------Python 多层循环跳出实现方案
-方案 1：布尔标志位（最常用）
-模拟 Go break 外层标签 效果
-# 需求：j==2 直接终止两层循环
-flag = False
-for i in range(3):
-    if flag:
-        break
-    for j in range(3):
-        if j == 2:
-            flag = True
-            break  # 仅跳出内层
-        print(f"i={i}, j={j}")
-输出：
-i=0, j=0
-i=0, j=1
-
-方案 2：函数 return 快速跳出（更优雅）; 利用函数提前返回，替代标签 break
-def loop_demo():
-    for i in range(3):
-        for j in range(3):
-            if j == 2:
-                return  # 直接退出所有循环
-            print(f"i={i}, j={j}")
-
-loop_demo()
-```
+# 第五阶段：函数
 
 ## 函数基础
 
@@ -2751,6 +2757,8 @@ type 不是关键字，是内置函数
 3. 查看本机关键字：print (keyword.kwlist)  # import keyword
 4. 判断单词是否是关键字：keyword.iskeyword ("if") 返回 True/False
 ```
+
+# 第六阶段：模块与包
 
 ## 模块与函数导入
 
@@ -3772,6 +3780,291 @@ core_api.delete_namespaced_pod(name="test-pod", namespace="default")
 6. 告警推送：`requests` + 企业微信 / 钉钉
 7. 文件批量处理：`shutil`、`zipfile`
 
+# 第七阶段：文件操作
+
+## 文件操作
+
+```python
+# 一、基础打开文件：open(文件路径, 打开模式, 编码)
+# 常用编码：encoding="utf-8"
+# 推荐with语句：自动关闭文件，无需手动f.close()
+
+# 1. r 只读（默认），文件不存在则报错
+with open("test.txt", "r", encoding="utf-8") as f:
+    content = f.read()        # 一次性读取全部
+    line1 = f.readline()      # 读取一行
+    line_list = f.readlines() # 按行读取，返回列表
+
+# 2. w 只写，清空原有内容，文件不存在自动创建
+with open("test.txt", "w", encoding="utf-8") as f:
+    f.write("写入内容1\n")
+    f.writelines(["第一行\n", "第二行\n"])
+
+# 3. a 追加写入，在文件末尾新增，不覆盖原有内容
+with open("test.txt", "a", encoding="utf-8") as f:
+    f.write("追加一行内容")
+
+# 4. r+ 可读可写，从文件开头覆盖写入；w+ 可读可写先清空；a+ 追加可读
+
+# 二、二进制模式（图片、视频、压缩包，不带encoding）
+# rb 读取二进制、wb 写入二进制、ab 追加二进制
+with open("logo.png", "rb") as f:
+    data = f.read()
+with open("copy.png", "wb") as f:
+    f.write(data)
+
+# 三、os模块文件/文件夹操作
+import os
+os.path.abspath(__file__)    # 获取当前脚本绝对路径
+os.path.dirname(路径)        # 获取目录
+os.path.join(路径1,路径2)    # 路径拼接
+os.path.exists(路径)         # 判断文件/文件夹是否存在
+os.path.isfile(路径)         # 判断是否为文件
+os.path.isdir(路径)         # 判断是否为文件夹
+os.mkdir("文件夹名")         # 创建单级文件夹
+os.makedirs("a/b/c")        # 创建多级文件夹
+os.remove("文件路径")        # 删除单个文件
+os.listdir("目录路径")       # 获取目录下所有文件名称列表
+
+# 四、上下文管理器优势
+# with执行完毕自动调用close()释放资源，避免忘记关闭导致文件占用
+```
+
+扩展
+
+```python
+#文件打开模式
+========= ===============================================================
+Character Meaning
+--------- ---------------------------------------------------------------
+'r'       open for reading (default)
+'w'       open for writing, truncating the file first
+'x'       create a new file and open it for writing
+'a'       open for writing, appending to the end of the file if it exists
+
+'b'       binary mode
+'t'       text mode (default)
+
+'+'       open a disk file for updating (reading and writing)
+
+The default mode is 'rt' (open for reading text).
+
+关于文件的打开模式常见应用有：
+- 只读：r、rt、rb （用）
+  - 存在，读
+  - 不存在，报错
+- 只写：w、wt、wb（用）
+  - 存在，清空再写
+  - 不存在，创建再写
+- 只写：x、xt、xb
+  - 存在，报错
+  - 不存在，创建再写。
+- 只写：a、at、ab【尾部追加】（用）
+  - 存在，尾部追加。
+  - 不存在，创建再写。
+
+
+file_object.read()         #读所有
+file_object.read(1)     #都一个字节
+file_object.readline()  #读一行
+file_object.readlines() #读所有行，每行为列表的一个元素
+file_object.flush()     #缓冲区内容刷到硬盘
+file_object.seek(3)      #移动光标位置 移动到字节的位置
+file_object.tell()      #返回光标位置
+
+
+#循环读大文件  
+f = open('info.txt',mode='r',encoding='utf-8')
+for line in f:
+    print(line.strip())
+f.close()
+
+#上下文管理
+with open("xx.txt", mode='rb') as file_object:
+    data = file_object.read()
+    print(data)
+
+with open("xx.txt", mode='rb') as f1, open("xxx.txt", mode='rb') as f2:
+    data = file_object.read():
+    pass
+
+# 文件当前路径    
+import os
+base_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(base_dir, 'files', 'info.txt')
+print(file_path)
+if os.path.exists(file_path):
+    file_object = open(file_path, mode='r', encoding='utf-8')
+    data = file_object.read()
+    file_object.close()
+
+    print(data)
+else:
+    print('文件路径不存在')
+
+
+#文件路径相关
+import os
+import shutil
+os.path.abspath(__file__)
+os.path.dirname(__file__)
+os.path.join(base_path,'xxx','a1.png')
+os.path.exists(path)
+os.makedirs(path)
+os.path.isdir(file_path)
+os.remove("文件路径")
+shutil.copytree("","") #拷贝文件夹
+shutil.copy("","")     #拷贝文件
+shutil.move("","")     #文件或文件夹重命名
+```
+
+# 第八阶段：异常处理
+
+## 异常处理
+
+```python
+# 10.3 异常处理
+# 10.3.1 ZeroDivisionError 除零异常
+# 错误：除数不能为0
+# num = 10 / 0
+
+# 10.3.2 try-except 捕获异常
+try:
+    num = 10 / 0
+except ZeroDivisionError:
+    print("错误：除数不能为0")
+
+# 10.3.3 捕获异常防止程序崩溃
+while True:
+    try:
+        a = int(input("请输入被除数："))
+        b = int(input("请输入除数："))
+        res = a / b
+        print(res)
+        break
+    except ZeroDivisionError:
+        print("除数不能为0，请重新输入")
+    except ValueError:
+        print("必须输入数字")
+
+# 10.3.4 else 代码块：无异常时执行
+try:
+    a = int(input("输入数字："))
+    b = int(input("输入数字："))
+    res = a + b
+except ValueError:
+    print("输入不是整数")
+else:
+    # 只有try中代码正常执行无异常才会走else
+    print("计算结果：", res)
+
+# 10.3.5 FileNotFoundError 文件不存在异常
+try:
+    with open("test123.txt", "r", encoding="utf-8") as f:
+        content = f.read()
+except FileNotFoundError:
+    print("异常：目标文件不存在")
+
+# 10.3.6 分析文本：统计单词数量
+try:
+    with open("article.txt", "r", encoding="utf-8") as f:
+        words = f.read().split()
+        print(f"文件总单词数：{len(words)}")
+except FileNotFoundError:
+    print("文件不存在")
+
+# 10.3.7 遍历多个文件批量统计
+def count_words(filename):
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            return len(f.read().split())
+    except FileNotFoundError:
+        return 0
+
+files = ["a.txt", "b.txt", "c.txt"]
+for file in files:
+    print(f"{file} 单词数：{count_words(file)}")
+
+# 10.3.8 静默失败：pass不提示错误
+try:
+    with open("none.txt") as f:
+        pass
+except FileNotFoundError:
+    pass
+
+# 10.3.9 按需抛出/打印指定错误，不捕获所有异常
+# 只捕获预知异常，未知异常允许抛出便于排查
+try:
+    int("abc")
+except ValueError as e:
+    print(f"已知错误：{e}")
+
+
+# 10.4 存储数据 json
+import json
+
+# 10.4.1 dumps loads 内存字符串互转
+data = {"name": "小明", "age": 18}
+json_str = json.dumps(data, ensure_ascii=False)
+origin_data = json.loads(json_str)
+
+# 10.4.2 dump load 文件读写保存用户数据
+def save_user():
+    username = input("输入用户名：")
+    with open("user.json", "w", encoding="utf-8") as f:
+        json.dump(username, f, ensure_ascii=False)
+
+def get_user():
+    try:
+        with open("user.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return None
+
+# 10.4.3 重构：拆分函数，职责单一、复用性高
+def greet_user():
+    user = get_user()
+    if user:
+        print(f"欢迎回来 {user}")
+    else:
+        save_user()
+        print("用户名已保存")
+
+greet_user()
+
+-------------------------------------------------
+
+try:
+    # 逻辑代码
+except Exception as e:
+    # try中的代码如果有异常，则此代码块中的代码会执行。
+finally:
+    # try中的代码无论是否报错，finally中的代码都会执行，一般用于释放资源。
+
+print("end")
+
+
+
+常见异常：
+"""
+AttributeError 试图访问一个对象没有的树形，比如foo.x，但是foo没有属性x
+IOError 输入/输出异常；基本上是无法打开文件
+ImportError 无法引入模块或包；基本上是路径问题或名称错误
+IndentationError 语法错误（的子类） ；代码没有正确对齐
+IndexError 下标索引超出序列边界，比如当x只有三个元素，却试图访问n x[5]
+KeyError 试图访问字典里不存在的键 inf['xx']
+KeyboardInterrupt Ctrl+C被按下
+NameError 使用一个还未被赋予对象的变量
+SyntaxError Python代码非法，代码不能编译(个人认为这是语法错误，写错了）
+TypeError 传入对象类型与要求的不符合
+UnboundLocalError 试图访问一个还未被设置的局部变量，基本上是由于另有一个同名的全局变量，
+导致你以为正在访问它
+ValueError 传入一个调用者不期望的值，即使值的类型是正确的
+"""
+```
+
+# 第九阶段：面向对象 OOP
+
 ## 面向对象
 
 ```python
@@ -4548,285 +4841,6 @@ class Goods:
 # 清理废弃注释代码
 ```
 
-## 文件操作
-
-```python
-# 一、基础打开文件：open(文件路径, 打开模式, 编码)
-# 常用编码：encoding="utf-8"
-# 推荐with语句：自动关闭文件，无需手动f.close()
-
-# 1. r 只读（默认），文件不存在则报错
-with open("test.txt", "r", encoding="utf-8") as f:
-    content = f.read()        # 一次性读取全部
-    line1 = f.readline()      # 读取一行
-    line_list = f.readlines() # 按行读取，返回列表
-
-# 2. w 只写，清空原有内容，文件不存在自动创建
-with open("test.txt", "w", encoding="utf-8") as f:
-    f.write("写入内容1\n")
-    f.writelines(["第一行\n", "第二行\n"])
-
-# 3. a 追加写入，在文件末尾新增，不覆盖原有内容
-with open("test.txt", "a", encoding="utf-8") as f:
-    f.write("追加一行内容")
-
-# 4. r+ 可读可写，从文件开头覆盖写入；w+ 可读可写先清空；a+ 追加可读
-
-# 二、二进制模式（图片、视频、压缩包，不带encoding）
-# rb 读取二进制、wb 写入二进制、ab 追加二进制
-with open("logo.png", "rb") as f:
-    data = f.read()
-with open("copy.png", "wb") as f:
-    f.write(data)
-
-# 三、os模块文件/文件夹操作
-import os
-os.path.abspath(__file__)    # 获取当前脚本绝对路径
-os.path.dirname(路径)        # 获取目录
-os.path.join(路径1,路径2)    # 路径拼接
-os.path.exists(路径)         # 判断文件/文件夹是否存在
-os.path.isfile(路径)         # 判断是否为文件
-os.path.isdir(路径)         # 判断是否为文件夹
-os.mkdir("文件夹名")         # 创建单级文件夹
-os.makedirs("a/b/c")        # 创建多级文件夹
-os.remove("文件路径")        # 删除单个文件
-os.listdir("目录路径")       # 获取目录下所有文件名称列表
-
-# 四、上下文管理器优势
-# with执行完毕自动调用close()释放资源，避免忘记关闭导致文件占用
-```
-
-扩展
-
-```python
-#文件打开模式
-========= ===============================================================
-Character Meaning
---------- ---------------------------------------------------------------
-'r'       open for reading (default)
-'w'       open for writing, truncating the file first
-'x'       create a new file and open it for writing
-'a'       open for writing, appending to the end of the file if it exists
-
-'b'       binary mode
-'t'       text mode (default)
-
-'+'       open a disk file for updating (reading and writing)
-
-The default mode is 'rt' (open for reading text).
-
-关于文件的打开模式常见应用有：
-- 只读：r、rt、rb （用）
-  - 存在，读
-  - 不存在，报错
-- 只写：w、wt、wb（用）
-  - 存在，清空再写
-  - 不存在，创建再写
-- 只写：x、xt、xb
-  - 存在，报错
-  - 不存在，创建再写。
-- 只写：a、at、ab【尾部追加】（用）
-  - 存在，尾部追加。
-  - 不存在，创建再写。
-
-
-file_object.read()         #读所有
-file_object.read(1)     #都一个字节
-file_object.readline()  #读一行
-file_object.readlines() #读所有行，每行为列表的一个元素
-file_object.flush()     #缓冲区内容刷到硬盘
-file_object.seek(3)      #移动光标位置 移动到字节的位置
-file_object.tell()      #返回光标位置
-
-
-#循环读大文件  
-f = open('info.txt',mode='r',encoding='utf-8')
-for line in f:
-    print(line.strip())
-f.close()
-
-#上下文管理
-with open("xx.txt", mode='rb') as file_object:
-    data = file_object.read()
-    print(data)
-
-with open("xx.txt", mode='rb') as f1, open("xxx.txt", mode='rb') as f2:
-    data = file_object.read():
-    pass
-
-# 文件当前路径    
-import os
-base_dir = os.path.dirname(os.path.abspath(__file__))
-file_path = os.path.join(base_dir, 'files', 'info.txt')
-print(file_path)
-if os.path.exists(file_path):
-    file_object = open(file_path, mode='r', encoding='utf-8')
-    data = file_object.read()
-    file_object.close()
-
-    print(data)
-else:
-    print('文件路径不存在')
-
-
-#文件路径相关
-import os
-import shutil
-os.path.abspath(__file__)
-os.path.dirname(__file__)
-os.path.join(base_path,'xxx','a1.png')
-os.path.exists(path)
-os.makedirs(path)
-os.path.isdir(file_path)
-os.remove("文件路径")
-shutil.copytree("","") #拷贝文件夹
-shutil.copy("","")     #拷贝文件
-shutil.move("","")     #文件或文件夹重命名
-```
-
-## 异常处理
-
-```python
-# 10.3 异常处理
-# 10.3.1 ZeroDivisionError 除零异常
-# 错误：除数不能为0
-# num = 10 / 0
-
-# 10.3.2 try-except 捕获异常
-try:
-    num = 10 / 0
-except ZeroDivisionError:
-    print("错误：除数不能为0")
-
-# 10.3.3 捕获异常防止程序崩溃
-while True:
-    try:
-        a = int(input("请输入被除数："))
-        b = int(input("请输入除数："))
-        res = a / b
-        print(res)
-        break
-    except ZeroDivisionError:
-        print("除数不能为0，请重新输入")
-    except ValueError:
-        print("必须输入数字")
-
-# 10.3.4 else 代码块：无异常时执行
-try:
-    a = int(input("输入数字："))
-    b = int(input("输入数字："))
-    res = a + b
-except ValueError:
-    print("输入不是整数")
-else:
-    # 只有try中代码正常执行无异常才会走else
-    print("计算结果：", res)
-
-# 10.3.5 FileNotFoundError 文件不存在异常
-try:
-    with open("test123.txt", "r", encoding="utf-8") as f:
-        content = f.read()
-except FileNotFoundError:
-    print("异常：目标文件不存在")
-
-# 10.3.6 分析文本：统计单词数量
-try:
-    with open("article.txt", "r", encoding="utf-8") as f:
-        words = f.read().split()
-        print(f"文件总单词数：{len(words)}")
-except FileNotFoundError:
-    print("文件不存在")
-
-# 10.3.7 遍历多个文件批量统计
-def count_words(filename):
-    try:
-        with open(filename, "r", encoding="utf-8") as f:
-            return len(f.read().split())
-    except FileNotFoundError:
-        return 0
-
-files = ["a.txt", "b.txt", "c.txt"]
-for file in files:
-    print(f"{file} 单词数：{count_words(file)}")
-
-# 10.3.8 静默失败：pass不提示错误
-try:
-    with open("none.txt") as f:
-        pass
-except FileNotFoundError:
-    pass
-
-# 10.3.9 按需抛出/打印指定错误，不捕获所有异常
-# 只捕获预知异常，未知异常允许抛出便于排查
-try:
-    int("abc")
-except ValueError as e:
-    print(f"已知错误：{e}")
-
-
-# 10.4 存储数据 json
-import json
-
-# 10.4.1 dumps loads 内存字符串互转
-data = {"name": "小明", "age": 18}
-json_str = json.dumps(data, ensure_ascii=False)
-origin_data = json.loads(json_str)
-
-# 10.4.2 dump load 文件读写保存用户数据
-def save_user():
-    username = input("输入用户名：")
-    with open("user.json", "w", encoding="utf-8") as f:
-        json.dump(username, f, ensure_ascii=False)
-
-def get_user():
-    try:
-        with open("user.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return None
-
-# 10.4.3 重构：拆分函数，职责单一、复用性高
-def greet_user():
-    user = get_user()
-    if user:
-        print(f"欢迎回来 {user}")
-    else:
-        save_user()
-        print("用户名已保存")
-
-greet_user()
-
--------------------------------------------------
-
-try:
-    # 逻辑代码
-except Exception as e:
-    # try中的代码如果有异常，则此代码块中的代码会执行。
-finally:
-    # try中的代码无论是否报错，finally中的代码都会执行，一般用于释放资源。
-
-print("end")
-
-
-
-常见异常：
-"""
-AttributeError 试图访问一个对象没有的树形，比如foo.x，但是foo没有属性x
-IOError 输入/输出异常；基本上是无法打开文件
-ImportError 无法引入模块或包；基本上是路径问题或名称错误
-IndentationError 语法错误（的子类） ；代码没有正确对齐
-IndexError 下标索引超出序列边界，比如当x只有三个元素，却试图访问n x[5]
-KeyError 试图访问字典里不存在的键 inf['xx']
-KeyboardInterrupt Ctrl+C被按下
-NameError 使用一个还未被赋予对象的变量
-SyntaxError Python代码非法，代码不能编译(个人认为这是语法错误，写错了）
-TypeError 传入对象类型与要求的不符合
-UnboundLocalError 试图访问一个还未被设置的局部变量，基本上是由于另有一个同名的全局变量，
-导致你以为正在访问它
-ValueError 传入一个调用者不期望的值，即使值的类型是正确的
-"""
-```
-
 ## 测试代码
 
 ```python
@@ -5000,6 +5014,8 @@ crm_project/
 # 文件夹、py文件：全部小写+下划线
 # 包内必须保证可导入，尽量使用绝对导入规范
 ```
+
+# 第十阶段 socket网络编程
 
 ## Socket 网络编程
 
@@ -5323,6 +5339,8 @@ Django（无Socket，仅执行业务逻辑）
 # 3. Python替代框架：asyncio、Twisted、Tornado、FastAPI+WebSocket、gRPC
 #    本质仍是Socket封装，已处理并发、协议解析、异常等细节
 ```
+
+# 第十一阶段 Python并发编程
 
 ## Python 并发编程
 
@@ -6622,7 +6640,7 @@ if __name__ == "__main__":
 
 ---
 
-### 第十阶段：并发选型总结（最终落地）
+### 并发选型总结（最终落地）
 
 1. IO 密集高并发场景：
    - 高并发、追求极致性能: 优先 asyncio（单线程协程）；
@@ -6699,3 +6717,1441 @@ GIL 限制线程无法多核并行，必须进程；几乎不和协程混用。
 2. 同步脚本首选：`ThreadPoolExecutor` + Semaphore
 3. CPU 计算：`ProcessPoolExecutor`
 4. 混合同步 + 异步：`asyncio.to_thread`
+
+# 第十二阶段：必备库
+
+学完就能做真实项目
+
+1. **requests** → 爬虫、接口请求
+2. **pandas** → 数据处理、Excel 自动化
+3. **numpy** → 数值计算
+4. **matplotlib** → 画图
+5. **json** → 处理接口数据
+
+## requests 爬虫、接口请求
+
+```bash
+# requests 精简核心手册（爬虫 / 接口通用）
+
+## 1. 基础请求
+import requests
+# 核心方法：get/post/put/delete/head/options
+r = requests.get(url, params={})   # URL自动拼接查询参数
+r = requests.post(url, data={})    # 表单格式提交
+r = requests.post(url, json={})    # JSON格式提交（接口测试常用）
+
+## 2. 高频请求参数
+
+requests.get(
+    url,
+    headers={"User-Agent": "Mozilla/5.0"}, # 伪装浏览器，爬虫必加
+    cookies={"token": "xxx"},              # 携带身份凭证
+    timeout=10,                            # 请求超时秒数，必加防永久卡死
+    proxies={"http": "http://127.0.0.1:7890"}, # 代理IP
+    verify=False                           # 跳过SSL证书校验
+)
+
+
+## 3. 响应对象核心属性
+
+r.status_code    # HTTP状态码（200成功/404不存在/500服务端错误）
+r.text           # 字符串响应内容，自动猜测编码
+r.content        # 二进制字节流，下载图片、文件用
+r.json()         # 直接解析为字典，接口响应首选
+r.headers        # 响应头（类字典结构）
+r.cookies        # 服务端返回的Cookie
+
+
+## 4. Session 会话保持（登录态复用）
+
+s = requests.Session()
+s.post(登录接口, data={"user": "admin", "pwd": "123"})
+# 后续所有请求自动携带登录Cookie，复用TCP连接
+r = s.get(需登录的用户信息接口)
+
+
+## 5. 最佳实践与避坑
+
+1. **强制加 timeout**：默认无超时，网络异常会永久阻塞，是线上故障高发点
+2. 中文乱码：手动指定编码 `r.encoding = "utf-8"`
+3. 异常统一捕获：`requests.exceptions.RequestException` 兜底所有请求异常
+4. 批量请求优先用 Session：复用连接，减少 TCP 握手开销
+5. 文件上传：`files={"file": open("1.jpg", "rb")}`
+```
+
+## pandas  数据处理、Excel 自动化
+
+```bash
+# pandas 核心精简手册（数据处理 + Excel 自动化）
+## 1. 核心数据结构
+```python
+import pandas as pd
+
+# Series：一维带标签数组，对应单列数据
+s = pd.Series([1, 2, 3], index=["a", "b", "c"])
+
+# DataFrame：二维表格结构，行索引+列名，核心处理对象
+df = pd.DataFrame({"姓名": ["张三", "李四"], "年龄": [25, 30]})
+```
+
+## 2. 数据读写（Excel/CSV 核心）
+
+```python
+# 读 CSV
+df = pd.read_csv("data.csv", encoding="utf-8")
+
+# 读 Excel（依赖 openpyxl，需 pip install openpyxl）
+df = pd.read_excel("data.xlsx", sheet_name="Sheet1", header=0)
+sheet_map = pd.read_excel("data.xlsx", sheet_name=None)  # 读全部sheet，返回{sheet名: df}
+
+# 写 Excel（单 sheet）
+df.to_excel("output.xlsx", index=False)  # index=False 不导出行序号
+
+# 写多 sheet
+with pd.ExcelWriter("多表汇总.xlsx") as writer:
+    df1.to_excel(writer, sheet_name="1月", index=False)
+    df2.to_excel(writer, sheet_name="2月", index=False)
+```
+
+## 3. 快速查看数据
+
+```python
+df.head(10)       # 前10行
+df.tail(5)        # 后5行
+df.shape          # 行列数 (行数, 列数)
+df.columns        # 全部列名
+df.dtypes         # 每列数据类型
+df.describe()     # 数值列统计：均值/极值/分位数
+df.info()         # 整体概览：非空数、类型、内存占用
+```
+
+## 4. 数据筛选与切片
+
+```python
+# 取列
+df["姓名"]                # 单列，返回 Series
+df[["姓名", "年龄"]]      # 多列
+
+# 条件筛选行
+df[df["年龄"] > 25]
+# 多条件：& 与 / | 或，每个条件必须加括号
+df[(df["年龄"] > 20) & (df["部门"] == "技术部")]
+
+# 按索引/位置取值
+df.loc[0, "姓名"]    # 按行标签 + 列名
+df.iloc[0, 1]        # 按纯数字下标（行号+列号）
+
+# 字符串模糊匹配
+df[df["姓名"].str.contains("张", na=False)]
+
+# 排序、去重
+df.sort_values("年龄", ascending=False, inplace=True)
+df.drop_duplicates(subset=["姓名"], keep="first", inplace=True)
+```
+
+## 5. 增删改数据
+
+```python
+# 新增计算列
+df["年龄翻倍"] = df["年龄"] * 2
+df["等级"] = df["分数"].apply(lambda x: "及格" if x >= 60 else "不及格")
+
+# 条件赋值
+df.loc[df["年龄"] >= 30, "年龄段"] = "30+"
+
+# 删除列
+df.drop("冗余列", axis=1, inplace=True)
+```
+
+## 6. 分组聚合 groupby
+
+```python
+# 单维度单指标
+df.groupby("部门")["薪资"].sum()
+
+# 多维度 + 多统计指标
+df.groupby(["部门", "岗位"])["薪资"].agg(["sum", "mean", "count"])
+```
+
+## 7. 缺失值清洗
+
+```python
+df.isnull().sum()                  # 每列缺失数量
+df.dropna()                        # 删除含缺失值的行
+df.fillna(0)                       # 全量填充 0
+df["年龄"].fillna(df["年龄"].mean(), inplace=True)  # 均值填充
+```
+
+## 8. 表合并与拼接
+
+```python
+# 上下拼接（同结构追加行）
+df_total = pd.concat([df1, df2], ignore_index=True)
+
+# 左右关联合并（类 SQL Join）
+pd.merge(left_df, right_df, on="用户ID", how="inner")  # inner/left/right/outer
+```
+
+## 9. Excel 自动化常用场景
+
+```python
+# 批量读取文件夹 Excel 并合并
+import os
+all_df = []
+for file in os.listdir("./报表文件夹"):
+    if file.endswith(".xlsx"):
+        all_df.append(pd.read_excel(f"./报表文件夹/{file}"))
+df_all = pd.concat(all_df, ignore_index=True)
+
+# 按列拆分生成多个 Excel
+for dept, group in df.groupby("部门"):
+    group.to_excel(f"{dept}部门报表.xlsx", index=False)
+```
+
+## 10. 避坑与最佳实践
+
+1. 处理 xlsx 格式必须安装 `openpyxl`，xls 格式需 `xlrd`
+2. 大数据优先用 CSV，速度远快于 Excel；超大数据用 `chunksize` 分块读取
+3. 禁止逐行循环赋值，优先向量化操作、批量 apply，性能差百倍以上
+4. `inplace=True` 原地修改省内存，但不支持链式调用
+5. 字符串处理统一用 `.str` 内置方法，比 Python 原生循环高效
+
+## numpy-->数值计算
+
+```bash
+# NumPy 数值计算核心精简手册
+## 1. 核心对象与数组创建
+```python
+import numpy as np
+
+# 核心：ndarray 同类型连续内存数组，向量化运算远快于Python循环
+arr = np.array([1, 2, 3, 4])          # 从列表创建
+np.zeros((2, 3))                      # 2行3列全0
+np.ones((3, 2))                       # 全1
+np.arange(0, 10, 2)                   # 等差数组，类似range
+np.linspace(0, 1, 5)                  # 0到1等分5个点
+np.random.randn(3, 3)                 # 3x3标准正态随机数
+np.eye(4)                              # 4阶单位矩阵
+```
+
+## 2. 索引与切片
+
+```python
+# 一维：同list切片规则，切片是视图（修改影响原数组）
+arr[1:3]
+arr[::-1]
+
+# 二维：arr[行, 列]
+arr2d[0, 1]                            # 第0行第1列
+arr2d[:, 1]                            # 所有行第1列
+arr2d[1:3, :]                          # 第1-2行所有列
+
+# 布尔索引（返回副本）
+arr[arr > 5]
+
+# 花式索引（返回副本）
+arr[[0, 2, 4]]                         # 按指定下标取元素
+```
+
+## 3. 核心运算
+
+```python
+# 元素级运算：同shape逐元素计算，无需循环
+arr + 10
+arr * 2
+np.sqrt(arr)                           # 开平方
+np.exp(arr)                            # 指数
+arr1 + arr2                            # 同shape对应元素相加
+
+# 矩阵运算
+np.dot(a, b)                           # 矩阵乘法
+a @ b                                  # 等价写法
+a.T                                    # 转置
+```
+
+## 4. 统计聚合（axis 高频考点）
+
+```python
+# axis=0 沿行方向压缩 → 结果为列数
+# axis=1 沿列方向压缩 → 结果为行数
+arr.sum(axis=0)                        # 按列求和
+arr.mean(axis=1)                       # 按行求均值
+arr.max(), arr.min()
+np.argmax(arr)                         # 最大值下标
+np.std(arr)                            # 标准差
+```
+
+## 5. 广播机制（核心原理）
+
+```python
+# 不同shape数组运算，自动扩展维度
+# 规则：从右往左对齐维度，维度相等或为1即可广播
+# 示例：(3,4) + (4,) → 自动扩展为3行逐行运算
+a = np.zeros((3, 4))
+b = np.array([1,2,3,4])
+a + b  # b自动复制3行，逐元素相加
+```
+
+## 6. 常用数组操作
+
+```python
+arr.reshape(2, 6)                      # 变形，总元素数不变
+arr.flatten()                          # 展平为一维，返回副本
+np.concatenate([a, b], axis=0)         # 上下拼接
+np.split(arr, 2, axis=1)               # 按列拆成2份
+np.unique(arr)                         # 去重并排序
+```
+
+## 7. 关键避坑点
+
+1. 切片是视图，修改会同步原数组；需副本显式调用 `.copy()`
+2. 数组元素类型统一，混合类型会自动向上兼容
+3. 大数据优先用向量化操作，禁止逐行Python循环
+4. 布尔索引、花式索引均返回新数组，不修改原数据
+
+## matplotlib → 画图
+
+```bash
+# Matplotlib 画图核心精简手册
+## 1. 基础绘图流程
+```python
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+
+plt.plot(x, y)    # 绘制折线
+plt.show()        # 显示图表
+```
+
+## 2. 核心常用图表
+
+```python
+# 折线图
+plt.plot(x, y, color="red", linestyle="--", linewidth=2, label="sin(x)")
+
+# 柱状图
+plt.bar(["A","B","C"], [10, 20, 15], width=0.6)
+
+# 散点图
+plt.scatter(x, y, s=10, alpha=0.7)  # s点大小 alpha透明度
+
+# 直方图（数据分布）
+data = np.random.randn(1000)
+plt.hist(data, bins=30, edgecolor="black")
+
+# 饼图
+plt.pie([30, 50, 20], labels=["甲","乙","丙"], autopct="%.1f%%")
+```
+
+## 3. 图表装饰元素
+
+```python
+plt.title("图表标题", fontsize=14)
+plt.xlabel("X轴名称")
+plt.ylabel("Y轴名称")
+plt.xlim(0, 10)              # X轴显示范围
+plt.ylim(-1, 1)              # Y轴显示范围
+plt.legend()                 # 显示图例（绘图需指定label）
+plt.grid(True, alpha=0.3)    # 显示网格
+plt.xticks(rotation=45)      # X轴刻度旋转防重叠
+```
+
+## 4. 多子图布局
+
+```python
+# 创建 2行2列 子图；fig画布对象，axes子图数组
+fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+
+axes[0,0].plot(x, np.sin(x))    # 第1个子图
+axes[0,0].set_title("正弦曲线")
+axes[0,1].bar(["A","B"], [5,8]) # 第2个子图
+axes[1,0].scatter(x, np.cos(x)) # 第3个子图
+axes[1,1].hist(data, bins=20)   # 第4个子图
+
+plt.tight_layout()  # 自动调整间距，防止文字重叠
+plt.show()
+```
+
+## 5. 保存图片
+
+```python
+# 必须在 plt.show() 之前调用，否则画布清空保存为空
+plt.savefig("output.png", dpi=300, bbox_inches="tight")
+# dpi控制清晰度；bbox_inches去掉多余白边
+plt.show()
+```
+
+## 6. 中文乱码与负号修复
+
+```python
+plt.rcParams["font.sans-serif"] = ["SimHei"]    # Windows设为黑体
+plt.rcParams["axes.unicode_minus"] = False      # 解决负号显示为方块
+```
+
+## 7. 核心避坑
+
+1. 保存图片必须在 `show()` 之前执行，show 后画布会被清空
+2. 子图对象用 `set_title / set_xlabel` 设置属性，不能直接用 plt 全局方法
+3. 多子图文字重叠，优先用 `tight_layout()` 自动排版
+4. 超大数据量画图先抽样，避免渲染卡顿
+
+## json → 处理接口数据
+
+```bash
+# json 模块核心精简手册（接口数据处理专用）
+## 1. 核心四大方法
+```python
+import json
+
+# 序列化：Python对象 → JSON格式
+json_str = json.dumps(data)          # 内存：dict/list 转 JSON 字符串
+json.dump(data, open("data.json", "w", encoding="utf-8"))  # 直接写入文件
+
+# 反序列化：JSON格式 → Python对象
+data = json.loads(json_str)          # 内存：JSON 字符串转 dict/list
+data = json.load(open("data.json", "r", encoding="utf-8")) # 直接读取文件
+```
+
+## 2. 接口场景高频用法
+
+```python
+import requests, json
+
+# 解析接口响应（等价于 r.json()，手动解析更可控）
+r = requests.get(url)
+try:
+    resp_data = json.loads(r.text)
+except json.JSONDecodeError:
+    print("响应非标准JSON格式")
+
+# 构造 JSON 请求体（等价于 requests.post(url, json=data)）
+payload = {"username": "admin", "page": 1}
+headers = {"Content-Type": "application/json"}
+r = requests.post(url, data=json.dumps(payload), headers=headers)
+```
+
+## 3. 必用参数
+
+```python
+json.dumps(
+    payload,
+    ensure_ascii=False,  # 中文不转义为 \uXXXX，接口中文必加
+    indent=2,            # 格式化缩进，日志打印更易读
+    sort_keys=True       # 按键名排序输出
+)
+```
+
+## 4. 核心规则与避坑
+
+```python
+# 类型映射：dict↔对象 list/tuple↔数组 str↔字符串 int/float↔数字 True/False↔true/false None↔null
+
+# 1. JSON 标准仅支持双引号，单引号字符串无法直接解析
+# 2. set、datetime、自定义类无法直接序列化，需自定义转换函数
+# 3. 解析异常统一捕获 json.JSONDecodeError，防止接口异常导致脚本崩溃
+# 4. 文件读写统一指定 utf-8 编码，避免跨平台乱码
+```
+
+---
+
+# 第十三阶段：实战项目
+
+从简单到复杂，一步步做：
+
+1. 计算器
+2. 自动发邮件
+3. 爬取网页数据
+4. Excel 自动化处理
+5. 简单管理系统（学生 / 图书 / 成绩）
+6. 小游戏（贪吃蛇 / 打砖块）
+
+## 计算器
+
+```python
+def add(a, b):
+    return a + b
+
+def subtract(a, b):
+    return a - b
+
+def multiply(a, b):
+    return a * b
+
+def divide(a, b):
+    if b == 0:
+        raise ZeroDivisionError("除数不能为 0")
+    return a / b
+
+def get_valid_number(prompt):
+    """循环获取合法数字，输入错误自动重输"""
+    while True:
+        try:
+            return float(input(prompt)) # input接收的字符串转换为浮点数
+        except ValueError:
+            print("输入无效，请输入数字！")
+
+def main():
+    print("===== 简易计算器 =====")
+    while True:
+        print("\n运算菜单：")
+        print("1. 加法  2. 减法  3. 乘法  4. 除法  5. 退出")
+
+        choice = input("请选择操作(1-5): ").strip()
+
+        if choice == "5":
+            print("已退出计算器")
+            break
+        if choice not in ["1", "2", "3", "4"]:
+            print("无效选项，请输入 1-5")
+            continue
+
+        # 获取两个操作数
+        num1 = get_valid_number("请输入第一个数: ")
+        num2 = get_valid_number("请输入第二个数: ")
+
+        try:
+            if choice == "1":
+                result, op = add(num1, num2), "+"
+            elif choice == "2":
+                result, op = subtract(num1, num2), "-"
+            elif choice == "3":
+                result, op = multiply(num1, num2), "×"
+            else:
+                result, op = divide(num1, num2), "÷"
+            print(f"计算结果：{num1} {op} {num2} = {result}")
+        except ZeroDivisionError as e:
+            print(f"计算失败：{e}")
+
+if __name__ == "__main__":
+    main()
+```
+
+### 覆盖核心知识点
+
+1. 函数定义、参数传递、返回值
+2. `while` 循环 + 分支判断实现菜单交互
+3. `try-except` 异常捕获（值错误、除零错误）
+4. 用户输入合法性校验
+5. 代码模块化拆分
+
+### 进阶拓展方向
+
+1. 支持连续计算（用上一次结果继续运算）
+2. 新增幂运算、取余、平方根功能
+3. 加入计算历史记录，可查看 / 保存到文件
+4. 用 `tkinter` 实现图形界面版计算器
+5. 支持带括号的复杂表达式解析
+
+## 自动发邮件工具
+
+基于 Python 标准库 `smtplib + email` 实现，无需安装第三方库，支持**纯文本、HTML正文、附件、批量收件人/抄送**，适用于报表自动推送、监控告警通知等场景。
+
+### 1. 核心原理
+
+- `smtplib`：通过 SMTP 协议连接邮件服务器，完成登录、发送动作
+- `email` 模块：构造符合 MIME 标准的邮件格式（主题、正文、附件、收发件人）
+- 主流邮箱均支持 SMTP 服务，需在邮箱后台开启 SMTP 并获取**授权码**（非登录密码）
+
+---
+
+### 2. 基础版：纯文本邮件（最简可运行）
+
+```python
+import smtplib
+from email.mime.text import MIMEText
+from email.header import Header
+
+# ===================== 配置项（替换为自己的信息） =====================
+SMTP_SERVER = "smtp.qq.com"       # SMTP服务器：QQ邮箱smtp.qq.com，163邮箱smtp.163.com
+SMTP_PORT = 465                   # SSL加密端口，固定465
+SENDER_EMAIL = "your_email@qq.com"  # 发件人邮箱
+AUTH_CODE = "你的邮箱授权码"        # 邮箱后台生成的授权码，非登录密码
+RECEIVER = ["target@example.com"]  # 收件人列表，支持多个
+# ====================================================================
+
+def send_text_email(subject, content):
+    """发送纯文本邮件"""
+    # 1. 构造邮件正文
+    msg = MIMEText(content, "plain", "utf-8")
+    # 2. 设置邮件头：主题、发件人、收件人
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = Header(f"自动通知 <{SENDER_EMAIL}>", "utf-8")
+    msg["To"] = Header(",".join(RECEIVER), "utf-8")
+
+    try:
+        # 3. 连接SMTP服务器（SSL加密）
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
+            smtp.login(SENDER_EMAIL, AUTH_CODE)  # 登录
+            smtp.sendmail(SENDER_EMAIL, RECEIVER, msg.as_string())  # 发送
+        print("邮件发送成功")
+    except smtplib.SMTPException as e:
+        print(f"邮件发送失败：{e}")
+
+if __name__ == "__main__":
+    send_text_email(
+        subject="Python自动测试邮件",
+        content="你好，这是来自Python脚本的自动发送邮件测试。\n收到无需回复。"
+    )
+```
+
+---
+
+### 3. 进阶版：全能邮件（HTML正文 + 附件 + 抄送）
+
+支持HTML富文本、本地文件附件、多人抄送，适合正式报表推送。
+
+```python
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+from email.header import Header
+
+# ===================== 配置项 =====================
+SMTP_SERVER = "smtp.qq.com"
+SMTP_PORT = 465
+SENDER_EMAIL = "your_email@qq.com"
+AUTH_CODE = "你的邮箱授权码"
+TO_RECEIVERS = ["user1@example.com", "user2@example.com"]  # 主送
+CC_RECEIVERS = ["cc@example.com"]                          # 抄送
+# =================================================
+
+def send_full_email(subject, html_content, attach_files=None):
+    """发送带附件、HTML正文的邮件"""
+    # 1. 创建多组件邮件对象
+    msg = MIMEMultipart()
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = Header(f"数据报表系统 <{SENDER_EMAIL}>", "utf-8")
+    msg["To"] = Header(",".join(TO_RECEIVERS), "utf-8")
+    msg["Cc"] = Header(",".join(CC_RECEIVERS), "utf-8")
+
+    # 2. 添加HTML正文
+    msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+    # 3. 添加附件（支持多个文件）
+    if attach_files:
+        for file_path in attach_files:
+            with open(file_path, "rb") as f:
+                att = MIMEBase("application", "octet-stream")
+                att.set_payload(f.read())
+            encoders.encode_base64(att)
+            # 处理中文文件名不乱码
+            file_name = file_path.split("/")[-1]
+            att.add_header(
+                "Content-Disposition",
+                "attachment",
+                filename=Header(file_name, "utf-8").encode()
+            )
+            msg.attach(att)
+
+    # 4. 合并所有收件人（主送+抄送都要加入发送列表）
+    all_receivers = TO_RECEIVERS + CC_RECEIVERS
+
+    try:
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
+            smtp.login(SENDER_EMAIL, AUTH_CODE)
+            smtp.sendmail(SENDER_EMAIL, all_receivers, msg.as_string())
+        print("带附件邮件发送成功")
+    except smtplib.SMTPException as e:
+        print(f"发送失败：{e}")
+
+if __name__ == "__main__":
+    # HTML格式正文
+    html = """
+    <h3>每日数据报表</h3>
+    <p>今日新增用户：<b style="color:red">128</b></p>
+    <p>订单总额：¥ 5680.50</p>
+    <hr>
+    <p style="color:gray">系统自动发送，请勿回复</p>
+    """
+    # 附件列表（替换为本地真实文件路径）
+    files = ["./日报表.xlsx", "./数据统计.png"]
+
+    send_full_email(
+        subject="【日报】2026-07-12 运营数据报表",
+        html_content=html,
+        attach_files=files
+    )
+```
+
+---
+
+### 4. 邮箱授权码获取说明（必看）
+
+1. **QQ邮箱**：设置 → 账户 → POP3/IMAP/SMTP服务 → 开启SMTP服务 → 生成授权码
+2. **163邮箱**：设置 → POP3/SMTP/IMAP → 开启SMTP → 设置客户端授权密码
+3. 企业邮箱：咨询运维获取SMTP地址、端口、账号密码
+
+> 注意：代码中填写的是**授权码**，不是邮箱登录密码；登录失败优先检查授权码、SMTP开关、端口是否正确。
+
+---
+
+### 5. 覆盖核心知识点
+
+1. 标准库 `smtplib` 网络通信与SMTP协议使用
+2. `email` 模块构造MIME邮件，处理中文编码
+3. 文件二进制读取、Base64编码附件处理
+4. 异常捕获与健壮性处理
+5. 批量收件人、抄送的逻辑实现
+
+---
+
+### 6. 进阶拓展方向
+
+1. 结合 `schedule` 模块实现定时每日自动发送
+2. 对接 pandas 生成报表Excel，自动作为附件发送
+3. 加入日志记录，发送结果写入日志文件
+4. 封装为通用函数，支持模板变量替换（批量个性化邮件）
+5. 异常重试机制，网络波动时自动重发
+
+## 静态网页数据爬虫（requests + BeautifulSoup）
+
+适用场景：静态网页资讯批量采集、公开数据汇总、排行榜抓取；核心技术栈：`requests` 发HTTP请求 + `BeautifulSoup` 解析HTML提取数据。
+
+### 1. 环境准备
+
+```
+pip install requests beautifulsoup4
+# 可选：安装lxml提升解析速度，不装可改用内置html.parser
+pip install lxml
+```
+
+### 2. 基础版：单页数据爬取
+
+以豆瓣电影Top250单页为例，提取电影名称、评分、评价人数、经典引言，包含请求伪装、异常容错。
+
+```python
+import requests
+from bs4 import BeautifulSoup
+
+# 请求头：伪装浏览器UA，防止被反爬拦截（爬虫必加）
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
+
+def crawl_single_page(url):
+    """爬取单页电影数据"""
+    try:
+        # 1. 发送GET请求，获取网页源码
+        resp = requests.get(url, headers=HEADERS, timeout=10)
+        resp.encoding = "utf-8"
+        # 状态码校验：200为成功
+        if resp.status_code != 200:
+            print(f"请求失败，状态码：{resp.status_code}")
+            return []
+
+        # 2. 解析HTML文档，定位目标元素
+        # 无lxml可替换为 "html.parser"
+        soup = BeautifulSoup(resp.text, "lxml")
+        # 按class定位所有电影条目
+        movie_items = soup.find_all("div", class_="item")
+
+        # 3. 逐行提取字段并清洗
+        result = []
+        for item in movie_items:
+            # 电影标题
+            title = item.find("span", class_="title").get_text(strip=True)
+            # 评分
+            score = item.find("span", class_="rating_num").get_text(strip=True)
+            # 评价人数
+            comment_tag = item.find("div", class_="star").find_all("span")[-1]
+            comment_num = comment_tag.get_text(strip=True)
+            # 引言容错：部分电影无引言
+            quote_tag = item.find("span", class_="inq")
+            quote = quote_tag.get_text(strip=True) if quote_tag else "无"
+
+            result.append({
+                "电影名称": title,
+                "评分": score,
+                "评价人数": comment_num,
+                "经典引言": quote
+            })
+        return result
+
+    except Exception as e:
+        print(f"爬取出错：{e}")
+        return []
+
+if __name__ == "__main__":
+    url = "https://movie.douban.com/top250?start=0&filter="
+    movie_list = crawl_single_page(url)
+    # 打印结果
+    for idx, movie in enumerate(movie_list, 1):
+        print(f"{idx}. {movie['电影名称']} | 评分：{movie['评分']} | {movie['评价人数']}")
+        print(f"   引言：{movie['经典引言']}\n")
+```
+
+### 3. 进阶版：批量翻页 + 数据保存到CSV
+
+实现全量250条数据翻页爬取，结果持久化到CSV文件，加入请求延时避免被封。
+
+```
+import requests
+from bs4 import BeautifulSoup
+import time
+import csv
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
+
+def crawl_single_page(url):
+    """单页爬取逻辑复用"""
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=10)
+        resp.encoding = "utf-8"
+        if resp.status_code != 200:
+            return []
+        soup = BeautifulSoup(resp.text, "lxml")
+        items = soup.find_all("div", class_="item")
+
+        result = []
+        for item in items:
+            title = item.find("span", class_="title").get_text(strip=True)
+            score = item.find("span", class_="rating_num").get_text(strip=True)
+            comment_num = item.find("div", class_="star").find_all("span")[-1].get_text(strip=True)
+            quote_tag = item.find("span", class_="inq")
+            quote = quote_tag.get_text(strip=True) if quote_tag else "无"
+            result.append([title, score, comment_num, quote])
+        return result
+    except Exception as e:
+        print(f"单页爬取失败：{e}")
+        return []
+
+def crawl_all_pages(total=250, page_size=25):
+    """翻页爬取全部数据，每页25条"""
+    all_data = []
+    for start in range(0, total, page_size):
+        url = f"https://movie.douban.com/top250?start={start}&filter="
+        print(f"正在爬取第 {start//page_size + 1} 页...")
+        page_data = crawl_single_page(url)
+        all_data.extend(page_data)
+        time.sleep(1)  # 每页延时1秒，礼貌爬取，避免触发反爬
+    return all_data
+
+def save_to_csv(data, filename="豆瓣电影Top250.csv"):
+    """保存为CSV文件，utf-8-sig兼容Excel中文"""
+    headers = ["电影名称", "评分", "评价人数", "经典引言"]
+    with open(filename, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        writer.writerows(data)
+    print(f"数据已保存到 {filename}")
+
+if __name__ == "__main__":
+    all_movies = crawl_all_pages()
+    print(f"共爬取到 {len(all_movies)} 条数据")
+    save_to_csv(all_movies)
+```
+
+### 4. 覆盖核心知识点
+
+1. HTTP GET请求、响应状态码校验、超时控制
+2. HTML DOM结构解析、标签/class/id元素定位
+3. 数据清洗、空值容错、文本格式化
+4. 翻页逻辑实现、请求延时反爬策略
+5. CSV文件持久化、中文编码兼容处理
+6. 异常捕获与程序健壮性保障
+
+### 5. 避坑与合规说明
+
+1. **必须加User-Agent**：无UA会被多数网站拦截，返回403/418错误
+2. **控制请求频率**：高频无延时爬取会被封IP，至少保留1秒间隔
+3. **遵守robots协议**：仅爬取公开允许的数据，不触碰登录后、付费、隐私内容
+4. **动态页面不适用**：JS渲染的动态内容，本方案无法直接爬取，需改用Selenium/Playwright或抓接口
+
+### 6. 进阶拓展方向
+
+1. 对接pandas做数据清洗、统计分析、可视化
+2. 加入代理IP池、Cookie池应对更强反爬
+3. 动态渲染页面改用Playwright模拟浏览器爬取
+4. 用多线程/协程提升大批量页面爬取效率
+5. 数据持久化升级，存入MySQL/MongoDB数据库
+
+## Excel 自动化批量处理工具
+
+基于 pandas + openpyxl 实现，覆盖**多文件合并、数据清洗统计、按维度拆分、报表格式化**四大办公高频场景，替代手动重复操作。
+
+### 环境准备
+
+```
+pip install pandas openpyxl
+```
+
+---
+
+### 一、核心功能实现
+
+#### 1. 批量合并文件夹内所有 Excel 文件
+
+适用于：多个分公司/门店/日报表合并为总表，自动追溯数据来源。
+
+```python
+import os
+import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.styles import Font, Alignment, Border, Side
+
+def merge_excels(folder_path, output_file="合并总表.xlsx"):
+    """合并指定文件夹下所有xlsx文件的第一个sheet"""
+    all_df = []
+    # 遍历文件夹筛选Excel文件
+    for file_name in os.listdir(folder_path):
+        if file_name.endswith(".xlsx") and not file_name.startswith("~$"):
+            file_path = os.path.join(folder_path, file_name)
+            try:
+                df = pd.read_excel(file_path, engine="openpyxl")
+                df["来源文件"] = file_name  # 新增来源列便于追溯
+                all_df.append(df)
+                print(f"已读取：{file_name}，共 {len(df)} 行")
+            except Exception as e:
+                print(f"读取失败 {file_name}：{e}")
+
+    if not all_df:
+        print("文件夹内无有效Excel文件")
+        return None
+
+    # 上下拼接所有数据
+    total_df = pd.concat(all_df, ignore_index=True)
+    total_df.to_excel(output_file, index=False, engine="openpyxl")
+    print(f"合并完成，共 {len(total_df)} 行数据，已保存至 {output_file}")
+    return total_df
+```
+
+#### 2. 数据清洗与自动化统计
+
+适用于：原始数据去空、去重、业务指标分组汇总。
+
+```python
+def clean_and_analyze(df):
+    """数据清洗 + 按部门维度统计销售指标"""
+    # 基础清洗
+    df_clean = df.dropna(subset=["姓名", "销售额"])       # 删除关键字段为空的行
+    df_clean = df_clean.drop_duplicates(subset=["工号"], keep="last")  # 按工号去重
+    df_clean["销售额"] = pd.to_numeric(df_clean["销售额"], errors="coerce")  # 强制转数值
+
+    # 分组聚合统计
+    stats_df = df_clean.groupby("部门").agg(
+        销售总额=("销售额", "sum"),
+        员工人数=("工号", "count"),
+        人均销售额=("销售额", "mean")
+    ).round(2).reset_index()
+
+    print("数据统计完成")
+    return df_clean, stats_df
+```
+
+#### 3. 按指定列拆分生成多份 Excel
+
+适用于：按部门/区域拆分报表，分别下发对应负责人。
+
+```python
+def split_excel_by_column(df, split_col="部门", output_folder="拆分结果"):
+    """按指定列拆分为多个独立Excel文件"""
+    os.makedirs(output_folder, exist_ok=True)  # 自动创建输出文件夹
+
+    for group_name, group_df in df.groupby(split_col):
+        # 清理文件名非法字符，避免保存失败
+        safe_name = str(group_name).replace("/", "_").replace("\\", "_")
+        output_path = os.path.join(output_folder, f"{safe_name}销售报表.xlsx")
+        group_df.to_excel(output_path, index=False, engine="openpyxl")
+        print(f"已生成：{output_path}，共 {len(group_df)} 行")
+```
+
+#### 4. 报表格式美化（openpyxl）
+
+给生成的Excel增加表头加粗、居中、自适应列宽、边框，替代手动调格式。
+
+```python
+def format_excel(file_path):
+    """美化Excel：表头加粗居中、自适应列宽、全表加边框"""
+    wb = load_workbook(file_path)
+    ws = wb.active
+
+    # 定义样式
+    header_font = Font(bold=True, size=11)
+    center_align = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'), bottom=Side(style='thin')
+    )
+
+    # 设置表头样式
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.alignment = center_align
+        cell.border = thin_border
+
+    # 设置数据区域样式 + 自适应列宽
+    for col in ws.columns:
+        max_length = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            cell.border = thin_border
+            cell.alignment = center_align
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        ws.column_dimensions[col_letter].width = max_length + 2  # 留2字符边距
+
+    wb.save(file_path)
+    print(f"格式美化完成：{file_path}")
+```
+
+---
+
+### 二、完整运行示例
+
+```
+if __name__ == "__main__":
+    # 演示用：构造模拟业务数据
+    data = {
+        "工号": [f"E00{i}" for i in range(1, 11)],
+        "姓名": ["张三","李四","王五","赵六","钱七","孙八","周九","吴十","郑十一","王十二"],
+        "部门": ["销售一部","销售一部","销售一部","销售二部","销售二部","销售二部","销售三部","销售三部","销售三部","销售一部"],
+        "销售额": [12000, 15000, None, 18000, 21000, 16000, 9000, 13000, 17000, 15000]
+    }
+    demo_df = pd.DataFrame(data)
+
+    # 1. 数据清洗 + 指标统计
+    clean_df, stats_df = clean_and_analyze(demo_df)
+
+    # 2. 保存统计报表并美化格式
+    stats_df.to_excel("部门销售统计.xlsx", index=False, engine="openpyxl")
+    format_excel("部门销售统计.xlsx")
+
+    # 3. 按部门拆分明细数据
+    split_excel_by_column(clean_df, split_col="部门")
+```
+
+---
+
+### 三、覆盖核心知识点
+
+1. pandas 读写Excel、数据清洗、分组聚合、类型转换
+2. os 模块文件遍历、文件夹创建、路径拼接
+3. openpyxl 单元格样式、列宽、边框等格式控制
+4. 异常捕获、空值容错、批量逻辑封装
+5. 业务场景下的函数复用与工程化拆分
+
+### 四、避坑指南
+
+1. 仅支持 `.xlsx` 格式，旧版 `.xls` 需安装 `xlrd==1.2.0`
+2. 多文件合并前确保各表列名一致，否则会生成多余空列
+3. 十万行以上大数据优先用 CSV 处理，Excel 读写性能较差
+4. 文件名避免特殊字符，拆分时需做非法字符替换，防止保存失败
+5. pandas 写入不保留原有格式，格式美化必须用 openpyxl 二次处理
+
+### 五、进阶拓展方向
+
+1. 结合 schedule + 自动发邮件，实现每日定时生成报表并推送
+2. 新增数据校验逻辑，异常数据自动标红提示
+3. 支持多 sheet 写入，一个Excel包含明细、汇总、图表多个工作表
+4. 对接 matplotlib 自动生成趋势图并插入Excel
+5. 增加GUI界面，打包成exe工具给非技术人员使用
+
+## 学生信息管理系统
+
+纯命令行实现，覆盖**增删改查、持久化存储、输入校验、模块化封装**核心编程能力，可快速改造为图书/成绩/员工管理系统。
+
+### 功能清单
+
+1. 新增学生（学号、姓名、年龄、班级）
+2. 删除学生（按学号）
+3. 修改学生信息
+4. 查询学生（学号/姓名模糊匹配）
+5. 显示全部学生
+6. 数据自动保存到 JSON 文件，重启不丢失
+
+### 完整可运行代码
+
+```python
+import json
+import os
+
+DATA_FILE = "students.json"
+
+def load_data():
+    """从JSON文件加载数据，文件不存在则返回空列表"""
+    if not os.path.exists(DATA_FILE):
+        return []
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return []
+
+def save_data(student_list):
+    """保存数据到JSON文件"""
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(student_list, f, ensure_ascii=False, indent=2)
+
+def add_student(student_list):
+    """新增学生，学号唯一校验"""
+    print("\n===== 新增学生 =====")
+    sid = input("请输入学号: ").strip()
+    if not sid:
+        print("学号不能为空！")
+        return
+
+    # 学号去重
+    for s in student_list:
+        if s["sid"] == sid:
+            print("该学号已存在，无法重复添加！")
+            return
+
+    name = input("请输入姓名: ").strip()
+    age = input("请输入年龄: ").strip()
+    cls = input("请输入班级: ").strip()
+
+    # 年龄数字校验
+    if not age.isdigit():
+        print("年龄必须是数字！")
+        return
+
+    student_list.append({
+        "sid": sid,
+        "name": name,
+        "age": int(age),
+        "class": cls
+    })
+    save_data(student_list)
+    print("添加成功！")
+
+def delete_student(student_list):
+    """按学号删除学生"""
+    print("\n===== 删除学生 =====")
+    sid = input("请输入要删除的学号: ").strip()
+    for i, s in enumerate(student_list):
+        if s["sid"] == sid:
+            del student_list[i]
+            save_data(student_list)
+            print(f"已删除学生：{s['name']}")
+            return
+    print("未找到该学号的学生！")
+
+def update_student(student_list):
+    """按学号修改信息"""
+    print("\n===== 修改学生信息 =====")
+    sid = input("请输入要修改的学号: ").strip()
+    for s in student_list:
+        if s["sid"] == sid:
+            print(f"当前信息：姓名={s['name']} 年龄={s['age']} 班级={s['class']}")
+            new_name = input("新姓名(回车不修改): ").strip()
+            new_age = input("新年龄(回车不修改): ").strip()
+            new_cls = input("新班级(回车不修改): ").strip()
+
+            if new_name:
+                s["name"] = new_name
+            if new_age and new_age.isdigit():
+                s["age"] = int(new_age)
+            if new_cls:
+                s["class"] = new_cls
+
+            save_data(student_list)
+            print("修改成功！")
+            return
+    print("未找到该学号的学生！")
+
+def search_student(student_list):
+    """按学号或姓名模糊查询"""
+    print("\n===== 查询学生 =====")
+    keyword = input("请输入学号或姓名关键字: ").strip()
+    results = []
+    for s in student_list:
+        if keyword in s["sid"] or keyword in s["name"]:
+            results.append(s)
+
+    if not results:
+        print("未找到匹配的学生")
+        return
+
+    print(f"共找到 {len(results)} 条结果：")
+    print(f"{'学号':<10}{'姓名':<10}{'年龄':<6}{'班级':<10}")
+    print("-" * 36)
+    for s in results:
+        print(f"{s['sid']:<10}{s['name']:<10}{s['age']:<6}{s['class']:<10}")
+
+def show_all(student_list):
+    """显示全部学生"""
+    print("\n===== 全部学生列表 =====")
+    if not student_list:
+        print("暂无学生数据")
+        return
+
+    print(f"{'学号':<10}{'姓名':<10}{'年龄':<6}{'班级':<10}")
+    print("-" * 36)
+    for s in student_list:
+        print(f"{s['sid']:<10}{s['name']:<10}{s['age']:<6}{s['class']:<10}")
+    print(f"总计：{len(student_list)} 人")
+
+def main():
+    students = load_data()
+    while True:
+        print("\n===== 学生信息管理系统 =====")
+        print("1. 新增学生")
+        print("2. 删除学生")
+        print("3. 修改学生信息")
+        print("4. 查询学生")
+        print("5. 显示全部学生")
+        print("0. 退出系统")
+
+        choice = input("请输入选项(0-5): ").strip()
+
+        if choice == "0":
+            save_data(students)
+            print("系统已退出，数据已保存")
+            break
+        elif choice == "1":
+            add_student(students)
+        elif choice == "2":
+            delete_student(students)
+        elif choice == "3":
+            update_student(students)
+        elif choice == "4":
+            search_student(students)
+        elif choice == "5":
+            show_all(students)
+        else:
+            print("输入无效，请输入 0-5 的数字")
+
+if __name__ == "__main__":
+    main()
+```
+
+### 覆盖核心知识点
+
+1. 列表 + 字典组合存储结构化数据
+2. JSON 文件读写，实现数据持久化
+3. 函数封装，单一职责，模块化设计
+4. 循环 + 分支实现菜单交互
+5. 输入合法性校验、边界异常处理
+6. 字符串格式化输出，美化表格显示
+
+### 快速改造方向
+
+- **图书管理系统**：字段改为 图书编号、书名、作者、价格、库存
+- **成绩管理系统**：字段改为 学号、姓名、语文、数学、英语，新增总分/平均分统计
+- **进阶拓展**：
+  1. 接入 SQLite 数据库替代 JSON 文件
+  2. 用 tkinter/PyQt 做图形界面
+  3. 增加登录验证、管理员权限
+  4. 支持数据导出为 Excel 表格
+  5. 增加排序功能（按年龄、成绩等）
+
+## 贪吃蛇小游戏
+
+基于 `pygame` 实现经典贪吃蛇游戏，覆盖**游戏主循环、事件监听、碰撞检测、坐标渲染、分数系统**核心游戏开发逻辑，代码完整可直接运行。
+
+### 环境准备
+
+```
+pip install pygame
+```
+
+### 完整可运行代码
+
+```python
+import pygame
+import random
+import sys
+
+# ===================== 基础配置 =====================
+WIDTH, HEIGHT = 600, 600       # 窗口尺寸
+CELL_SIZE = 20                  # 每个格子像素大小
+COLS = WIDTH // CELL_SIZE       # 横向格子数
+ROWS = HEIGHT // CELL_SIZE      # 纵向格子数
+
+# 颜色定义
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREEN = (0, 200, 0)
+RED = (200, 0, 0)
+GRAY = (50, 50, 50)
+
+# 方向常量
+UP = (0, -1)
+DOWN = (0, 1)
+LEFT = (-1, 0)
+RIGHT = (1, 0)
+# ===================================================
+
+def init_game():
+    """初始化游戏状态"""
+    # 蛇初始位置：3节身体，从中间向右延伸
+    snake = [
+        (COLS // 2, ROWS // 2),
+        (COLS // 2 - 1, ROWS // 2),
+        (COLS // 2 - 2, ROWS // 2)
+    ]
+    direction = RIGHT
+    food = generate_food(snake)
+    score = 0
+    return snake, direction, food, score
+
+def generate_food(snake):
+    """随机生成食物，确保不在蛇身上"""
+    while True:
+        food = (random.randint(0, COLS - 1), random.randint(0, ROWS - 1))
+        if food not in snake:
+            return food
+
+def draw_grid(screen):
+    """绘制背景网格线"""
+    for x in range(0, WIDTH, CELL_SIZE):
+        pygame.draw.line(screen, GRAY, (x, 0), (x, HEIGHT))
+    for y in range(0, HEIGHT, CELL_SIZE):
+        pygame.draw.line(screen, GRAY, (0, y), (WIDTH, y))
+
+def draw_snake(screen, snake):
+    """绘制蛇身"""
+    for x, y in snake:
+        rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1)
+        pygame.draw.rect(screen, GREEN, rect)
+
+def draw_food(screen, food):
+    """绘制食物"""
+    x, y = food
+    rect = pygame.Rect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1)
+    pygame.draw.rect(screen, RED, rect)
+
+def show_score(screen, score, font):
+    """显示当前分数"""
+    text = font.render(f"分数: {score}", True, WHITE)
+    screen.blit(text, (10, 10))
+
+def show_game_over(screen, font):
+    """显示游戏结束提示"""
+    text1 = font.render("游戏结束", True, RED)
+    text2 = font.render("按 R 重新开始 | 按 Q 退出", True, WHITE)
+    screen.blit(text1, (WIDTH // 2 - 80, HEIGHT // 2 - 40))
+    screen.blit(text2, (WIDTH // 2 - 180, HEIGHT // 2 + 10))
+
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("贪吃蛇小游戏")
+    clock = pygame.time.Clock()
+
+
+    import os
+    pygame.font.init()
+
+    # 尝试使用支持中文的系统字体（使用双反斜杠确保路径正确）
+    chinese_fonts = [
+        r"C:\Windows\Fonts\simhei.ttf",     # 黑体
+        r"C:\Windows\Fonts\msyh.ttc",       # 微软雅黑
+        r"C:\Windows\Fonts\simsun.ttc",     # 宋体
+        r"C:\Windows\Fonts\arial.ttf"       # 备用英文
+    ]
+
+    font_path = None
+    for path in chinese_fonts:
+        if os.path.exists(path):
+            font_path = path
+            break
+
+    if font_path:
+        font = pygame.font.Font(font_path, 28)
+        small_font = pygame.font.Font(font_path, 20)
+    else:
+        font = pygame.font.Font(None, 28)
+        small_font = pygame.font.Font(None, 20)
+
+    snake, direction, food, score = init_game()
+    game_over = False
+    speed = 10  # 游戏帧率，数值越大速度越快
+
+    while True:
+        # ========== 1. 事件处理 ==========
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if game_over:
+                    if event.key == pygame.K_r:  # 重新开始
+                        snake, direction, food, score = init_game()
+                        game_over = False
+                    if event.key == pygame.K_q:  # 退出
+                        pygame.quit()
+                        sys.exit()
+                else:
+                    # 方向控制，禁止直接反向
+                    if event.key == pygame.K_UP and direction != DOWN:
+                        direction = UP
+                    elif event.key == pygame.K_DOWN and direction != UP:
+                        direction = DOWN
+                    elif event.key == pygame.K_LEFT and direction != RIGHT:
+                        direction = LEFT
+                    elif event.key == pygame.K_RIGHT and direction != LEFT:
+                        direction = RIGHT
+
+        # ========== 2. 游戏逻辑更新 ==========
+        if not game_over:
+            # 计算新蛇头位置
+            head_x, head_y = snake[0]
+            dx, dy = direction
+            new_head = (head_x + dx, head_y + dy)
+
+            # 碰撞检测：撞墙
+            if (new_head[0] < 0 or new_head[0] >= COLS or
+                new_head[1] < 0 or new_head[1] >= ROWS):
+                game_over = True
+
+            # 碰撞检测：撞到自己
+            if new_head in snake:
+                game_over = True
+
+            if not game_over:
+                snake.insert(0, new_head)  # 蛇头前进
+                # 吃到食物：加分、生成新食物、不删蛇尾（蛇变长）
+                if new_head == food:
+                    score += 10
+                    food = generate_food(snake)
+                    speed += 0.3  # 每吃一个食物略微提速
+                else:
+                    snake.pop()  # 没吃到食物，删除蛇尾，保持长度不变
+
+        # ========== 3. 画面渲染 ==========
+        screen.fill(BLACK)
+        draw_grid(screen)
+        draw_snake(screen, snake)
+        draw_food(screen, food)
+        show_score(screen, score, small_font)
+
+        if game_over:
+            show_game_over(screen, font)
+
+        pygame.display.update()
+        clock.tick(speed)  # 控制游戏帧率
+
+if __name__ == "__main__":
+    main()
+```
+
+### 操作说明
+
+- **方向键 ↑↓←→**：控制蛇移动方向
+- **游戏结束后**：按 `R` 重新开始，按 `Q` 退出游戏
+- 吃到红色食物蛇身变长、分数增加，游戏速度会逐渐加快
+
+### 覆盖核心知识点
+
+1. pygame 窗口初始化、事件循环、帧率控制
+2. 二维坐标系统、网格渲染、图形绘制
+3. 列表操作模拟蛇身移动（头插尾删）
+4. 碰撞检测（边界碰撞、自身碰撞）
+5. 随机数生成与合法性校验
+6. 游戏状态管理（运行/结束）、分数系统
+
+### 进阶拓展方向
+
+1. 增加障碍物、多类型食物（加分/减速/穿墙）
+2. 加入背景音乐、吃食物音效
+3. 实现历史最高分记录，保存到本地文件
+4. 增加开始界面、难度选择菜单
+5. 改造为双人对战贪吃蛇，两套按键控制两条蛇

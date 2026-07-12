@@ -15,10 +15,6 @@
 其他
 系统性能监视高级命令
 
-
-
-
-
 ## 线上查询及帮助命令
 
 ```
@@ -35,6 +31,7 @@ bind-utils-9.11.4-26.P2.el7_9.16.x86_64
 # 未安装的软件,只知道命令,找包
 yum provides router
 ```
+
 ## 文件和目录操作命令
 
 ```bash
@@ -268,8 +265,6 @@ d404401c8c6495b206fc35c95e55a6d5  file1
 60b725f10c9c85c70d97880dfe8191b3  file2
 ```
 
-
-
 ## 查看文件及内容处理命令
 
 ```bash
@@ -311,20 +306,20 @@ more  分页显示文件内容的命令
 more  large_file.txt  # 这样在处理特别大的文件时，可能在内存使用效率上更有优势，因为它不需要一次性将整个文件加载到内存中。
 交互操作  
     space  滚动一整页
-	enter    滚动一行的内容
-	q          退出
+    enter    滚动一行的内容
+    q          退出
 
 
 
 less #文件查看器，与more类似
 less large_file.txt  
 交互操作
-	上下箭头
-	空格和page down  下翻一页
-	page up  上翻一页
-	/ 搜索       /keyword  回车  n跳转下一个匹配项, N上一个
-	q 退出
-	
+    上下箭头
+    空格和page down  下翻一页
+    page up  上翻一页
+    / 搜索       /keyword  回车  n跳转下一个匹配项, N上一个
+    q 退出
+
 less file1 file2   #打开多文件 :n 切换到一下文件  :p 上一个文件
 
 
@@ -376,23 +371,23 @@ PREFIX：指定输出文件的前缀。默认前缀是 x。
  split -b 10k largefile.txt file_  # 每个文件大小为10KB，文件名前缀为 file_
  split -l 1000 bigfile.txt part_  # 每个文件包含1000行，文件名前缀为 part_。
  split -l 500 -a 3 bigfile.txt part_  # 每个文件包含500行，文件名前缀为 part_，后缀长度为3。
- 
- 
+
+
  #将一个大的数据库备份文件通过网络传输到另一个服务器，
  # 可以先在本地将其分割，然后逐块传输，
  tar -cf etc.tar /etc && split -b 10MB etc.tar etc_
  cat etc_* > etc2.tar  # 接收端再进行合并。
- 
+
  # 结合scp和分割文件分发到不同节点
  split bigdata.txt smallpiece && for file in smallpiece*; do scp $file remote_node:$REMOTE_PATH; done
- 
+
  # 计算每个分割文件的校验和，以便在数据恢复时进行验证。
  # 传输过程中出现部分数据损坏,就可以只传部分损坏的分割文件
 [root@m01 tmp]# split file1 part_ && for f in part_*; do md5sum $f; done;
 5ad6e1ebf4c1ce91a3af827c8301ed81  part_aa
 .........
- 
- 
+
+
 paste  # 将多个文件或标准输入的内容合并在一起
 paste [OPTION]... [FILE]...
 OPTION：可选参数，用于修改命令的行为。
@@ -440,9 +435,9 @@ sort -r file.txt  #排序翻转
 sort -f file.txt   #排序不区分大小写字母
 sort -k 2 file1.txt  # 默认按空格分割 按第二列字段排序
  sort -t ',' -k 2 data.txt  #指定用逗号分隔符,取第二字段排序
- 
- 
- 
+
+
+
 # 扩展
 # 从一个逗号分隔的 CSV 文件中提取第二列（假设是用户ID）并进行排序。
 cut -d ',' -f 2 data.csv | sort > sorted_ids.txt 
@@ -495,7 +490,7 @@ FILE：要统计的文件。如果未指定文件，wc 将从标准输入读取�
 
 [root@m01 tmp]# wc text.txt
  5  5 33 text.txt  # 行数 单词数 字节数 文件名
- 
+
 wc -l text.txt
 wc -w text.txt
 wc -c text.txt
@@ -700,8 +695,6 @@ gg：移动到文件的第一行。
 :set nonu：隐藏行号。
 ```
 
-
-
 ## 文件压缩及解压缩命令
 
 ```bash
@@ -729,7 +722,7 @@ tar -cjvf archive_name.tar.bz2 /path/to/directory_or_file #bzip2压缩
 tar -xjvf archive_name.tar.bz2                                           #bzip2解压缩
 
 tar -cJvf archive_name.tar.xz /path/to/directory_or_file   #xz 压缩
-tar -xJvf archive_name.tar.xz											  #xz解压缩
+tar -xJvf archive_name.tar.xz                                              #xz解压缩
 
 #备份目录
 tar -czvf /backup/directory/backup-$(date +%Y%m%d).tar.gz /path/to/important/directory
@@ -752,7 +745,7 @@ unzip [选项] 压缩文件.zip
 unzip file.zip
 unzip -v file.zip
 unzip file.zip -d /path/to/destination  #解压文件到指定目录
-unzip -l file.zip									   #查看一下不解压
+unzip -l file.zip                                       #查看一下不解压
 
 
 
@@ -791,11 +784,7 @@ zip archive.zip file1.txt file2.txt directory/  #压缩多个文件和目录
 zip -rm archive.zip directory/   #解压完删除原目录(directory/)
 zip -e archive.zip file.txt            # 会提示你输入密码来创建一个加密的 archive.zip 文件
 unzip -l archive.zip                   #查看文件内容,而不实际解压
-
-
 ```
-
-
 
 ## 信息显示命令
 
@@ -983,7 +972,7 @@ Tasks: 206 total：系统中总共有多少个进程。
 205 sleeping：处于睡眠状态的进程数。
 0 stopped：被停止的进程数。
 0 zombie：僵尸进程数（已经结束但其父进程尚未回收资源的进程）。
-     
+
 第三行：CPU状态。
 Cpu(s): 0.3%us：用户空间占用CPU的百分比。
 0.3%sy：内核空间占用CPU的百分比。
@@ -1070,8 +1059,6 @@ cal -my 2023
 -y：显示整年的日历。
 ```
 
-
-
 ## 搜索文件命令
 
 ```bash
@@ -1157,12 +1144,7 @@ locate -c example.txt         #仅显示匹配文件的总数
 locate -i httpd                    #查找所有包含 httpd 的文件路径：
 
 locate 依赖于数据库的特性,确保数据库是最新的,或者需要查找心文件时使用find命令
-
-
-
 ```
-
-
 
 ## 用户管理命令
 
@@ -1382,7 +1364,6 @@ sudo：需要在 /etc/sudoers 文件中进行配置，指定哪些用户或用�
 5. 日志记录
 su：通常不会记录切换用户的活动，除非系统管理员特别配置了日志记录。
 sudo：所有使用 sudo 执行的命令都会被记录在 /var/log/auth.log 或 /var/log/secure 等日志文件中，这有助于系统审计和安全检查。
-
 ```
 
 ## 基础网络操作命令
@@ -1597,8 +1578,8 @@ sudo route del -net 目标网络 netmask 子网掩码 gw 网关地址
 [root@kh1 tmp]# route -n
 Kernel IP routing table
 Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
-0.0.0.0         	10.0.0.254      0.0.0.0               UG    0         0        0    eth0
-10.0.0.0        	0.0.0.0           255.255.255.0   U       0         0        0    eth0
+0.0.0.0             10.0.0.254      0.0.0.0               UG    0         0        0    eth0
+10.0.0.0            0.0.0.0           255.255.255.0   U       0         0        0    eth0
 169.254.0.0      0.0.0.0           255.255.0.0       U     1002     0        0    eth0
 Destination：目标网络或主机。
 Gateway：网关地址，数据包将通过这个地址转发。
@@ -1739,7 +1720,7 @@ netstat [选项]
 -r 或 --route：显示内核路由表。
 -i 或 --interfaces：显示网络接口列表。
 
-netstat -t   		#显示所有tcp连接
+netstat -t           #显示所有tcp连接
 netstat -u         #显示所有udp连接
 netstat -tuln     # 显示监听状态的TCP和UDP端口
 netstat -tulpn   #显示每个套接字的进程ID和名称：
@@ -1764,8 +1745,8 @@ state 网络连接状态:
 LISTEN:  监听 ;表示服务器程序正在等待连接进入
 ESTABLISHED: 已经建立连接;
 SYN_SENT: 
-  -客户端已发送 SYN（同步）数据包来发起连接，但尚未收到对方的 SYN-ACK（同步确认）数			据包。这是在 TCP 三次握手过程中的一个中间状态。
-	-当客户端尝试连接到服务器时，首先发送 SYN 包，此时客户端的连接状态就是SYN_SENT。
+  -客户端已发送 SYN（同步）数据包来发起连接，但尚未收到对方的 SYN-ACK（同步确认）数            据包。这是在 TCP 三次握手过程中的一个中间状态。
+    -当客户端尝试连接到服务器时，首先发送 SYN 包，此时客户端的连接状态就是SYN_SENT。
 SYN_RECV:
    -服务器接收到了客户端的 SYN 数据包，并已发送 SYN-ACK 数据包，但尚未收到客户端的 ACK（确认）数据包。在服务器端，当接收到新的连接请求时，会进入这个状态。
   -例如，Web 服务器在接收到 HTTP 请求时，在建立连接的过程中可能会出现这个状态。
@@ -1814,13 +1795,7 @@ TX-ERR: 发送时发生错误的数据包数量。
 TX-DRP: 发送时被丢弃的数据包数量。
 TX-OVR: 发送时的溢出数据包数量。
 Flg: 接口的状态标志，例如 B 表示接口处于广播模式，L 表示接口处于混杂模式，U 表示接口处于激活状态。M：表示该接口已设置为监测（monitor）模式,R：表示该接口正在运行（running）
-
-
-
-
 ```
-
-
 
 ## 深入网络操作命令
 
@@ -1876,10 +1851,10 @@ lsof -t
 
 [root@m01 ~]# lsof
 COMMAND    PID  TID    USER   FD      TYPE             DEVICE  SIZE/OFF       NODE NAME
-systemd      		1         		root  cwd       DIR              253,0       244         64 /
-systemd      		1         		root  rtd         DIR              253,0       244         64 /
-systemd      		1         		root  txt         REG              253,0   1632960     283086 /usr/lib/systemd/systemd
-                   
+systemd              1                 root  cwd       DIR              253,0       244         64 /
+systemd              1                 root  rtd         DIR              253,0       244         64 /
+systemd              1                 root  txt         REG              253,0   1632960     283086 /usr/lib/systemd/systemd
+
 输出解释
 lsof 的输出通常包含以下列：
 COMMAND：运行进程的名称。
@@ -2038,7 +2013,7 @@ tcpdump -w capture.pcap  #捕获的数据写入文件
 tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
 00:01:37.285591 IP (tos 0x10, ttl 64, id 49369, offset 0, flags [DF], proto TCP (6), length 164)
     m01.ssh > 10.0.0.1.tht-treasure: Flags [P.], cksum 0x149a (incorrect -> 0x3ef3), seq 3903155851:3903155975, ack 2971274083, win 298, length 124
-    
+
 00:01:37.286243 IP (tos 0x0, ttl 64, id 30759, offset 0, flags [DF], proto UDP (17), length 67)
     m01.56634 > gateway.domain: 9336+ PTR? 1.0.0.10.in-addr.arpa. (39)
 2 packets captured
@@ -2052,9 +2027,6 @@ tcpdump 的输出通常包含以下信息：
 端口号：源端口和目的端口（对于TCP和UDP数据包）。
 协议：数据包使用的协议（如TCP、UDP、ICMP等）。
 数据包长度：数据包的长度。
-
-
-
 ```
 
 ## 有关磁盘与文件系统的命令
@@ -2184,9 +2156,9 @@ dd if=/dev/sda of=/dev/sdb
 if（input file）：指定输入文件或设备。
 of（output file）：指定输出文件或设备。
 bs（block size）：设置每次读写的块大小。
-			例如：bs=4k表示块大小为 4KB，块大小的选择会影响数据传输的效率。
+            例如：bs=4k表示块大小为 4KB，块大小的选择会影响数据传输的效率。
 count：指定要复制的块数量。
-			例如：count=100表示复制 100 个块。
+            例如：count=100表示复制 100 个块。
 status=progress  #显示dd命令的进度。
 
 
@@ -2364,7 +2336,7 @@ Disk label type: gpt  #显示了磁盘的分区表类型 dos表示mbr(Master boo
 Disk identifier: 23DF68CC-FEFC-4958-AF88-BFE61521B9D0  #磁盘的唯一标识符
 #         Start          End           Size  Type                Name
  1         2048     41943006     20G  Linux filesyste Linux filesystem
- 
+
  -------------------------dos类型
  Disk label type: dos
 Disk identifier: 0x000c84a4
@@ -2379,7 +2351,7 @@ System: 分区类型描述。
 
 
 
- 
+
 gdisk  #使用gpt分区表
 
 [root@m01 ~]# gdisk -l /dev/sdb
@@ -2581,12 +2553,7 @@ sudo lvextend -L 新大小 /dev/逻辑卷组/逻辑卷
 
 lvextend -L 100G /dev/mapper/vg00-lv_data  #扩展逻辑卷到100GB
 xfs_growfs /mnt/data     #扩展文件系统到逻辑卷的新大小
-
-
-
 ```
-
-
 
 ## 关机和查看系统信息的命令
 
@@ -2615,7 +2582,7 @@ halt   #用于停止Linux系统运行的命令
 halt [选项]
 常用选项
 -p 或 --poweroff：在停止系统后关闭电源。
-		电源管理：使用 -p 选项可以关闭电源，这在服务器或台式机上可能需要额外的硬件支持。
+        电源管理：使用 -p 选项可以关闭电源，这在服务器或台式机上可能需要额外的硬件支持。
 -h 或 --halt：仅停止系统，不关闭电源。
 -f 或 --force：强制停止系统，即使某些进程拒绝关闭。
 -i 或 --init：在停止系统之前，使用init程序来停止所有进程。
@@ -2667,13 +2634,7 @@ systemd是目前最流行的初始化系统和系统管理器，被许多现代L
 -资源控制：systemd可以控制服务的资源使用，如CPU和内存限制。
 -依赖性管理：systemd可以管理服务之间的依赖关系，确保服务按正确的顺序启动和停止。
 systemd的设计目标是提供一个更快速、更高效、更易于管理的系统初始化和管理框架。
-
-
-
-
 ```
-
-
 
 ## 系统管理相关命令
 
@@ -2704,7 +2665,7 @@ ps axu
 To print a process tree:
   ps -ejH
   ps axjf
-          
+
 [root@m01 ~]# ps -ef |head
 UID   PID   PPID  C STIME TTY          TIME CMD
 root    1      0       0 18:19  ?        00:00:01 /usr/lib/systemd/systemd --switched-root --system --deserialize 22
@@ -2735,7 +2696,7 @@ ps axu 输出的列说明：
 6.RSS：常驻集大小，即进程占用的物理内存大小，以千字节为单位。
 7.TTY：启动进程的终端设备。
 8.STAT：进程状态，
-			例如 R 表示运行中，S 表示睡眠中，D 表示不可中断的睡眠状态，Z 表示僵尸进程，T 表示停止状态。
+            例如 R 表示运行中，S 表示睡眠中，D 表示不可中断的睡眠状态，Z 表示僵尸进程，T 表示停止状态。
 9.START：进程启动时间。
 10.TIME：进程自启动以来所占用的CPU时间。
 11.COMMAND：启动进程的命令名。
@@ -2812,7 +2773,7 @@ CPU：显示每个CPU的统计信息。
 %steal：虚拟机管理程序偷取CPU时间的百分比（在虚拟化环境中）。
 %guest：在虚拟处理器上运行客户机的CPU使用率。
 %gnice：表示高优先级用户态（niced）的 CPU 时间百分比.  
-				具有特定高优先级设置或特殊调整的用户态进程所占用的时间.
+                具有特定高优先级设置或特殊调整的用户态进程所占用的时间.
 %idle：CPU空闲时间的百分比。
 
 
@@ -2978,7 +2939,6 @@ systemctl status httpd
 
 systemctl enable httpd  #httpd 服务在系统启动时自动启动
 systemctl disable httpd  #httpd 服务在系统启动时不自动启动。
-
 ```
 
 ## 系统安全相关命令
@@ -3062,8 +3022,8 @@ passwd -d username
 passwd -e username
 passwd -S username
 echo "newpassword" | sudo passwd --stdin username   #一行命令修改用户密码,
- 
- 
+
+
 su        #上面有
 sudo    #上面有
 
@@ -3092,7 +3052,6 @@ umask 0027  #临时修改掩码值
 
 chattr  #上面有
 lsattr   #上面有
-
 ```
 
 ## 查看系统用户登录信息的命令
@@ -3194,8 +3153,6 @@ Login     Name       Tty      Idle  Login Time   Office     Office Phone   Host
 root      root       tty1     4:14  Aug 14 18:20
 root      root       pts/0          Aug 14 18:22                           (10.0.0.1)
 ```
-
-
 
 ## 其他
 
@@ -3444,10 +3401,7 @@ screen -ls
 5.重新连接到特定的 screen 会话：
 screen -r [session_id]
 其中 [session_id] 是你从 screen -ls 命令中得到的会话ID。
-
 ```
-
-
 
 ## 系统性能监视高级命令
 
@@ -3579,17 +3533,9 @@ ltrace -l libpthread.so ls
 这将仅显示 ls 命令中调用 libpthread.so 库中的函数的情况。
 4.跟踪一个进程：
 ltrace -p 1234
-
-
-
-
-
 ```
 
-
-
 ```bash
-
 关机/重启/注销命令（7）
 关机重启： shutdown init halt  poweroff reboot
 注销退出： logout exit  ctl+d ---》快捷键（生产常用）
@@ -3696,16 +3642,7 @@ mv rm fdisk parted dd
 
 linux 系统四位剑客
 grep （egrep ） sed  awk find
-
-
-
-
-
-
-
 ```
-
-
 
 ## linux bash快捷键
 
@@ -3724,13 +3661,4 @@ ctrl+q/c   解锁  q=quit
 Ctrl + r   搜索最近使用的命令 r=reverse
 ```
 
-
-
-
-
-
-
-
-
 以后linux 命令问题请按 介绍,语法,常用选项,示例,生产环境建议及常用组合命令
-

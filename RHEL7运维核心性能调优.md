@@ -8,15 +8,15 @@
 
 ### 1. 性能监控工具体系（排查问题的基础）
 
-| 工具分类           | 核心工具                                            | 生产用途                                    |
-| :----------------- | :-------------------------------------------------- | :------------------------------------------ |
-| **基础全局监控**   | `vmstat`、`sar`、`top`、`ps`                        | 快速定位 CPU / 内存 / IO / 网络整体瓶颈     |
-| **CPU 专项**       | `turbostat`、`numastat`、`numad`、`tuna`、`taskset` | NUMA 架构分析、CPU 亲和性调整、电源状态监控 |
-| **存储专项**       | `iostat`、`blktrace`、`btt`、`iowatcher`            | 磁盘 IO 瓶颈定位、IO 堆栈延迟分析           |
-| **网络专项**       | `ss`、`ethtool`、`dropwatch`、`ip`                  | 套接字统计、网卡配置、丢包排查              |
-| **高级性能分析**   | `perf`、`SystemTap`                                 | 内核级性能剖析、热点函数定位                |
-| **自动化调优**     | `tuned`、`tuned-adm`                                | 一键应用生产级调优配置                      |
-| **系统级监控框架** | `PCP`                                               | 长期性能数据采集、历史趋势分析              |
+| 工具分类        | 核心工具                                            | 生产用途                        |
+|:----------- |:----------------------------------------------- |:--------------------------- |
+| **基础全局监控**  | `vmstat`、`sar`、`top`、`ps`                       | 快速定位 CPU / 内存 / IO / 网络整体瓶颈 |
+| **CPU 专项**  | `turbostat`、`numastat`、`numad`、`tuna`、`taskset` | NUMA 架构分析、CPU 亲和性调整、电源状态监控  |
+| **存储专项**    | `iostat`、`blktrace`、`btt`、`iowatcher`           | 磁盘 IO 瓶颈定位、IO 堆栈延迟分析        |
+| **网络专项**    | `ss`、`ethtool`、`dropwatch`、`ip`                 | 套接字统计、网卡配置、丢包排查             |
+| **高级性能分析**  | `perf`、`SystemTap`                              | 内核级性能剖析、热点函数定位              |
+| **自动化调优**   | `tuned`、`tuned-adm`                             | 一键应用生产级调优配置                 |
+| **系统级监控框架** | `PCP`                                           | 长期性能数据采集、历史趋势分析             |
 
 vmstat    sar 
 
@@ -28,22 +28,22 @@ procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
  0  0      0 1672084   2108 141408    0    0     0     0   86   99  0  0 100  0  0
  0  0      0 1672084   2108 141408    0    0     0     0   92  105  0  0 100  0  0
  procs 进程相关
- r	Running  运行的
- b	Blocked  阻塞的
- 
+ r    Running  运行的
+ b    Blocked  阻塞的
+
 memory 内存相关
-swpd	Swap
+swpd    Swap
 free  空闲的
-buff	Buffer	缓冲区（磁盘读写临时缓存）	2108	几乎没用
-cache	Cache	页缓存（文件缓存，你之前学的 PageCache）141408	正常文件缓存
+buff    Buffer    缓冲区（磁盘读写临时缓存）    2108    几乎没用
+cache    Cache    页缓存（文件缓存，你之前学的 PageCache）141408    正常文件缓存
 
 swap 交换分区
-si	Swap In	   从 swap 读入内存（换入）	0	无 swap 交换
-so	Swap Out	内存写入 swap（换出）	0	内存完全够用
- 
+si    Swap In       从 swap 读入内存（换入）    0    无 swap 交换
+so    Swap Out    内存写入 swap（换出）    0    内存完全够用
+
 io 磁盘 IO 
-bi	Block In	从磁盘读数据（块 / 秒）	436 → 0	开机有读，后续无 IO  
-bo	Block Out	向磁盘写数据（块 / 秒）	37 → 0	几乎无磁盘写入
+bi    Block In    从磁盘读数据（块 / 秒）    436 → 0    开机有读，后续无 IO  
+bo    Block Out    向磁盘写数据（块 / 秒）    37 → 0    几乎无磁盘写入
 以 内存 为中心：
 bi = Block In → 数据块 进入内存 ← 从磁盘读取（读磁盘）
 bo = Block Out → 数据块 流出内存 → 写入磁盘（写磁盘）
@@ -52,14 +52,14 @@ bo = Block Out → 数据块 流出内存 → 写入磁盘（写磁盘）
 
 system 系统中断（看内核 / 硬件调度）
 in (Interrupt) = 每秒的 硬中断总数 + 软中断总数
-cs	Context Switch	每秒进程上下文切换次数	     509 → 105	切换极少，无压力
+cs    Context Switch    每秒进程上下文切换次数         509 → 105    切换极少，无压力
 
 cpu CPU 使用率（100%= 总和，最关键）
-us	User	用户进程 CPU 占比	1/0/0	无程序运行
-sy	System	内核 CPU 占比（系统调用、中断）	4/0/0	内核几乎不干活
-id	Idle	空闲 CPU 占比	96/100/100	系统极度空闲
-wa	Wait	等待 IO 的 CPU 占比	0	无 IO 等待
-st	Stolen	虚拟机被偷走的 CPU（物理机 = 0）	0	正常
+us    User    用户进程 CPU 占比    1/0/0    无程序运行
+sy    System    内核 CPU 占比（系统调用、中断）    4/0/0    内核几乎不干活
+id    Idle    空闲 CPU 占比    96/100/100    系统极度空闲
+wa    Wait    等待 IO 的 CPU 占比    0    无 IO 等待
+st    Stolen    虚拟机被偷走的 CPU（物理机 = 0）    0    正常
 
 
 重要区分（别搞混）
@@ -75,124 +75,121 @@ fdisk -l /dev/sda | grep -i sector
 
 
 sar（System Activity Reporter）是 Linux 最全能的系统监控工具，能实时 / 历史查看 CPU、内存、磁盘、网络、进程、中断 所有性能数据
-sar -u 1 3	CPU 使用率
-sar -r 1 3	内存 / 缓存
-sar -d 1 3	磁盘 IO
-sar -n DEV 1 3	网卡流量
-sar -q 1 3	系统负载
-sar -w 1 3	上下文切换
+sar -u 1 3    CPU 使用率
+sar -r 1 3    内存 / 缓存
+sar -d 1 3    磁盘 IO
+sar -n DEV 1 3    网卡流量
+sar -q 1 3    系统负载
+sar -w 1 3    上下文切换
 
 
-usr	  User	用户进程占用 CPU（业务程序）	越低越好
-nice  Nice	低优先级用户进程 CPU 占比,只统计：nice 值为正数（> 0）的进程
-		谦让度越高（nice 大） → 越不争 CPU → 优先级越低
-		谦让度越低（nice 小） → 越抢 CPU → 优先级越高
-sys	  System 	内核占用 CPU（系统调用、中断、驱动）	<30%
-iowait	IO Wait	CPU 等待磁盘 IO 的时间	>20% 说明磁盘拥堵
-steal	Stolen	虚拟机被宿主机偷走的 CPU	物理机 = 0
-idle	Idle	CPU 空闲时间	>80% 说明 CPU 空闲
+usr      User    用户进程占用 CPU（业务程序）    越低越好
+nice  Nice    低优先级用户进程 CPU 占比,只统计：nice 值为正数（> 0）的进程
+        谦让度越高（nice 大） → 越不争 CPU → 优先级越低
+        谦让度越低（nice 小） → 越抢 CPU → 优先级越高
+sys      System     内核占用 CPU（系统调用、中断、驱动）    <30%
+iowait    IO Wait    CPU 等待磁盘 IO 的时间    >20% 说明磁盘拥堵
+steal    Stolen    虚拟机被宿主机偷走的 CPU    物理机 = 0
+idle    Idle    CPU 空闲时间    >80% 说明 CPU 空闲
 
-kbmemfree	空闲物理内存	真正空闲、没被占用的内存	1673652	空闲 1.6GB，非常充足
-kbmemused	已用物理内存	进程 + 缓存总共占用的内存	318936	仅用 310MB，极少
-%memused	物理内存使用率	已用内存占总内存的百分比	16.01%	内存极其空闲
-kbbuffers	缓冲区内存	磁盘读写临时缓冲（对应 vmstat buff）	2108	几乎没用，正常
-kbcached	页缓存内存	文件读取缓存（对应 vmstat cache）	125036	正常文件缓存，可回收
-kbcommit	已分配虚拟内存	应用程序申请的虚拟内存总和	821424	正常业务占用
-%commit	    虚拟内存使用率	虚拟内存占用比例	20.09%	无压力  Commit = 内核承诺分配
-kbactive	活跃内存	正在被进程 / 系统使用的内存	49956	活跃内存极少
-kbinact	   非活跃内存	闲置缓存，内存不足时可自动释放	123631	可回收缓存充足
-kbdirty	   脏页内存	   内存中待写入磁盘的数据	0/40	无数据等待写入磁盘
+kbmemfree    空闲物理内存    真正空闲、没被占用的内存    1673652    空闲 1.6GB，非常充足
+kbmemused    已用物理内存    进程 + 缓存总共占用的内存    318936    仅用 310MB，极少
+%memused    物理内存使用率    已用内存占总内存的百分比    16.01%    内存极其空闲
+kbbuffers    缓冲区内存    磁盘读写临时缓冲（对应 vmstat buff）    2108    几乎没用，正常
+kbcached    页缓存内存    文件读取缓存（对应 vmstat cache）    125036    正常文件缓存，可回收
+kbcommit    已分配虚拟内存    应用程序申请的虚拟内存总和    821424    正常业务占用
+%commit        虚拟内存使用率    虚拟内存占用比例    20.09%    无压力  Commit = 内核承诺分配
+kbactive    活跃内存    正在被进程 / 系统使用的内存    49956    活跃内存极少
+kbinact       非活跃内存    闲置缓存，内存不足时可自动释放    123631    可回收缓存充足
+kbdirty       脏页内存       内存中待写入磁盘的数据    0/40    无数据等待写入磁盘
 
 
-tps	每秒向磁盘发起的 IO 次数	数值越高 IO 越忙
-rd_sec/s	每秒读取扇区数	换算：×512 = 字节数
-wr_sec/s	每秒写入扇区数	换算：×512 = 字节数
-avgrq-sz	平均 IO 请求大小	-
-avgqu-sz	平均 IO 队列长度	越大磁盘越拥堵
-await	平均 IO 等待时间（毫秒）	>20ms 磁盘性能差
-svctm	平均 IO 服务时间（毫秒）	<5ms 正常
-%util	磁盘繁忙率	100% 说明磁盘跑满
+tps    每秒向磁盘发起的 IO 次数    数值越高 IO 越忙
+rd_sec/s    每秒读取扇区数    换算：×512 = 字节数
+wr_sec/s    每秒写入扇区数    换算：×512 = 字节数
+avgrq-sz    平均 IO 请求大小    -
+avgqu-sz    平均 IO 队列长度    越大磁盘越拥堵
+await    平均 IO 等待时间（毫秒）    >20ms 磁盘性能差
+svctm    平均 IO 服务时间（毫秒）    <5ms 正常
+%util    磁盘繁忙率    100% 说明磁盘跑满
 ----、
-字段	完整英文单词	中文释义
-tps	       Transactions Per Second	每秒 IO 事务数（IOPS）
-rd_sec/s	Read Sectors Per Second	每秒读取磁盘扇区数
-wr_sec/s	Write Sectors Per Second	每秒写入磁盘扇区数
-avgrq-sz	Average Request Size	平均 IO 请求大小
-avgqu-sz	Average Queue Size	平均 IO 等待队列长度
-await	Average Wait Time	平均 IO 等待时间（毫秒）
-svctm	Service Time	平均 IO 服务时间（毫秒）
-%util	Percentage Utilization	磁盘繁忙利用率
+字段    完整英文单词    中文释义
+tps           Transactions Per Second    每秒 IO 事务数（IOPS）
+rd_sec/s    Read Sectors Per Second    每秒读取磁盘扇区数
+wr_sec/s    Write Sectors Per Second    每秒写入磁盘扇区数
+avgrq-sz    Average Request Size    平均 IO 请求大小
+avgqu-sz    Average Queue Size    平均 IO 等待队列长度
+await    Average Wait Time    平均 IO 等待时间（毫秒）
+svctm    Service Time    平均 IO 服务时间（毫秒）
+%util    Percentage Utilization    磁盘繁忙利用率
 
 
 -n DEV：监控 网络设备（Network Device） 即网卡流量
-字段	   完整英文全称	中文翻译	大白话解释	运维关注点
-IFACE	Interface	网卡名称	网卡名（eth0/ens33/lo）	看物理网卡
-rxpck/s	Receive Packets Per Second	每秒接收数据包数	收包速度	数值高 = 入站流量大
-txpck/s	Transmit Packets Per Second	每秒发送数据包数	发包速度	数值高 = 出站流量大
-rxkB/s	Receive KBytes Per Second	每秒接收数据大小（KB）	下载带宽	核心看带宽
-txkB/s	Transmit KBytes Per Second	每秒发送数据大小（KB）	上传带宽	核心看带宽
-rxcmp/s	Receive Compressed Per Second	每秒接收压缩数据包数	压缩收包	一般为 0
-txcmp/s	Transmit Compressed Per Second	每秒发送压缩数据包数	压缩发包	一般为 0
-rxmcst/s	Receive Multicast Per Second	每秒接收组播数据包数	组播收包
+字段       完整英文全称    中文翻译    大白话解释    运维关注点
+IFACE    Interface    网卡名称    网卡名（eth0/ens33/lo）    看物理网卡
+rxpck/s    Receive Packets Per Second    每秒接收数据包数    收包速度    数值高 = 入站流量大
+txpck/s    Transmit Packets Per Second    每秒发送数据包数    发包速度    数值高 = 出站流量大
+rxkB/s    Receive KBytes Per Second    每秒接收数据大小（KB）    下载带宽    核心看带宽
+txkB/s    Transmit KBytes Per Second    每秒发送数据大小（KB）    上传带宽    核心看带宽
+rxcmp/s    Receive Compressed Per Second    每秒接收压缩数据包数    压缩收包    一般为 0
+txcmp/s    Transmit Compressed Per Second    每秒发送压缩数据包数    压缩发包    一般为 0
+rxmcst/s    Receive Multicast Per Second    每秒接收组播数据包数    组播收包
 
 
 -q：Queue（队列），查看系统进程队列 + 系统平均负载
-字段	     完整英文全称	        中文解释						运维实战关注点	
-runq-sz	   Run Queue Size	等待 CPU 的就绪进程队列长度	正常值 < CPU 核心数；持续过高 = CPU 瓶颈
-plist-sz   Process List Size	系统总进程 + 线程数量	数值平稳为正常；突增可能是程序 BUG	-
-ldavg-1	   Load Average 1 minute	1 分钟系统平均负载	核心指标，反映系统繁忙程度	-
-ldavg-5	   Load Average 5 minutes	5 分钟系统平均负载	看短期趋势	-
-ldavg-15	Load Average 15 minutes	15 分钟系统平均负载	看长期趋势
-blocked	   Blocked Processes	阻塞的进程数  （等待磁盘 IO / 硬件，不可中断）
+字段         完整英文全称            中文解释                        运维实战关注点    
+runq-sz       Run Queue Size    等待 CPU 的就绪进程队列长度    正常值 < CPU 核心数；持续过高 = CPU 瓶颈
+plist-sz   Process List Size    系统总进程 + 线程数量    数值平稳为正常；突增可能是程序 BUG    -
+ldavg-1       Load Average 1 minute    1 分钟系统平均负载    核心指标，反映系统繁忙程度    -
+ldavg-5       Load Average 5 minutes    5 分钟系统平均负载    看短期趋势    -
+ldavg-15    Load Average 15 minutes    15 分钟系统平均负载    看长期趋势
+blocked       Blocked Processes    阻塞的进程数  （等待磁盘 IO / 硬件，不可中断）
 
 -w：查看 进程创建 + 上下文切换 统计
-字段	  完整英文全称	              通俗解释	        你的数值	      状态解读
-proc/s	processes per second	  每秒新建的进程数	   0.00	     没有创建任何新进程，系统非常稳定
-cswch/s	context switches per second	每秒上下文切换次数	94~98	切换次数极低，CPU 调度毫无压力
-
-
-
+字段      完整英文全称                  通俗解释            你的数值          状态解读
+proc/s    processes per second      每秒新建的进程数       0.00         没有创建任何新进程，系统非常稳定
+cswch/s    context switches per second    每秒上下文切换次数    94~98    切换次数极低，CPU 调度毫无压力
 ```
 
 top
 
 ```bash
-字段	完整英文  核心含义	                       你的数值	 状态
-us	user	用户态 CPU：业务程序 / 应用使用的 CPU	0.0	无业务运行
-sy	system	内核态 CPU：系统调用、驱动、调度使用的 CPU	0.0	内核无操作
-ni	nice	低优先级用户进程占用的 CPU	             0.0	无低优先级任务
-id	idle	空闲 CPU（最重要）	                   100.0	CPU 完全空闲
-wa	iowait	CPU 等待磁盘 IO 的时间	                 0.0	无磁盘 IO 等待
-hi	hardware irq	硬中断占用（网卡 / 磁盘硬件通知）	0.0	无硬件中断
-si	software irq	软中断占用（内核网络 / 调度）	0.0	无软中断
-st	steal time	虚拟机被宿主机偷走的 CPU	           0.0	无 CPU 资源争抢
+字段    完整英文  核心含义                           你的数值     状态
+us    user    用户态 CPU：业务程序 / 应用使用的 CPU    0.0    无业务运行
+sy    system    内核态 CPU：系统调用、驱动、调度使用的 CPU    0.0    内核无操作
+ni    nice    低优先级用户进程占用的 CPU                 0.0    无低优先级任务
+id    idle    空闲 CPU（最重要）                       100.0    CPU 完全空闲
+wa    iowait    CPU 等待磁盘 IO 的时间                     0.0    无磁盘 IO 等待
+hi    hardware irq    硬中断占用（网卡 / 磁盘硬件通知）    0.0    无硬件中断
+si    software irq    软中断占用（内核网络 / 调度）    0.0    无软中断
+st    steal time    虚拟机被宿主机偷走的 CPU               0.0    无 CPU 资源争抢
 st = Steal Time（CPU 窃取时间） 你的虚拟机 被物理机 / 其他虚拟机 偷走的 CPU 时间百分比
 
 
-字段			全称	      通俗解释										你的数值含义
-KiB Swap	Swap Space	交换分区（虚拟内存，硬盘模拟内存）	单位：千字节
-total	    Total	    交换分区总大小	2097148 KiB = 2GB
-free	    Free	     交换分区空闲大小	2GB 完全空闲
-used	    Used	     交换分区已使用大小	0，完全没用到
-avail Mem	Available Memory	系统真正可用的物理内存（核心）	1776872 KiB ≈ 1.7GB
+字段            全称          通俗解释                                        你的数值含义
+KiB Swap    Swap Space    交换分区（虚拟内存，硬盘模拟内存）    单位：千字节
+total        Total        交换分区总大小    2097148 KiB = 2GB
+free        Free         交换分区空闲大小    2GB 完全空闲
+used        Used         交换分区已使用大小    0，完全没用到
+avail Mem    Available Memory    系统真正可用的物理内存（核心）    1776872 KiB ≈ 1.7GB
 avail Mem = 空闲free + 可回收的buff/cache 
 
-字段	英文全称	   通俗解释	      核心重点
-PID	  Process ID	进程 ID 号	    系统唯一标识，杀进程用这个号
-USER	User	运行该进程的用户	看是谁启动的进程
-PR	   Priority	进程优先级	      数字越小，优先级越高，越先被 CPU 执行
-NI	    Nice	进程谦让值	      微调优先级；负数 = 高优先级，正数 = 低优先级
+字段    英文全称       通俗解释          核心重点
+PID      Process ID    进程 ID 号        系统唯一标识，杀进程用这个号
+USER    User    运行该进程的用户    看是谁启动的进程
+PR       Priority    进程优先级          数字越小，优先级越高，越先被 CPU 执行
+NI        Nice    进程谦让值          微调优先级；负数 = 高优先级，正数 = 低优先级
         PR (Priority)：内核真正用的调度优先级 → 用户不能直接改！
         NI (Nice)：用户能手动调整的谦让值 → 用户可以随便改
         NI 是用来计算 PR 的参数，不是独立的优先级！
-VIRT	Virtual Memory	虚拟内存	进程申请的总虚拟内存（不用关注，虚高）
-RES	    Resident Memory	常驻物理内存	✅ 最重要！ 进程实际占用的物理内存
-SHR	    Shared Memory	共享内存	与其他进程共享的内存（库、共享资源）
-S	    Status	进程状态	 常用：R = 运行 S = 睡眠 D=IO 阻塞 Z = 僵尸进程 I = 内核空闲线程，系统自带、待命状态、完全正常
-%CPU	CPU Utilization	进程 CPU 使用率		单进程吃 CPU 多少
-%MEM	Memory Utilization	进程物理内存使用率	占总物理内存的百分比
-TIME+	Time	进程累计占用 CPU 总时间	运行越久，数值越大
-COMMAND	Command	进程名称 / 启动命令			看是什么程序（nginx、mysql 等）
+VIRT    Virtual Memory    虚拟内存    进程申请的总虚拟内存（不用关注，虚高）
+RES        Resident Memory    常驻物理内存    ✅ 最重要！ 进程实际占用的物理内存
+SHR        Shared Memory    共享内存    与其他进程共享的内存（库、共享资源）
+S        Status    进程状态     常用：R = 运行 S = 睡眠 D=IO 阻塞 Z = 僵尸进程 I = 内核空闲线程，系统自带、待命状态、完全正常
+%CPU    CPU Utilization    进程 CPU 使用率        单进程吃 CPU 多少
+%MEM    Memory Utilization    进程物理内存使用率    占总物理内存的百分比
+TIME+    Time    进程累计占用 CPU 总时间    运行越久，数值越大
+COMMAND    Command    进程名称 / 启动命令            看是什么程序（nginx、mysql 等）
 
 
 #PR NI
@@ -211,56 +208,47 @@ c -> 显示命令的完整路径
 
 #查看系统全量进程的标准命令
 ps -ef 
-字段	 全称	         通俗解释
-UID	  User ID	   运行这个进程的用户（你这里全是 root）
-PID	  Process ID	进程唯一 ID 号（1 号、2 号是系统核心进程）
-PPID  Parent PID	父进程 ID（子进程由谁启动）
-C	   CPU	       进程 CPU 占用百分比（旧版统计方式）
-STIME	Start Time	进程启动时间
-TTY	   Terminal	   启动进程的终端（? = 无终端，tty1 = 本地物理终端,pts/0 = 远程伪终端  后台 / 内核进程）
-TIME	CPU Time   进程累计占用 CPU 的总时间
-CMD	   Command	   进程名称 / 启动命令  列带[]代表Linux 内核线程，
-
-
-
-
-
-
-
+字段     全称             通俗解释
+UID      User ID       运行这个进程的用户（你这里全是 root）
+PID      Process ID    进程唯一 ID 号（1 号、2 号是系统核心进程）
+PPID  Parent PID    父进程 ID（子进程由谁启动）
+C       CPU           进程 CPU 占用百分比（旧版统计方式）
+STIME    Start Time    进程启动时间
+TTY       Terminal       启动进程的终端（? = 无终端，tty1 = 本地物理终端,pts/0 = 远程伪终端  后台 / 内核进程）
+TIME    CPU Time   进程累计占用 CPU 的总时间
+CMD       Command       进程名称 / 启动命令  列带[]代表Linux 内核线程，
 ```
 
 ss
 
 ```bash
 ss 是 CentOS 系统自带、替代 netstat 的网络连接查看工具
-参数	含义
--t	只看 TCP 连接
--u	只看 UDP 连接
--l	只看 监听中 的端口（服务开的端口）
--n	用数字显示 IP / 端口（不解析域名，速度快）
--p	显示进程名 / PID（必须 root 执行）
--a	显示所有连接（监听 + 已建立）
+参数    含义
+-t    只看 TCP 连接
+-u    只看 UDP 连接
+-l    只看 监听中 的端口（服务开的端口）
+-n    用数字显示 IP / 端口（不解析域名，速度快）
+-p    显示进程名 / PID（必须 root 执行）
+-a    显示所有连接（监听 + 已建立）
 
 # 查看所有监听端口
 ss -tuln
 # 查看监听端口 + 对应进程名 / PID（定位谁占用端口）
 ss -tulnp
 
-字段	全称	通俗大白话解释
-Netid	Network Type	协议类型：tcp / udp / raw
-State	Connection State	连接状态（最重要）：
+字段    全称    通俗大白话解释
+Netid    Network Type    协议类型：tcp / udp / raw
+State    Connection State    连接状态（最重要）：
         ✅ LISTEN：监听中（服务已启动）
         ✅ ESTAB：已建立连接（正在通信）
         ✅ TIME_WAIT：连接关闭中（正常）
-		   CLOSE-WAIT	等待程序关闭连接	⚠️ 过多 = 程序异常
-		   SYN-RECV   半连接，握手未完成 	⚠️ 过多 = 可能被攻击
+           CLOSE-WAIT    等待程序关闭连接    ⚠️ 过多 = 程序异常
+           SYN-RECV   半连接，握手未完成     ⚠️ 过多 = 可能被攻击
 
-Recv-Q	Receive Queue	接收队列：已收到、还没被进程取走的字节数 → 一直很高 = 进程处理不过来
-Send-Q	Send Queue	发送队列：发出去、对方没确认的字节数→ 一直很高 = 网络拥堵
-Local Address:Port	Local IP:Port	本地 IP + 端口 0.0.0.0:22 = 所有网卡监听 22 端口
-Peer Address:Port	Peer IP:Port	对方 IP + 端口 0.0.0.0:* = 监听状态，等待任何人连接 有具体 IP = 正在和对方通信
-
-
+Recv-Q    Receive Queue    接收队列：已收到、还没被进程取走的字节数 → 一直很高 = 进程处理不过来
+Send-Q    Send Queue    发送队列：发出去、对方没确认的字节数→ 一直很高 = 网络拥堵
+Local Address:Port    Local IP:Port    本地 IP + 端口 0.0.0.0:22 = 所有网卡监听 22 端口
+Peer Address:Port    Peer IP:Port    对方 IP + 端口 0.0.0.0:* = 监听状态，等待任何人连接 有具体 IP = 正在和对方通信
 ```
 
 ip
@@ -279,12 +267,12 @@ ip link set eth0 up/down 启停网卡
        valid_lft forever preferred_lft forever
     inet6 fe80::20c:29ff:fe85:1bae/64 scope link
        valid_lft forever preferred_lft forev
-       
-标记	意思
-BROADCAST	支持广播
-MULTICAST	支持组播
-UP	网卡已启用（相当于开机）
-LOWER_UP	链路已通（插了网线 / 网络正常连通）
+
+标记    意思
+BROADCAST    支持广播
+MULTICAST    支持组播
+UP    网卡已启用（相当于开机）
+LOWER_UP    链路已通（插了网线 / 网络正常连通）
 mtu 1500   最大传输单元，默认 1500 字节 Byte，以太网标准。
 qdisc  全称：queueing discipline  含义：内核网络队列调度器  作用：网卡发数据包时，排队、限流、调度先后顺序的算法。noqueue = 没有队列
 
@@ -293,48 +281,37 @@ state UP   网卡软件层面已启用，正常工作。
 group default   网卡归属默认网络分组
 qlen 1000    tx queue length 发送队列长度
 
-scope 范围  global	全局地址，可以跨网段通信（正常业务 IP）
-			link	只能同网卡内部通，不能外网路由
-			host	仅本机自己访问自己
-			
+scope 范围  global    全局地址，可以跨网段通信（正常业务 IP）
+            link    只能同网卡内部通，不能外网路由
+            host    仅本机自己访问自己
+
 valid_lft：还能生效多久
 preferred_lft：首选能用多久
-			forever 永久静态地址
+            forever 永久静态地址
 ```
-
-
-
-
-
-
-
-
 
 ### 2. Tuned 自动化调优（生产首选）
 
 - **核心概念**：静态调优（一次性应用配置）+ 动态调优（根据负载自动调整），通过插件管理 CPU / 内存 / 磁盘 / 网络等子系统
 
 - 生产必用配置集
-
+  
   - `throughput-performance`：默认服务器配置，优先吞吐量
+
 - `latency-performance`：低延迟场景（数据库、交易系统）
+  
   - `network-latency`：网络低延迟（负载均衡、网关）
   - `network-throughput`：网络高吞吐量（Web 服务器、文件服务器）
   - `virtual-guest`/`virtual-host`：虚拟机 / 宿主机专用
-  
-  
 
 - 常用命令
-
+  
   ```
   tuned-adm list          # 查看所有可用配置集
   tuned-adm active        # 查看当前激活的配置集
   tuned-adm profile xxx   # 切换到指定配置集
   tuned-adm recommend     # 获取系统推荐配置集
   ```
-
-
-
 
 #### 一、Tuned 到底修改了系统哪些地方？
 
@@ -348,16 +325,16 @@ preferred_lft：首选能用多久
 
 Tuned 所有功能都通过**插件**实现，每个插件负责管理一个子系统的调优：
 
-| 插件类型     | 负责调优的子系统             | 对应修改的系统位置         |
-| :----------- | :--------------------------- | :------------------------- |
-| `sysctl`     | 所有内核参数                 | `/proc/sys/`               |
-| `cpu`        | CPU 调度、电源管理           | `/sys/devices/system/cpu/` |
+| 插件类型         | 负责调优的子系统         | 对应修改的系统位置                  |
+|:------------ |:---------------- |:-------------------------- |
+| `sysctl`     | 所有内核参数           | `/proc/sys/`               |
+| `cpu`        | CPU 调度、电源管理      | `/sys/devices/system/cpu/` |
 | `disk`       | 磁盘 IO 调度、预读、电源管理 | `/sys/block/`              |
-| `net`        | 网络接口参数                 | `/sys/class/net/`          |
-| `vm`         | 内存管理、巨页               | `/sys/kernel/mm/`          |
-| `bootloader` | 内核启动参数                 | `/etc/default/grub`        |
-| `script`     | 自定义操作                   | 任意脚本                   |
-| `mounts`     | 文件系统挂载选项             | `/etc/fstab`               |
+| `net`        | 网络接口参数           | `/sys/class/net/`          |
+| `vm`         | 内存管理、巨页          | `/sys/kernel/mm/`          |
+| `bootloader` | 内核启动参数           | `/etc/default/grub`        |
+| `script`     | 自定义操作            | 任意脚本                       |
+| `mounts`     | 文件系统挂载选项         | `/etc/fstab`               |
 
 ------
 
@@ -430,20 +407,16 @@ Tuned 就是**红帽官方写好的 "调优脚本集合"**，它把你本来要�
 
 **生产最佳实践**：99% 的场景直接用 Tuned 官方提供的配置集即可，不要自己手动改参数，除非你明确知道这个参数的影响，并且已经在测试环境验证过。
 
-
-
-
-
 ### 3. CPU 性能调优
 
 - 核心概念
-
+  
   - NUMA 架构：CPU 访问本地内存比远程内存快 2-3 倍，需保证进程和内存同节点
+
 - 调度策略：`SCHED_OTHER`（默认公平调度）、`SCHED_FIFO`/`SCHED_RR`（实时调度）
+  
   - 中断亲和性：将硬件中断绑定到指定 CPU，避免跨节点调度
   - CPU 隔离：通过`isolcpus`参数隔离 CPU，仅运行指定业务进程
-  
-  
 
 - **关键参数**：`isolcpus`、`nohz_full`（无空循环内核）、`kernel.sched_rt_period_us`、`kernel.sched_rt_runtime_us`
 
@@ -489,7 +462,6 @@ systemctl enable --now numad
 
 # 查看numad日志
 tail -f /var/log/numad.log
-
 ```
 
  **生产踩坑点**
@@ -497,8 +469,6 @@ tail -f /var/log/numad.log
 1. **绝对不要让单实例跨 NUMA 节点**：比如 Redis 单实例最多用 1 个 NUMA 节点的 CPU 和内存，多实例就每个节点跑一个
 2. **numactl 比 taskset 好**：taskset 只能绑 CPU，不能保证内存分配在同一个节点；numactl 同时绑定 CPU 和内存
 3. **K8s 必须开启拓扑管理器**：`--feature-gates=TopologyManager=true`，否则容器会自动跨 NUMA 节点
-
-
 
 #### 二. 调度策略调整（适合对延迟敏感的业务）
 
@@ -510,11 +480,11 @@ tail -f /var/log/numad.log
 
 **三种调度策略对比**
 
-| 调度策略      | 优先级    | 特点                                     | 生产用途                 |
-| :------------ | :-------- | :--------------------------------------- | :----------------------- |
-| `SCHED_OTHER` | 0（默认） | 完全公平调度，按时间片轮转               | 99% 的普通进程           |
-| `SCHED_FIFO`  | 1-99      | 实时调度，先入先出，高优先级抢占低优先级 | 对延迟要求极高的核心进程 |
-| `SCHED_RR`    | 1-99      | 实时调度，时间片轮转，同优先级轮流执行   | 多个同优先级实时进程     |
+| 调度策略          | 优先级   | 特点                   | 生产用途         |
+|:------------- |:----- |:-------------------- |:------------ |
+| `SCHED_OTHER` | 0（默认） | 完全公平调度，按时间片轮转        | 99% 的普通进程    |
+| `SCHED_FIFO`  | 1-99  | 实时调度，先入先出，高优先级抢占低优先级 | 对延迟要求极高的核心进程 |
+| `SCHED_RR`    | 1-99  | 实时调度，时间片轮转，同优先级轮流执行  | 多个同优先级实时进程   |
 
 **核心操作**
 
@@ -551,7 +521,6 @@ sysctl -w kernel.sched_rt_runtime_us=900000
 
 # 永久生效
 echo "kernel.sched_rt_runtime_us=900000" >> /etc/sysctl.d/99-cpu-tuning.conf
-
 ```
 
 **生产踩坑点**
@@ -560,17 +529,17 @@ echo "kernel.sched_rt_runtime_us=900000" >> /etc/sysctl.d/99-cpu-tuning.conf
 2. **实时进程不要太多**：所有实时进程加起来的 CPU 使用率不要超过 90%，否则普通进程会饿死
 3. **不要给数据库设置实时调度**：数据库有大量 IO 等待，实时调度反而会导致性能下降
 
-
-
 #### 三.中断亲和性绑定（解决单 CPU 跑满问题）
 
  **适用场景**
 
 - 高并发网络服务器（网卡中断占满单个 CPU）
-- 高速存储服务器（磁盘 IO 中断占满单个 CPU）
-- 所有多队列网卡 / 多队列磁盘
 
- **核心操作**
+- 高速存储服务器（磁盘 IO 中断占满单个 CPU）
+
+- 所有多队列网卡 / 多队列磁盘
+  
+  **核心操作**
 
 ```bash
 1. 先查看中断分布
@@ -612,7 +581,6 @@ echo 1 > /proc/irq/120/smp_affinity  # 队列0→CPU0
 echo 2 > /proc/irq/121/smp_affinity  # 队列1→CPU1
 echo 4 > /proc/irq/122/smp_affinity  # 队列2→CPU2
 echo 8 > /proc/irq/123/smp_affinity  # 队列3→CPU3
-
 ```
 
 **生产踩坑点**
@@ -662,7 +630,6 @@ ps -eo pid,psr,comm | awk '$2 >=2 && $2 <=7'
 3. 把业务进程绑定到隔离 CPU
 # 绑定到隔离的CPU2-7
 numactl --physcpubind=2-7 /usr/bin/low-latency-app
-
 ```
 
 **生产踩坑点**
@@ -671,8 +638,6 @@ numactl --physcpubind=2-7 /usr/bin/low-latency-app
 2. **隔离 CPU 上不要运行任何其他进程**：包括系统服务、定时任务等
 3. **配合实时调度使用**：CPU 隔离 + SCHED_FIFO 调度，可以把抖动降到 100us 以下
 4. **不要在虚拟机里用 CPU 隔离**：虚拟机的 CPU 是虚拟的，隔离没有任何效果
-
-
 
 #### cpu性能调优总结
 
@@ -684,14 +649,10 @@ numactl --physcpubind=2-7 /usr/bin/low-latency-app
 
 **第四步：只有极端低延迟场景才做 CPU 隔离**：复杂度高，维护成本大
 
-
-
-
-
 ### 4. 内存性能调优
 
 - 核心概念
-
+  
   - 巨页技术：`HugeTLB`（静态巨页，需手动预留）、`THP`（透明巨页，内核自动管理），减少 TLB 未命中
   
   理解
@@ -710,27 +671,24 @@ numactl --physcpubind=2-7 /usr/bin/low-latency-app
   HugeTLB = Huge Page TLB
   中文：静态巨页
   大白话：手动预留、性能最稳的巨页
-  
-  
-  
   ```
-  
+
+```
 - 虚拟内存管理：脏页刷盘策略、内存超分配、OOM killer 机制
-  
-  
+
+
 
 - 关键参数
 
-  ```ini
-  vm.swappiness=1                # 尽量不使用swap
-  vm.dirty_ratio=10              # 脏页占10%时开始后台刷盘
-  vm.dirty_background_ratio=5    # 脏页占5%时开始后台刷盘
-  vm.max_map_count=262144        # 进程最大内存映射数（ES/Redis必调）
-  vm.overcommit_memory=1         # 允许内存超分配
-  ```
-  
+```ini
+vm.swappiness=1                # 尽量不使用swap
+vm.dirty_ratio=10              # 脏页占10%时开始后台刷盘
+vm.dirty_background_ratio=5    # 脏页占5%时开始后台刷盘
+vm.max_map_count=262144        # 进程最大内存映射数（ES/Redis必调）
+vm.overcommit_memory=1         # 允许内存超分配
+```
 
-####  一. 巨页技术实战（性能提升 30%-100%）
+#### 一. 巨页技术实战（性能提升 30%-100%）
 
 **核心原理**
 
@@ -849,8 +807,6 @@ Oracle：SGA 共享内存区 几十上百 G
 3. **容器中使用巨页**：Docker/K8s 需要额外配置才能使用巨页。K8s 需要开启`HugePages`特性门控，并在 Pod 中声明巨页资源。
 4. **不要在 NUMA 节点间共享巨页**：静态巨页会平均分配到各个 NUMA 节点，确保应用和巨页在同一个节点。
 
-
-
 #### 二、虚拟内存管理实战
 
 ##### 1. vm.swappiness：控制 swap 使用倾向
@@ -875,10 +831,7 @@ sysctl -p /etc/sysctl.d/99-memory-tuning.conf
 所有服务器都设为 1：而不是 0。设为 0 会导致当物理内存不足时，内核直接触发 OOM 杀死进程，而不是先使用一点 swap。
 容器服务器必须设为 1：防止容器内存被换出到 swap，导致性能暴跌。
 数据库服务器绝对不要设为 0：数据库 swap 会导致严重的性能问题，但设为 1 可以在极端情况下避免 OOM。
-
 ```
-
-
 
 ##### 2. 脏页刷盘策略：控制内存数据写入磁盘的时机
 
@@ -909,10 +862,7 @@ sysctl -p /etc/sysctl.d/99-memory-tuning.conf
 高并发写入服务器（日志、消息队列）：适当调大这两个值（如 dirty_ratio=20，dirty_background_ratio=10），减少刷盘次数，提升写入性能。
 数据库服务器：适当调小这两个值（如 dirty_ratio=10，dirty_background_ratio=5），避免突然大量刷盘导致 IO 卡顿。
 SSD 服务器：可以调大这两个值，SSD 写入速度快，不会出现明显卡顿。
-
 ```
-
-
 
 ##### 3. vm.max_map_count：进程最大内存映射数
 
@@ -935,12 +885,7 @@ sysctl -p /etc/sysctl.d/99-memory-tuning.conf
 Elasticsearch 服务器必须调大：否则启动会失败，报错 "max virtual memory areas vm.max_map_count [65530] is too low"。
 Redis、MongoDB 服务器建议调大：提升大内存使用时的性能。
 普通服务器无需修改：默认值足够用。
-
 ```
-
-
-
-
 
 ##### 4. vm.overcommit_memory：内存超分配策略
 
@@ -968,10 +913,6 @@ Redis 服务器建议设为 1：Redis fork 时需要申请和当前内存一样�
 数据库服务器（MySQL/PostgreSQL）建议设为 0：防止超分配导致 OOM。
 绝对不要设为 2：会导致很多应用无法正常启动。
 ```
-
-
-
-
 
 ##### 5. OOM killer 机制：内存不足时的进程杀死策略
 
@@ -1012,7 +953,6 @@ echo 500 > /proc/$(pgrep cron)/oom_score_adj
 不要随便把进程设为 - 1000：如果系统内存不足，内核会杀死其他所有进程，最后可能导致系统挂死。
 数据库进程建议设为 - 500：既保护数据库不被轻易杀死，又在极端情况下允许内核杀死它来挽救系统。
 容器中的 OOM：容器的 OOM 是由 Cgroups 控制的，和宿主机的 OOM killer 是两个独立的机制。
-
 ```
 
 #### 生产内存调优优先级总结
@@ -1025,13 +965,13 @@ echo 500 > /proc/$(pgrep cron)/oom_score_adj
 
 不同应用的内存调优模板
 
-| 应用类型      | vm.swappiness | vm.dirty_ratio | vm.dirty_background_ratio | vm.max_map_count | vm.overcommit_memory | 巨页配置     |
-| :------------ | :------------ | :------------- | :------------------------ | :--------------- | :------------------- | :----------- |
-| Nginx/HAProxy | 1             | 10             | 5                         | 65530            | 0                    | THP 开启     |
+| 应用类型          | vm.swappiness | vm.dirty_ratio | vm.dirty_background_ratio | vm.max_map_count | vm.overcommit_memory | 巨页配置     |
+|:------------- |:------------- |:-------------- |:------------------------- |:---------------- |:-------------------- |:-------- |
+| Nginx/HAProxy | 1             | 10             | 5                         | 65530            | 0                    | THP 开启   |
 | Redis         | 1             | 10             | 5                         | 262144           | 1                    | 静态巨页 2MB |
 | MySQL         | 1             | 10             | 5                         | 65530            | 0                    | 静态巨页 2MB |
-| Elasticsearch | 1             | 20             | 10                        | 262144           | 0                    | THP 开启     |
-| K8s 节点      | 1             | 20             | 10                        | 262144           | 1                    | THP 开启     |
+| Elasticsearch | 1             | 20             | 10                        | 262144           | 0                    | THP 开启   |
+| K8s 节点        | 1             | 20             | 10                        | 262144           | 1                    | THP 开启   |
 
 小笔记
 
@@ -1078,18 +1018,10 @@ TLB 是 CPU 里的地址快查表
 映射关系由内核 + CPU 共同维护
 ```
 
-
-
-
-
-
-
-
-
 ### 5. 存储与文件系统调优
 
 - 核心概念
-
+  
   - I/O 调度器：`deadline`（默认，适合大多数场景）、`cfq`（SATA 磁盘）、`noop`（SSD / 虚拟磁盘）
   
   ```BASH
@@ -1102,23 +1034,18 @@ TLB 是 CPU 里的地址快查表
   Output = 读（出硬盘）
   机械盘用 deadline
   SSD / 云盘用 noop
-   
   ```
-  
+
 - XFS 调优：默认文件系统，支持大文件、高并发，格式化时优化条带对齐
+  
   - 挂载选项：`noatime`（禁用访问时间更新）、`inode64`（大于 1TB 文件系统必开）
-  
-  
 
 - 关键参数
-
+  
   ```bash
   echo deadline > /sys/block/sda/queue/scheduler  # 切换调度器
   echo 4096 > /sys/block/sda/queue/read_ahead_kb  # 增大预读值
   ```
-  
-
-
 
 #### 一、I/O 调度器调优（最基础、最常用）
 
@@ -1128,11 +1055,11 @@ I/O 调度器决定了磁盘读写请求的执行顺序和优先级，不同存�
 
  **三种调度器适用场景**
 
-| 调度器     | 适用存储                      | 核心特点                                           | 生产用途                             |
-| ---------- | ----------------------------- | -------------------------------------------------- | ------------------------------------ |
-| `deadline` | 机械硬盘 (HDD)、SAS/SATA 磁盘 | 按请求截止时间排序，优先处理读请求，保证低延迟     | 90% 的服务器场景，数据库、文件服务器 |
-| `cfq`      | 普通 SATA 机械硬盘            | 完全公平队列，按进程分配 I/O 时间片                | 桌面系统、多用户共享的 SATA 磁盘     |
-| `noop`     | SSD、NVMe、虚拟磁盘           | 简单 FIFO（first In first out） 队列，不做复杂排序 | 所有 SSD/NVMe、KVM 虚拟机、云服务器  |
+| 调度器        | 适用存储                   | 核心特点                                  | 生产用途                     |
+| ---------- | ---------------------- | ------------------------------------- | ------------------------ |
+| `deadline` | 机械硬盘 (HDD)、SAS/SATA 磁盘 | 按请求截止时间排序，优先处理读请求，保证低延迟               | 90% 的服务器场景，数据库、文件服务器     |
+| `cfq`      | 普通 SATA 机械硬盘           | 完全公平队列，按进程分配 I/O 时间片                  | 桌面系统、多用户共享的 SATA 磁盘      |
+| `noop`     | SSD、NVMe、虚拟磁盘          | 简单 FIFO（first In first out） 队列，不做复杂排序 | 所有 SSD/NVMe、KVM 虚拟机、云服务器 |
 
 核心操作
 
@@ -1195,7 +1122,6 @@ SSD/NVMe 绝对不要用 deadline/cfq：SSD 没有寻道时间，复杂的调度
 云服务器默认就是 noop：阿里云、腾讯云等云服务器的虚拟磁盘已经在底层做了调度，不需要再改。
 不要给 RAID 控制器用 cfq：硬件 RAID 控制器会自己调度 I/O，用 deadline 或 noop 即可。
 Tuned 会覆盖手动修改：如果开启了 Tuned，一定要通过 Tuned 修改调度器，否则会被定期覆盖。
-
 ```
 
 #### 二、XFS 文件系统调优（RHEL7 默认文件系统）
@@ -1259,23 +1185,19 @@ mkfs.xfs -f -d su=128k,sw=2 /dev/sdb1
 
 RAID0，3 盘，条带 256k
 mkfs.xfs -f -d su=256k,sw=3 /dev/sdb1
-
-
-
-
 ```
 
 挂载选项调优（格式化后可修改）
 
 **生产必用挂载选项**
 
-| 选项            | 作用                                             | 适用场景                                  |
-| --------------- | ------------------------------------------------ | ----------------------------------------- |
-| `noatime`       | 禁用文件访问时间更新，减少写入 IO                | 所有场景                                  |
-| `nodiratime`    | 禁用目录访问时间更新，减少写入 IO                | 所有场景（noatime 会自动包含 nodiratime） |
-| `inode64`       | 允许 inode 分配在整个磁盘，大于 1TB 文件系统必开 | 大于 1TB 的文件系统                       |
-| `logbufs=8`     | 增加日志缓冲区数量，提高写入性能                 | 高并发写入场景                            |
-| `logbsize=256k` | 增大日志缓冲区大小，提高写入性能                 | 高并发写入场景                            |
+| 选项              | 作用                             | 适用场景                           |
+| --------------- | ------------------------------ | ------------------------------ |
+| `noatime`       | 禁用文件访问时间更新，减少写入 IO             | 所有场景                           |
+| `nodiratime`    | 禁用目录访问时间更新，减少写入 IO             | 所有场景（noatime 会自动包含 nodiratime） |
+| `inode64`       | 允许 inode 分配在整个磁盘，大于 1TB 文件系统必开 | 大于 1TB 的文件系统                   |
+| `logbufs=8`     | 增加日志缓冲区数量，提高写入性能               | 高并发写入场景                        |
+| `logbsize=256k` | 增大日志缓冲区大小，提高写入性能               | 高并发写入场景                        |
 
 ```BASH
 临时挂载测试
@@ -1300,9 +1222,6 @@ mount | grep /data
 大于 1TB 的文件系统必须加 inode64：否则 inode 只能分配在磁盘前 1TB，导致磁盘还有空间但无法创建文件。
 noatime 不会影响 mtime 和 ctime：只会禁用访问时间 atime，修改时间 mtime 和状态时间 ctime 不受影响，不影响备份、监控等功能。
 XFS 不支持缩小：只能扩大，不能缩小，分区时要规划好大小。
-
-
-
 ```
 
 #### 三、磁盘预读值调优（read_ahead_kb）
@@ -1343,10 +1262,7 @@ tuned-adm profile io-tuning
 # 重启后查看
 cat /sys/block/sda/queue/read_ahead_kb
 # 输出：4096
-
 ```
-
-
 
 **生产最佳实践**
 
@@ -1355,8 +1271,6 @@ cat /sys/block/sda/queue/read_ahead_kb
 - **SSD/NVMe**：4096 KB（太大反而会增加 CPU 开销）
 - **随机读为主的场景（数据库）**：不要调太大，1024 KB 即可
 - **顺序读为主的场景（文件服务器、视频服务器）**：可以调到 8192 KB 甚至更大
-
-
 
 #### 生产存储调优优先级总结
 
@@ -1369,31 +1283,22 @@ cat /sys/block/sda/queue/read_ahead_kb
 4. 第四步：根据场景调整预读值
    - 顺序读调大，随机读调小
 
-
-
-
-
-
-
 ### 6. 网络性能调优
 
 - 核心概念
-
+  
   - RSS（接收端扩展）：硬件多队列，将网络流量分发到多个 CPU
   - RPS/RFS：软件级流量分发，提高 CPU 缓存命中率
   - 中断合并：减少中断次数，提高吞吐量
-  
-- 关键参数
 
+- 关键参数
+  
   ```ini
   net.core.rmem_default=262144    # 默认接收缓冲区
   net.core.rmem_max=16777216      # 最大接收缓冲区
   net.core.dev_weight=64           # 单次中断处理的数据包数
   net.core.busy_poll=50            # 低延迟网络轮询
   ```
-
-
-
 
 #### 1. RSS  **Receive Side Scaling**（接收端缩放 / 接收方扩展）：硬件多队列，性能提升 50%-200%
 
@@ -1412,15 +1317,15 @@ ethtool -l eth0
 # 输出示例：
 # Channel parameters for eth0:
 # Pre-set maximums:
-# RX:		8
-# TX:		8
-# Other:		1
-# Combined:	8
+# RX:        8
+# TX:        8
+# Other:        1
+# Combined:    8
 # Current hardware settings:
-# RX:		8
-# TX:		8
-# Other:		1
-# Combined:	8
+# RX:        8
+# TX:        8
+# Other:        1
+# Combined:    8
 Combined: 8表示网卡支持 8 个多队列，每个队列可以独立产生中断。
 
 
@@ -1477,10 +1382,7 @@ cat /sys/class/net/eth0/device/numa_node
 # 输出0表示在Node0，中断只能绑到Node0的CPU上
 中断和业务进程不要绑在同一个 CPU 上：否则会互相抢占 CPU 资源。
 不要跨 NUMA 节点绑定中断：会导致远程内存访问，性能暴跌 50% 以上。
-
 ```
-
-
 
 #### 2. RPS/RFS：软件级流量分发，提升 CPU 缓存命中率
 
@@ -1489,14 +1391,12 @@ cat /sys/class/net/eth0/device/numa_node
 - **RPS**  Receive Packet Steering**（接收数据包引导 / 转向））**：当网卡不支持 RSS 时，软件将流量分发到多个 CPU；配合 RSS 使用时，可以进一步平衡负载。
 
 - **RFS**  Receive Flow Steering（接收流引导 / 转向）
-
+  
   ：在 RPS 基础上，将同一个 TCP 连接的流量分发到同一个 CPU，大幅提高 CPU 缓存命中率。
-
+  
   适用场景
-
+  
   ：不支持 RSS 的老网卡、高并发短连接场景（Web/API）。
-
-
 
 **核心操作**
 
@@ -1539,18 +1439,13 @@ sysctl net.core.rps_sock_flow_entries
 RPS 不要跨 NUMA 节点：CPU 掩码只能包含和网卡同 NUMA 节点的 CPU。
 开启 RPS 后必须开启 RFS：否则同一个连接的流量会在不同 CPU 间跳转，缓存命中率极低。
 已经开启 RSS 的网卡，RPS 可以作为补充：但不要完全依赖 RPS，硬件 RSS 性能远好于软件 RPS。
-
 ```
-
-
 
 #### 3. 中断合并：平衡吞吐量和延迟
 
 **核心原理**：网卡收到多个数据包后，合并成一个中断发送给 CPU，减少中断次数，提高吞吐量，但会增加一点延迟。
 
 **适用场景**：高吞吐量场景（文件服务器、视频服务器）；低延迟场景（高频交易）需要关闭。
-
-
 
  **核心操作**
 
@@ -1581,10 +1476,7 @@ echo "ethtool -C eth0 adaptive-rx on adaptive-tx on" >> /etc/rc.d/rc.local
 低延迟场景必须关闭中断合并：否则会导致延迟抖动增大。
 高吞吐量场景可以适当增大 rx-usecs：但不要超过 500 微秒，否则会导致缓冲区溢出丢包。
 自适应中断合并是最佳折中：大多数场景下开启即可，系统会自动根据负载调整。
-
 ```
-
-
 
 #### 关键内核参数调优
 
@@ -1643,8 +1535,6 @@ net.ipv4.tcp_fin_timeout=30
 net.ipv4.tcp_max_syn_backlog=8192
 net.core.somaxconn=65535
 EOF
-
-
 ```
 
 **生产调优优先级总结**
@@ -1655,17 +1545,13 @@ EOF
 
 **不同应用的网络调优模板**
 
-| 应用类型      | RSS                        | RPS/RFS | 中断合并             | 核心参数                             |
-| ------------- | -------------------------- | ------- | -------------------- | ------------------------------------ |
-| Nginx/HAProxy | 开启，每个队列绑一个 CPU   | 开启    | 自适应               | dev_weight=128, somaxconn=65535      |
-| Redis         | 开启，绑到同 NUMA 节点 CPU | 关闭    | 关闭（低延迟）       | busy_poll=50, rmem_max=16M           |
-| MySQL         | 开启，绑到同 NUMA 节点 CPU | 关闭    | 自适应               | rmem_default=256K, wmem_default=256K |
-| 文件服务器    | 开启                       | 开启    | 开启（rx-usecs=200） | rmem_max=32M, wmem_max=32M           |
-| 高频交易      | 开启，绑到隔离 CPU         | 关闭    | 完全关闭             | busy_poll=10, dev_weight=64          |
-
-
-
-
+| 应用类型          | RSS                | RPS/RFS | 中断合并             | 核心参数                                 |
+| ------------- | ------------------ | ------- | ---------------- | ------------------------------------ |
+| Nginx/HAProxy | 开启，每个队列绑一个 CPU     | 开启      | 自适应              | dev_weight=128, somaxconn=65535      |
+| Redis         | 开启，绑到同 NUMA 节点 CPU | 关闭      | 关闭（低延迟）          | busy_poll=50, rmem_max=16M           |
+| MySQL         | 开启，绑到同 NUMA 节点 CPU | 关闭      | 自适应              | rmem_default=256K, wmem_default=256K |
+| 文件服务器         | 开启                 | 开启      | 开启（rx-usecs=200） | rmem_max=32M, wmem_max=32M           |
+| 高频交易          | 开启，绑到隔离 CPU        | 关闭      | 完全关闭             | busy_poll=10, dev_weight=64          |
 
 ## 二、全流程实战示例：高并发 Nginx 服务器性能调优
 
@@ -1701,8 +1587,6 @@ ss -s
 
 #### 2.1 CPU 与 NUMA 分析
 
-
-
 ```bash
 # 1. 查看NUMA拓扑
 numactl --hardware
@@ -1723,8 +1607,6 @@ cat /proc/interrupts | grep eth0
 
 #### 2.2 内存分析
 
-
-
 ```bash
 # 1. 查看内存使用
 cat /proc/meminfo | grep -E "HugePages|AnonHugePages"
@@ -1733,12 +1615,9 @@ cat /proc/meminfo | grep -E "HugePages|AnonHugePages"
 # 2. 查看虚拟内存参数
 sysctl vm.dirty_ratio vm.dirty_background_ratio
 # 输出：vm.dirty_ratio=20, vm.dirty_background_ratio=10 → 脏页刷盘不及时
-
 ```
 
 #### 2.3 存储分析
-
-
 
 ```bash
 # 1. 查看IO调度器
@@ -1752,8 +1631,6 @@ cat /sys/block/sda/queue/read_ahead_kb
 
 #### 2.4 网络分析
 
-
-
 ```bash
 # 1. 查看网卡队列
 ethtool -l eth0
@@ -1762,14 +1639,11 @@ ethtool -l eth0
 # 2. 查看套接字缓冲区
 sysctl net.core.rmem_default net.core.rmem_max
 # 输出：默认值太小，高并发下容易丢包
-
 ```
 
 ### 步骤 3：实施调优（按优先级排序）
 
 #### 3.1 应用 Tuned 基础配置
-
-
 
 ```bash
 # 切换到网络高吞吐量配置集
@@ -1778,8 +1652,6 @@ tuned-adm profile network-throughput
 ```
 
 #### 3.2 CPU 与 NUMA 调优
-
-
 
 ```bash
 # 1. 绑定Nginx进程到node0的CPU0-1
@@ -1797,8 +1669,6 @@ echo 1 > /sys/devices/system/cpu/cpu*/cpufreq/performance
 
 #### 3.3 内存调优
 
-
-
 ```bash
 # 1. 启用透明巨页
 echo always > /sys/kernel/mm/transparent_hugepage/enabled
@@ -1815,8 +1685,6 @@ sysctl -p /etc/sysctl.d/99-tuning.conf
 
 #### 3.4 存储调优
 
-
-
 ```bash
 # 1. 切换IO调度器为deadline
 echo deadline > /sys/block/sda/queue/scheduler
@@ -1830,8 +1698,6 @@ mount -o remount,noatime /
 ```
 
 #### 3.5 网络调优
-
-
 
 ```bash
 # 查看网卡当前队列数   2015之后的机器默认是开启了rss的
@@ -1861,12 +1727,9 @@ sysctl -w net.core.wmem_max=16777216
 echo "net.core.rps_sock_flow_entries=32768" >> /etc/sysctl.d/99-tuning.conf
 echo "net.core.rmem_default=262144" >> /etc/sysctl.d/99-tuning.conf
 sysctl -p /etc/sysctl.d/99-tuning.conf
-
 ```
 
 ### 步骤 4：效果验证
-
-
 
 ```bash
 # 1. 用ab工具压测
@@ -1890,14 +1753,6 @@ ab -n 100000 -c 1000 http://服务器IP/
 4. **持续监控**：通过 PCP 或其他监控工具长期跟踪性能指标，及时发现新的瓶颈
 5. **结合业务**：不同业务场景调优重点不同（数据库侧重 IO 和内存，Web 服务器侧重网络和 CPU）
 
-
-
-
-
-
-
-
-
 # 扩展
 
 ## 1. NUMA
@@ -1908,17 +1763,16 @@ SMP 和 NUMA 都是**多处理器架构**，只有当服务器有**2 个及以�
 
 SMP vs NUMA 核心对比
 
-| 特性               | SMP（对称多处理）<br />Symmetric Multi-Processing     | NUMA（非一致性内存访问）<br />Non-Uniform Memory Access      |
-| ------------------ | ----------------------------------------------------- | ------------------------------------------------------------ |
-| **出现时间**       | 2000 年以前的老服务器                                 | 2000 年以后至今的所有现代服务器                              |
-| **内存访问**       | 所有 CPU 共享同一条内存总线，访问所有内存速度完全一致 | 分成多个独立节点，每个节点有自己的 CPU 和内存CPU 访问**本地节点内存**速度最快CPU 访问**远程节点内存**速度慢 2-3 倍 |
-| **扩展性**         | 极差，最多支持 2-4 个 CPU，再多内存总线就会成为瓶颈   | 极好，可支持几十上百个 CPU，是现在唯一的多 CPU 服务器架构    |
-| **现在机房普及率** | 0%，已完全淘汰                                        | 100%，所有双路及以上 x86 服务器都是 NUMA 架构                |
+| 特性          | SMP（对称多处理）<br />Symmetric Multi-Processing | NUMA（非一致性内存访问）<br />Non-Uniform Memory Access                          |
+| ----------- | ------------------------------------------ | ---------------------------------------------------------------------- |
+| **出现时间**    | 2000 年以前的老服务器                              | 2000 年以后至今的所有现代服务器                                                     |
+| **内存访问**    | 所有 CPU 共享同一条内存总线，访问所有内存速度完全一致              | 分成多个独立节点，每个节点有自己的 CPU 和内存CPU 访问**本地节点内存**速度最快CPU 访问**远程节点内存**速度慢 2-3 倍 |
+| **扩展性**     | 极差，最多支持 2-4 个 CPU，再多内存总线就会成为瓶颈             | 极好，可支持几十上百个 CPU，是现在唯一的多 CPU 服务器架构                                      |
+| **现在机房普及率** | 0%，已完全淘汰                                   | 100%，所有双路及以上 x86 服务器都是 NUMA 架构                                         |
 
 ### 运维必用的 NUMA 命令（生产天天用）
 
 ```BASH
-
 1. 基础查看
 numactl --hardware    # 查看NUMA拓扑（最常用）
 numastat              # 查看每个节点的内存分配统计
@@ -1945,4 +1799,3 @@ tuned-adm profile network-latency
 # 高吞吐量场景启用自动NUMA平衡
 tuned-adm profile throughput-performance
 ```
-

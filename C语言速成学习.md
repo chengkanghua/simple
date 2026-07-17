@@ -31,7 +31,7 @@ gcc test.c -o test
 
 # 第二章 变量、常量、基础数据类型
 
-```
+```c
 #include <stdio.h>
 
 int main()
@@ -73,7 +73,7 @@ int main()
 
 # 第三章 运算符（算术/关系/逻辑/优先级）
 
-```
+```c
 #include <stdio.h>
 
 int main()
@@ -118,7 +118,7 @@ int main()
 
 ## 4.1 if else
 
-```
+```c
 #include <stdio.h>
 int main()
 {
@@ -136,7 +136,7 @@ int main()
 
 ## 4.2 switch 等值判断
 
-```
+```c
 #include <stdio.h>
 int main()
 {
@@ -154,7 +154,7 @@ int main()
 
 # 第五章 循环 for / while / do while + break continue
 
-```
+```c
 #include <stdio.h>
 int main()
 {
@@ -184,7 +184,7 @@ int main()
 
 # 第六章 数组（一维/二维）
 
-```
+```c
 #include <stdio.h>
 int main()
 {
@@ -205,7 +205,7 @@ int main()
 
 # 第七章 字符串与字符数组
 
-```
+```c
 #include <stdio.h>
 #include <string.h>
 int main()
@@ -227,7 +227,7 @@ int main()
 
 ## 8.1 普通函数
 
-```
+```c
 #include <stdio.h>
 // 函数声明
 int add(int a, int b);
@@ -248,7 +248,7 @@ int add(int a, int b)
 
 ## 8.2 可变参数（printf底层原理）
 
-```
+```c
 #include <stdio.h>
 #include <stdarg.h>
 // 不定数量数字求和
@@ -275,7 +275,7 @@ int main()
 
 ## 9.1 基础指针 & 取地址 *解引用
 
-```
+```c
 #include <stdio.h>
 int main()
 {
@@ -298,7 +298,7 @@ int main()
 
 ## 9.2 常量指针 vs 指针常量
 
-```
+```c
 #include <stdio.h>
 int main()
 {
@@ -318,7 +318,7 @@ int main()
 
 ## 9.3 数组指针、内存操作memmove/memcpy
 
-```
+```c
 #include <stdio.h>
 #include <string.h>
 int main()
@@ -337,7 +337,7 @@ int main()
 
 ## 10.1 结构体
 
-```
+```c
 #include <stdio.h>
 // 自定义数据结构
 struct Student {
@@ -359,7 +359,7 @@ int main()
 
 ## 10.2 union共用内存
 
-```
+```c
 #include <stdio.h>
 union Data {
     int num;
@@ -376,7 +376,7 @@ int main()
 
 ## 10.3 位域（硬件寄存器）
 
-```
+```c
 struct Flag {
     unsigned int bit1:1;
     unsigned int bit2:1;
@@ -385,7 +385,7 @@ struct Flag {
 
 # 第十一章 volatile 关键字
 
-```
+```c
 #include <stdio.h>
 // volatile 禁止寄存器缓存，每次读取真实内存
 volatile int flag = 0;
@@ -406,7 +406,7 @@ int main()
 
 # 第十二章 内存分配 malloc free
 
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -424,7 +424,7 @@ int main()
 
 # 第十三章 文件操作 open/read/write
 
-```
+```c
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -440,7 +440,7 @@ int main()
 
 # 第十四章 进程基础 fork/exec/wait（简易shell核心）
 
-```
+```c
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -474,7 +474,7 @@ int main()
 
 ## 3. 静态库.a
 
-```
+```bash
 gcc -c func.c
 ar rcs libfunc.a func.o
 gcc main.c -o app -L. -lfunc
@@ -482,7 +482,7 @@ gcc main.c -o app -L. -lfunc
 
 ## 4. 动态库.so
 
-```
+```bash
 gcc -c -fPIC func.c
 gcc -shared func.o -o libfunc.so
 export LD_LIBRARY_PATH=.
@@ -491,7 +491,7 @@ gcc main.c -o app -L. -lfunc
 
 # 第十六章 内嵌汇编（底层硬件交互）
 
-```
+```bash
 #include <stdio.h>
 int main()
 {
@@ -501,6 +501,391 @@ int main()
     return 0;
 }
 ```
+
+# C 关键字大全
+
+```bash
+# C语言标准关键字大全（C89 + C99 + C11，分分类+作用+示例）
+## 一、C89 基础32个关键字（所有编译器通用）
+### 1. 数据类型类
+1. `char`：1字节字符类型
+2. `short`：短整型
+3. `int`：默认整型
+4. `long`：长整型
+5. `float`：单精度浮点
+6. `double`：双精度浮点
+7. `unsigned`：无符号修饰（只能存正数）
+8. `signed`：有符号修饰（默认）
+9. `void`：空类型/万能指针
+
+### 2. 自定义复合类型
+10. `struct`：结构体，多成员独立内存
+11. `union`：联合体，成员共享同一块内存
+12. `enum`：枚举常量集合
+13. `typedef`：类型别名，简化长类型名
+
+### 3. 存储/生命周期修饰
+14. `auto`：局部变量默认存储（栈，极少写）
+15. `static`
+    - 局部变量：生命周期全局，只初始化一次
+    - 全局/函数：仅当前文件可见，外部无法链接
+16. `extern`：声明外部变量/函数，定义在其他文件
+17. `register`：建议存入CPU寄存器（现代编译器自动优化，基本废弃）
+
+### 4. 只读/地址修饰
+18. `const`：修饰内容只读，常量指针/指针常量区分权限
+
+### 5. 分支判断
+19. `if`
+20. `else`
+21. `switch`
+22. `case`
+23. `default`
+
+### 6. 循环控制
+24. `for`
+25. `while`
+26. `do`
+
+### 7. 跳转控制
+27. `break`：跳出循环/switch
+28. `continue`：跳过本次循环，直接下一轮
+29. `goto`：无条件跳转（底层驱动、内核异常清理少量使用）
+30. `return`：函数返回值，退出函数
+
+### 8. 函数/空返回
+31. `sizeof`：运算符，计算类型/变量占用字节大小
+32. `volatile`：禁止编译器缓存优化，每次读写真实内存（硬件寄存器必备）
+
+---
+
+## 二、C99 新增5个关键字
+1. `inline`：内联函数，编译展开，减少函数调用栈开销
+2. `restrict`：指针独占内存，无其他指针别名，编译器优化内存访问
+3. `_Bool`：布尔类型，仅存0/1
+4. `_Complex`：复数浮点（数学计算）
+5. `_Imaginary`：虚数类型（极少用）
+
+## 三、C11 新增4个关键字（并发、原子）
+1. `_Alignas`：手动指定内存对齐
+2. `_Alignof`：获取类型对齐字节数（替代offsetof辅助用法）
+3. `_Atomic`：原子类型，多线程无锁安全访问
+4. `_Noreturn`：函数无返回，不会回到调用处（如exit）
+
+## 四、gcc 扩展关键字（Linux内核、驱动常用，非标准C）
+不属于标准C，仅GCC编译器支持：
+1. `__attribute__`：属性修饰（对齐、packed、section、noreturn等）
+2. `__asm__ / asm`：内嵌汇编
+3. `__volatile__`：等同于标准volatile
+4. `__packed`：取消结构体内存对齐
+
+---
+
+# 高频关键字重点区分（贴合你C/内核学习）
+## 1. const / volatile
+- `const`：编译期只读，禁止修改；
+- `volatile`：强制每次访问内存，关闭CPU寄存器缓存，硬件必备。
+
+## 2. static / extern
+- static：作用域仅限当前文件；局部变量常驻内存；
+- extern：仅声明，变量定义在别的.c文件。
+
+## 3. struct / union / enum
+- struct：成员独立内存；
+- union：成员共享内存；
+- enum：整数常量集合，替代宏定义。
+
+## 4. inline / register
+- inline：小函数编译展开，省去栈帧开销；
+- register：废弃，编译器自动分配寄存器。
+
+## 5. restrict
+指针无别名，该指针是唯一访问这块内存的入口，编译器可大幅优化读写。
+
+## 6. _Atomic
+多线程并发原子操作，防止指令分割导致数据错乱。
+
+---
+
+# 完整清单汇总
+## 标准C89(32)
+auto, break, case, char, const, continue, default, do, double, else, enum, extern, float, for, goto, if, inline(C99), int, long, register, return, short, signed, sizeof, static, struct, switch, union, unsigned, void, volatile, while
+
+## C99新增5
+_Bool, _Complex, _Imaginary, inline, restrict
+
+## C11新增4
+_Alignas, _Alignof, _Atomic, _Noreturn
+
+## GCC扩展（非标准）
+asm, __asm__, __attribute__, __packed, __volatile__
+```
+
+# C 语言内置函数大全
+
+```md
+# C语言「内置函数」分三类讲清楚
+## 概念区分
+1. **标准库函数**（最常用，`stdio.h`/`stdlib.h`/`string.h`等，需要`#include`）
+2. **GCC内置内置函数（Builtin）**：编译器内置，不用头文件，内核高频使用 `__builtin_xxx`
+3. **运算符类内置功能**：`sizeof`、`offsetof` 属于编译期内置操作，不算函数
+
+## 一、标准库核心内置函数（分模块全覆盖）
+### 1. stdio.h 输入输出
+printf()    // 格式化输出
+scanf()     // 格式化输入
+fprintf()   // 文件输出
+fscanf()    // 文件读取
+putchar()   // 输出单个字符
+getchar()   // 读取单个字符
+puts()      // 输出字符串
+fgets()     // 读取一行字符串
+fopen()     // 打开文件
+fclose()    // 关闭文件
+fread()     // 二进制读文件
+fwrite()    // 二进制写文件
+rewind()    // 文件指针回到开头
+ftell()     // 获取文件当前偏移
+fseek()     // 移动文件读写指针
+perror()    // 打印系统错误信息
+
+### 2. stdlib.h 内存、进程、转换、随机数
+// 内存分配
+malloc()    // 堆分配内存
+calloc()    // 分配并清零
+realloc()   // 重新扩容内存
+free()      // 释放堆内存
+
+// 字符串转数字
+atoi()      // 字符串转int
+atol()      // 转long
+atof()      // 转double
+strtol()    // 带进制转换（内核常用）
+
+// 进程退出
+exit()      // 正常退出程序
+abort()     // 异常崩溃退出
+
+// 随机数
+rand()      // 获取随机整数
+srand()     // 设置随机种子
+
+// 系统命令
+system()    // 执行shell命令
+
+
+### 3. string.h 字符串/内存操作（底层必备）
+strlen()    // 获取字符串有效长度
+strcpy()    // 字符串拷贝（不安全）
+strncpy()   // 限制长度拷贝
+strcat()    // 字符串拼接
+strncat()
+strcmp()    // 字符串比较
+strncmp()
+strchr()    // 查找字符首次出现
+strstr()    // 查找子串
+
+// 原始内存操作（无字符串结束符限制）
+memcpy()    // 内存拷贝（不能重叠）
+memmove()   // 可重叠内存拷贝（你学过的memmove）
+memset()    // 内存批量赋值清零
+memcmp()    // 两块内存逐字节比较
+
+
+### 4. unistd.h Linux系统调用封装（进程/文件/堆）
+fork()      // 创建子进程
+execvp/execl() // 执行程序
+wait()      // 等待子进程
+chdir()     // 切换工作目录
+getpid()    // 获取当前进程PID
+getppid()   // 获取父PID
+read()      // 文件描述符读
+write()     // 文件描述符写
+close()     // 关闭fd
+dup/dup2()  // 文件描述符重定向
+sbrk()      // 拓展堆空间
+sleep()     // 休眠秒数
+
+
+### 5. fcntl.h 文件控制
+open()      // 打开文件，返回fd
+fcntl()     // 修改文件描述符属性
+
+
+### 6. stdarg.h 可变参数（实现printf/自定义泛型函数）
+va_start()
+va_arg()
+va_end()
+
+
+### 7. stddef.h 类型与偏移工具
+offsetof()  // 获取结构体成员偏移（container_of核心）
+NULL        // 空指针宏
+size_t      // 无符号长度类型
+
+
+### 8. math.h 数学函数（编译加 -lm）
+sqrt() 开平方
+pow() 幂运算
+sin/cos/tan 三角函数
+abs() 整数绝对值
+fabs() 浮点绝对值
+
+
+### 9. ctype.h 字符判断
+isalpha() 是否字母
+isdigit() 是否数字
+isspace() 是否空格换行
+tolower() 转小写
+toupper() 转大写
+
+
+## 二、GCC 编译器内置 __builtin 函数（内核、驱动高频）
+无需头文件，编译期内置实现，性能极高，地址运算、位运算必备
+1. `__builtin_offsetof(type, member)`：等价offsetof，取结构体成员偏移
+2. `__builtin_va_list`：可变参数底层
+### 位运算内置
+__builtin_popcount(unsigned int x)    // 统计二进制1的个数
+__builtin_clz(unsigned int x)         // 前导0个数（求最高位）
+__builtin_ctz(unsigned int x)         // 末尾0个数（求最低位）
+
+### 内存/地址
+__builtin_memcpy
+__builtin_memset
+
+### 分支预测优化（内核大量使用）
+__builtin_expect(cond, 1) // 大概率成立
+__builtin_expect(cond, 0) // 大概率不成立
+// 示例：if(likely(x>0))
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+
+### 其他
+__builtin_return_address(0) // 获取当前函数返回地址，栈回溯
+__builtin_frame_address(0)  // 获取rbp栈帧基址
+
+
+## 三、不属于函数，但内置编译操作（常混淆）
+1. `sizeof()`：编译期计算类型字节大小，运算符，非函数
+2. `_Alignof()`：C11内置，获取对齐字节
+3. `offsetof()`：宏，编译计算成员偏移
+
+## 四、易混区分
+1. **标准库函数**：跨平台，需要头文件，源码封装系统调用
+2. **GCC __builtin 内置函数**：编译器私有，性能更强，多用于内核驱动，不可跨编译器
+3. **系统调用**：`open/read/write/fork` 是操作系统提供API，库函数本质封装系统调用
+
+## 五、学习优先级（贴合你学Linux内核路线）
+1. string.h：memmove/memcpy/memset/str系列（内存操作基础）
+2. stdlib.h：malloc/free/realloc（堆分配项目）
+3. unistd/fcntl：fork/exec/wait/open/dup2（简易shell项目）
+4. stdarg：可变参数模拟泛型
+5. stddef：offsetof 内核链表必备
+6. GCC __builtin 系列：位运算、地址、分支预测（内核源码高频）
+```
+
+
+
+# C 语言第三方库完整方案
+
+```md
+C **没有官方统一包管理工具**，历史上分化出 4 套方案，分别适配嵌入式、Linux 服务、Windows、现代跨平台项目。
+
+
+## 方式 1：系统自带包管理器（Linux 最常用，开箱即用）
+### 原理
+系统软件源提前编译好 `.so`/`.a`，一键安装到系统目录 `/usr/lib /usr/include`，gcc 自动搜索，不用手动写 `-L` 库路径。
+
+### Ubuntu/Debian
+# 1. 搜索库
+apt search libxxx-dev
+# 2. 安装（带-dev：包含头文件+静态库，必须装）
+sudo apt install libcurl4-openssl-dev
+# 3. 编译直接 -lcurl
+gcc main.c -o app -lcurl
+
+
+### CentOS/RHEL
+yum install libcurl-devel
+gcc main.c -o app -lcurl
+
+
+### 优点
+1. 一行安装，自动配置头文件、库路径；
+2. 自动管理依赖（装 curl 会自动装 openssl）；
+3. 系统全局可用。
+### 缺点
+版本绑定系统源，无法自定义新版库。
+
+### 常用系统 C 库示例
+- libcurl：http 网络请求（替代 Python requests）
+- libsqlite3：嵌入式数据库
+- libssl/libcrypto：openssl 加密
+- libevent/libuv：高性能异步 IO
+- libpng/zlib：压缩、图片解析
+
+## 方式 2：源码手动编译安装（通用跨平台，无包管理器环境）
+绝大多数 C 开源库只提供源码，流程统一：
+`下载源码 → 编译静态/动态库 → make install 安装到系统`
+
+### 标准三步骤（autotools 项目，90% 开源 C 库使用）
+# 1. 解压源码
+tar zxf xxx.tar.gz
+cd xxx
+# 2. 配置：检测系统、生成Makefile
+./configure --prefix=/usr/local
+# 3. 编译
+make -j4
+# 4. 安装头文件到 /usr/local/include，库到/usr/local/lib
+sudo make install
+
+
+### 使用
+# /usr/local 系统默认搜索路径，直接链接
+gcc main.c -o app -lcurl
+
+### 无 configure 简易库（只有.c/.h）
+1. 源码和自己项目放一起，直接编译；
+2. 或手动 `gcc -c -fPIC` 生成 `.so`/`.a`。
+
+
+## 方式 3：现代 C 包管理器（对标 pip/go mod，专门解决依赖）
+### 1. Conan（工业主流，跨平台 Linux/Windows/Mac）
+对标 Go mod，管理库版本、交叉编译、依赖树，C/C++ 通用。
+# 安装
+pip install conan
+# 搜索库
+conan search libcurl
+# 项目引入依赖、编译链接自动处理
+conan build .
+
+### 2. CMake + FetchContent（工程内置下载，无额外工具）
+写 CMakeLists.txt，编译时**自动下载第三方源码**，内置编译，大型项目（MySQL、Redis 衍生工具）常用。
+
+### 3. vcpkg（微软推出，Windows 友好，Linux/Mac 支持）
+一键下载编译 C 库，Windows 开发首选。
+vcpkg install curl
+
+### 4. cpm / meson wrap
+轻量 C 包管理，嵌入式小项目使用。
+
+
+## 方式 4：直接把源码嵌入项目（嵌入式最常用）
+无任何安装流程，把第三方库 `.h/.c` 拷贝到自己项目目录，直接一起编译。
+例：sqlite3 单文件源码、cJSON、miniz 压缩库。
+编译命令：
+gcc main.c cJSON.c -o app
+
+优点：零依赖、无环境问题；缺点：库更新要手动替换文件。
+
+
+
+
+```
+
+
+
+
 
 # 学习顺序建议（从零入门路线）
 
@@ -520,13 +905,108 @@ int main()
 14. ELF、静态库、动态库编译链接
 15. 综合实战：内存分配器、简易shell、/proc读取、内核双向链表
 
+1. **底层底座层**：C、C++（硬件、内核、高性能引擎）
+2. **云原生分布式层**：Go（容器、微服务、中间件平台）
+3. **企业重型业务层**：Java（传统业务、金融、大数据）
+4. **数据分析 / 快速原型层**：Python（AI、算法、脚本）
+5. **运维自动化胶水层**：Shell（服务器运维、批量脚本）
 
+| 需求场景                   | 首选语言   |
+| ---------------------- | ------ |
+| 写 Linux 内核 / 驱动 / 单片机  | C      |
+| 游戏引擎、自动驾驶、数据库内核、低延迟交易  | C++    |
+| K8s / 容器、微服务网关、百万并发云平台 | Go     |
+| 银行 ERP、大数据、传统企业复杂业务    | Java   |
+| AI 算法、数据分析、爬虫、快速原型     | Python |
+| 服务器批量运维、定时巡检、部署脚本      | Shell  |
 
+Web 服务：Go / Python 完整对比，什么时候选谁
 
+```md
+# Web服务：Go / Python 完整对比，什么时候选谁
+## 先讲核心结论
+两者都能写Web接口、网站、后台服务，但**底层性能、并发上限、运行成本、适用业务规模完全不一样**，企业选型有明确分界线。
 
+## 一、Python 做Web的现状
+### 主流框架
+Flask（轻量小接口）、Django（全栈重型后台）、FastAPI（异步高性能）
+### 优势
+1. 开发极快，几十行代码写完接口，内置表单、ORM、后台管理、鉴权；
+2. 生态无敌：爬虫、AI、数据分析、Excel、数据库全都能无缝联动；
+3. 新手友好，调试简单，适合快速做原型、内部管理系统。
+### 致命短板（线上高并发痛点）
+1. **GIL全局解释器锁**：同一时刻CPU只能跑1个线程，多线程无法利用多核；
+   - 同步Flask：单进程单线程，并发高直接卡死；
+   - FastAPI异步只能优化IO等待，CPU密集计算依旧拉胯。
+2. 并发能力弱：单机几千QPS就需要大量多进程扩容，服务器成本高；
+3. 运行速度慢，JSON序列化、循环计算开销远大于Go；
+4. 内存占用高，同等并发下实例数量是Go的3~10倍。
 
+### Python Web 适合场景
+1. 内部管理后台、运营平台、低并发CRM、OA；
+2. AI配套服务：模型推理接口、数据清洗、算法服务；
+3. 爬虫、数据统计、报表服务；
+4. 小型创业项目、流量很低的业务；
+5. 快速原型验证，先跑通业务，后期流量上涨再重构。
 
+### 不适合
+电商秒杀、短视频推送、IM、网关、百万QPS高流量公网服务。
 
+## 二、Go 做Web的现状
+### 主流框架
+标准库`net/http`（零第三方依赖）、Gin、Hertz、Kitex
+
+1. 个人 / 小型项目、快速写业务接口 → Gin
+2. 中大型企业微服务、团队统一规范 → go-zero
+3. 大厂超高并发、云原生中台、千万流量 → Kratos / Hertz+Kitex
+4. 网关、边缘流量、极致性能 → Fiber
+5. 运维平台、CI/CD 工具、极简内部服务 → 原生 net/http
+6. 内部管理系统、快速全栈开发 → Beego
+### 优势
+1. **原生高并发**：goroutine轻协程，单机轻松几十万并发连接，QPS上限极高；
+2. 无GIL，多核CPU充分利用，CPU密集/IO密集性能都碾压Python；
+3. 单静态二进制部署，容器镜像极小，扩容、灰度发布极其方便；
+4. 内存占用极低，同等流量服务器数量只有Python的1/3甚至更少；
+5. GC停顿短，线上稳定，适合公网高流量业务。
+
+### 短板
+1. 开发效率略低于Python，内置工具不如Django丰富；
+2. AI、数据分析生态几乎空白，不适合算法类业务；
+3. 表单、后台管理、权限框架不如Python成熟。
+
+### Go Web 适合场景
+1. 公网高并发业务：短视频、直播、电商接口、秒杀、用户中心；
+2. API网关、负载均衡、WebSocket长连接IM、消息推送；
+3. 云原生、容器平台、监控、分布式中间件配套服务；
+4. 百万级QPS、流量大、对服务器成本敏感的线上核心服务；
+5. 边缘服务、物联网网关。
+
+### 不适合
+AI算法服务、内部低复杂度管理系统、短期快速原型。
+
+## 三、同场景直观对比（同一台服务器压测参考）
+| 指标 | Python(FastAPI) | Go(Gin) |
+|------|----------------|---------|
+| 单机稳定QPS | 3000~8000 | 3万~10万 |
+| 并发连接上限 | 数万（多进程堆机器） | 数十万 |
+| 内存占用 | 高，单进程几十MB | 极低，协程几KB栈 |
+| 多核利用 | 差（GIL锁） | 完美多核调度 |
+| 部署包 | 需要Python环境、一堆依赖 | 独立单文件，无依赖 |
+| 开发速度 | 极快，内置全套工具 | 中等，需要自己封装工具 |
+
+## 四、企业真实选型规则
+1. **流量小、内部系统、带AI/数据处理 → Python**
+   比如公司内部数据后台、算法推理接口、报表平台，流量低，开发速度优先。
+2. **公网对外核心服务、高并发、长连接、节省机器成本 → Go**
+   抖音、B站、各类网关、支付接口、直播推送，流量巨大，性能和成本优先。
+3. 混合架构（大厂通用方案）
+   - 前端公网网关、高并发接口：Go
+   - 内部后台、算法、数据分析服务：Python
+
+## 五、补充：Java为什么也能写Web，和两者区分开
+Java(SpringCloud)适合**复杂重型金融业务**，分布式事务、复杂权限、企业级规范；
+性能比Python强，但并发、轻量化、部署便捷性不如Go，机器成本高于Go。
+```
 
 # C语言速成学习大纲（有Python/Go基础，目标：吃透OS底层原理）
 
@@ -544,8 +1024,6 @@ int main()
 2. 对比：Go自带链接器、Python解释执行；C完全依赖操作系统链接器ld、汇编器as
 3. 实操：`gcc -E/-S/-c` 分步输出文件，看懂 `.i .s .o .elf`
 4. 概念：目标文件、可执行文件、静态库.a、动态库.so，操作系统加载机制
-
-
 
 ```md
 # 1.1 C编译链路完整精讲（面向OS底层，对比Go/Python，带实操命令）
@@ -675,10 +1153,6 @@ C语言文本替换工具，编译**最开始**自动把代码里的标识替换
 Linux下二进制文件统一格式规范，可执行程序、`.o`、`.a`、`.so` 全都是ELF文件；内核靠ELF格式解析代码、数据、内存段，才能加载运行程序。
 ```
 
-
-
-
-
 ## 1.2 基础语法（快速过，只抓差异点）
 
 1. 数据类型：基础类型、`char/short/int/long/long long` 字节宽度（内存对齐铺垫）
@@ -690,8 +1164,6 @@ Linux下二进制文件统一格式规范，可执行程序、`.o`、`.a`、`.so
    - 函数栈帧雏形（为进程栈打基础）
    - 可变参数 `stdarg.h`（系统调用、日志底层常用）
 6. 输入输出：`stdio.h`，文件IO底层封装（理解操作系统文件描述符铺垫）
-
-
 
 ```md
 # 1.2 C基础语法（只讲和Go/Python差异+OS底层关联，极简版）
@@ -775,15 +1247,11 @@ printf/scanf/fopen 不是系统原生能力，是标准库封装：
 这套语法全部贴近硬件与操作系统内存模型，Python/Go做了高层封装屏蔽细节，C直接暴露内存、字节、栈、只读段，为后面指针、ELF、进程内存打基础。
 ```
 
-
-
 ## 1.3 预处理（操作系统必备）
 
 - `#define` 宏、条件编译 `#ifdef`
 - `#include` 头文件机制、头文件保护宏
 - `#error` `__FILE__` `__LINE__` 内置宏（内核调试常用）
-
-
 
 ```md
 # 1.3 预处理（极简通俗版，绑定OS/内核场景）
@@ -837,13 +1305,7 @@ printf/scanf/fopen 不是系统原生能力，是标准库封装：
 2. 硬件寄存器、内存页、中断常量全部用宏定义；
 3. 内置宏用于内核崩溃日志、调试定位；
 4. 头文件机制拆分系统调用、驱动、内存管理声明，是大型底层项目基础。
-
-
 ```
-
-
-
-
 
 # 第二阶段：指针与内存（3天，OS底层核心重中之重）
 
@@ -853,8 +1315,6 @@ printf/scanf/fopen 不是系统原生能力，是标准库封装：
 2. 指针类型：`int*` `char*` `void*`（万能指针，内核大量使用）
 3. 指针运算：`ptr++` 按类型步长移动（理解内存偏移）
 4. 二级指针、三级指针（内核双向链表、参数修改场景）
-
-
 
 ```md
 # 2.1 指针基础（对比Go，贴合OS底层，简洁版）
@@ -897,14 +1357,7 @@ int *p = &a;  // p存a的地址
 2. void* 是内核统一操作任意内存的基础；
 3. 指针运算 = 手动控制内存偏移，看懂硬件寄存器、页表；
 4. 多级指针支撑内核复杂数据结构。
-
 ```
-
-
-
-
-
-
 
 ## 2.2 数组与指针等价性（进程内存布局关键）
 
@@ -990,12 +1443,7 @@ arr[0] = 'T';
 // 指针存只读段地址，不可修改
 char *p = "test";
 // *p = 'T'; // 运行崩溃，访问只读内存
-
 ```
-
-
-
-
 
 ## 2.3 结构体、联合体、位域（内核数据结构基石）
 
@@ -1005,10 +1453,7 @@ char *p = "test";
 4. 位域 `struct { uint8_t x:4; }`（硬件寄存器、权限标志）
 5. `typedef` 类型重定义（内核源码风格）
 
-
-
 ```md
-
 # 2.3 结构体/联合体/位域（内核底层专用精简讲解）
 ## 1. struct 结构体 & `->` 指针访问符
 ### 基础
@@ -1100,7 +1545,6 @@ typedef unsigned int  uint32_t;
 3. union：硬件寄存器、网络报文内存复用；
 4. 位域：操作硬件寄存器比特位、权限标记；
 5. typedef：统一内核数据类型，跨平台兼容。
-
 ```
 
 ## 2.4 动态内存：堆管理（理解malloc底层、操作系统堆）
@@ -1110,10 +1554,7 @@ typedef unsigned int  uint32_t;
 3. 内存泄漏、野指针、悬空指针（内核崩溃根源）
 4. 拓展：malloc底层调用操作系统 `brk/mmap` 系统调用（衔接OS）
 
-
-
 ```md
-
 # 2.4 动态内存堆管理（面向OS底层精简讲解）
 ## 1. 四个堆标准库函数
 
@@ -1189,10 +1630,7 @@ free(p);
 1. 理解用户态堆不是内核直接管理，中间有一层libc内存管理器；
 2. 分清brk堆、mmap匿名内存两种动态内存分配方式；
 3. 为操作系统虚拟内存、缺页异常、OOM内存回收做铺垫。
-
 ```
-
-
 
 ## 2.5 常量、存储类（五大存储区划分）
 
@@ -1203,8 +1641,6 @@ free(p);
 3. 完整程序内存五段：代码段(.text)、只读段(.rodata)、数据段(.data)、BSS段、栈、堆
    
    > 核心产出：看懂ELF进程内存布局，为操作系统进程管理铺垫
-   
-   
 
 ```md
 # 2.5 存储类 + 完整进程内存分区（绑定ELF & OS底层）
@@ -1287,10 +1723,7 @@ void func() {
     // .rodata字符串常量
     char *str = "hello";
 }
-
 ```
-
-
 
 # 第三阶段：文件、系统调用、标准库（2天，打通用户态与内核态）
 
@@ -1352,12 +1785,7 @@ int main(void)
     fclose(fp);  // 关闭时自动fflush
     return 0;
 }
-
-
-
 ```
-
-
 
 ## 3.2 Linux原生系统调用（无缓冲，直接和内核交互，OS核心）
 
@@ -1430,12 +1858,7 @@ gcc test.c -o test
 1. write 仅写入内核页缓存，不会立刻落盘磁盘；强制刷盘用 `fsync(fd)`；
 2. fd 是进程内核态资源，进程退出时内核自动关闭所有fd；
 3. 理解fd是学习进程、重定向、管道、socket的基础。
-
-
-
 ```
-
-
 
 ## 3.3 进程基础C接口（操作系统进程管理入门）
 
@@ -1444,8 +1867,6 @@ gcc test.c -o test
 3. `wait()` 回收子进程、僵尸进程成因
 4. `exec` 系列函数：程序替换（shell底层原理）
 5. 简单区分：用户态C代码 ↔ 内核态系统调用
-
-
 
 ```md
 # 3.3 Linux 进程C接口（OS进程模型极简精讲）
@@ -1541,16 +1962,11 @@ int main() {
 2. 看懂僵尸进程、PCB资源回收逻辑；
 3. 分清用户/内核态切换，理解系统调用本质；
 4. 为后续进程调度、上下文切换铺垫。
-
 ```
-
-
 
 ## 3.4 信号基础（操作系统中断简化版）
 
 `signal()` 信号注册、SIGINT/SIGKILL，理解软中断机制
-
-
 
 ```md
 # 3.4 信号基础（OS软中断极简讲解）
@@ -1611,10 +2027,7 @@ int main(void)
 ## 补充区分
 - SIGINT：友好终止，程序可收尾保存数据
 - SIGKILL：内核直接销毁进程，无任何清理机会
-
 ```
-
-
 
 # 第四阶段：进阶C特性（2天，看懂Linux内核源码风格）
 
@@ -1727,12 +2140,7 @@ int main(void)
 2. 驱动框架：统一 `file_operations` 结构体，open/read/write 全是函数指针；
 3. 事件驱动：定时器、信号、IO多路复用底层依赖回调；
 4. 无C++类，纯C用结构体+函数指针实现多态、模块化，是看懂内核源码必备语法。
-
 ```
-
-
-
-
 
 ## 4.2 内存操作函数
 
@@ -1794,10 +2202,7 @@ memmove(arr+1, arr, 4*sizeof(int));
 1. 内核环形缓冲区、设备数据收发、页内存复制全部依赖这组裸内存接口；
 2. 函数接收`void*`万能指针，不区分int/char/结构体，适配任意内存；
 3. 比循环赋值高效，底层汇编批量字节操作，系统性能关键。
-
 ```
-
-
 
 ## 4.3 可变参数、`void*` 泛型实现（C无泛型的底层方案）
 
@@ -1950,7 +2355,7 @@ arr[0] = 99;
 ### 场景4：结构体成员指针反向求宿主（内核链表经典）
 内核`container_of`底层完全依赖指针强转：
 已知结构体里某个成员的地址，算出整个结构体首地址。
-```c
+---c
 struct Page {
     unsigned long flags;
     struct list_head node;
@@ -1960,29 +2365,30 @@ struct list_head *n; // 只拿到node成员地址
 // 1. node转char*（步长1字节），减去成员偏移
 // 2. 转回Page结构体指针
 struct Page *page = (struct Page *)((char *)n - offsetof(struct Page, node));
-```
+
 
 ## 三、运算符优先级关键坑（你刚才提问的点）
+
 1. `*(int *)p` 正确
    先把`void* p`转为`int*`，再解引用取内存值
 2. `(int)*p` 错误
    先对`void*`解引用（编译报错，void无长度），再把单字节值转int，逻辑完全错误
 
 ## 四、强转带来的风险（内核崩溃根源）
+
 1. **内存对齐异常**
-ARM硬件严格对齐，`char*`地址直接强转`int*`访问会死机；x86只会性能暴跌。
+   ARM硬件严格对齐，`char*`地址直接强转`int*`访问会死机；x86只会性能暴跌。
 2. **越界访问**
-非法数字地址强转指针读写，触发段错误SIGSEGV。
+   非法数字地址强转指针读写，触发段错误SIGSEGV。
 3. **类型长度错位**
-`char*`读1字节，`int*`一次性读写4字节，会篡改相邻内存。
+   `char*`读1字节，`int*`一次性读写4字节，会篡改相邻内存。
 
 ## 五、OS底层价值
+
 1. 驱动操作硬件寄存器：物理地址数字强制转指针；
 2. 虚拟地址/物理地址转换、页表映射全部依靠地址强转；
 3. 内核通用链表、容器通过成员反向拿到宿主结构体；
 4. 解析二进制报文、寄存器多类型复用内存（union底层也是强转逻辑）。
-
-
 ```
 
 ## 4.5 volatile 关键字（硬件寄存器、并发内存可见性，CPU缓存原理）
@@ -2000,7 +2406,7 @@ CPU会把变量缓存到寄存器，重复读取时直接拿寄存器数据，�
 ### 场景1：操作硬件寄存器（驱动最常用）
 硬件寄存器是内存映射IO，地址值会由硬件自动变化；
 编译器看不到硬件修改，会优化成只读一次，后续一直用寄存器旧值。
-```c
+---c
 // 错误，无volatile会被优化
 unsigned int *reg = (unsigned int *)0xFFFF0000;
 while(*reg != 1); // 只会读一次，死循环
@@ -2008,11 +2414,13 @@ while(*reg != 1); // 只会读一次，死循环
 // 正确加volatile
 volatile unsigned int *reg = (volatile unsigned int *)0xFFFF0000;
 while(*reg != 1); // 每次循环都访问硬件真实地址
-```
+
 
 ### 场景2：多进程/多线程共享变量、信号异步修改
+
 变量可能被中断、信号、其他线程异步修改，必须加volatile保证每次读内存最新值。
-```c
+
+---c
 volatile int flag = 0;
 
 void sig_handler(int sig) {
@@ -2025,10 +2433,12 @@ int main() {
     printf("收到信号退出循环\n");
     return 0;
 }
-```
+
+
 不加volatile：编译器发现main里没有修改flag，直接优化成无限死循环，Ctrl+C不会生效。
 
 ## 三、CPU缓存底层原理（为什么需要volatile）
+
 1. 多级缓存：L1/L2/L3 Cache → CPU寄存器 → 内存
 2. 优化流程：
    变量第一次读取从内存载入Cache/寄存器，后续重复读取直接拿缓存，减少内存访问耗时。
@@ -2037,22 +2447,26 @@ int main() {
    - 写：不缓存，直接刷新到内存/硬件
 
 ## 四、关键误区（高频踩坑）
+
 1. volatile **不能解决多线程并发竞争**（不保证原子性）
-仅保证可见性，不阻止多条指令交错执行；多线程同步仍要锁/原子操作。
+   仅保证可见性，不阻止多条指令交错执行；多线程同步仍要锁/原子操作。
+
 2. volatile 不保证内存屏障、指令重排
-Linux内核搭配 `barrier()`、`mb()` 内存屏障使用才能彻底阻止乱序。
+   Linux内核搭配 `barrier()`、`mb()` 内存屏障使用才能彻底阻止乱序。
+
 3. 只修饰指针/变量本身生效
-```c
-volatile int *p;  // *p 访问带volatile，硬件寄存器标准写法
-int *volatile p;  // 指针p本身不能被优化，指向内容无volatile
-```
+
+   ---c
+   volatile int *p;  // *p 访问带volatile，硬件寄存器标准写法
+   int *volatile p;  // 指针p本身不能被优化，指向内容无volatile
+
 
 ## 五、OS底层价值
+
 1. 驱动操作外设寄存器的标准修饰符，不添加会硬件交互失效；
 2. 理解CPU缓存一致性、编译器优化对内存读写的影响；
 3. 看懂内核中断、信号、共享全局变量的代码规范；
 4. 为后续多核缓存一致性、内存屏障、原子操作铺垫。
-
 ```
 
 ## 4.6 const深层用法：常量指针、指针常量、结构体const
@@ -2064,48 +2478,60 @@ int *volatile p;  // 指针p本身不能被优化，指向内容无volatile
 ## 1. 四种基础组合拆解
 ### ① const int p;
 普通常量，变量本身只读，不可修改
-```c
+---c
 const int a = 10;
 a = 20; // 编译报错
-```
+
 
 ### ② 常量指针：`const int *p`
+
 `const` 紧贴 `int`，代表 **指针指向的内容只读**，指针本身可改
+
 - 不能：`*p = 99`（修改内存值）
+
 - 可以：`p = &other`（切换指针指向）
-```c
-int x = 1, y = 2;
-const int *p = &x;
-// *p = 100; 报错，内容只读
-p = &y; // 合法，指针能换指向
-```
+
+  --c
+  int x = 1, y = 2;
+  const int *p = &x;
+  // *p = 100; 报错，内容只读
+  p = &y; // 合法，指针能换指向
+
 
 ### ③ 指针常量：`int *const p`
+
 `const` 紧贴指针变量 `p`，**指针本身地址固定，不能换指向**，指向内容可修改
+
 - 不能：`p = &other`
+
 - 可以：`*p = 99`
-```c
-int x = 1;
-int *const p = &x;
-*p = 100; // 合法，修改值
-// p = &y; 报错，指针地址固定
-```
+
+  --c
+  int x = 1;
+  int *const p = &x;
+  *p = 100; // 合法，修改值
+  // p = &y; 报错，指针地址固定
+
 
 ### ④ 双重只读：`const int *const p`
+
 内容不能改、指针指向也不能改，完全锁定
-```c
+
+--c
 int x = 1;
 const int *const p = &x;
 // *p = 99; 错
 // p = &y; 错
-```
+
 
 ## 快速区分记忆
+
 1. `const 类型 *p` → **内容不可改**（常量指针）
 2. `类型 *const p` → **指针不可改**（指针常量）
 
 ## 2. const 修饰数组/字符串（对应.rodata只读段）
-```c
+
+---c
 // 字符串常量存.rodata，不可修改
 const char *str = "kernel";
 // str[0] = 'K'; // 运行段错误
@@ -2113,20 +2539,25 @@ const char *str = "kernel";
 // 数组存在栈，只是数组内元素只读，内存可写
 const char arr[] = "test";
 // arr[0] = 'T'; // 编译报错
-```
+
 
 ## 3. const 结构体三种场景
+
 ### 场景1：const 结构体变量
+
 结构体所有成员都只读，不能修改任何成员
-```c
+
+---c
 struct Dev { int id; };
 const struct Dev d = {1};
 // d.id = 2; 编译报错
-```
+
 
 ### 场景2：const 结构体指针（内核传参标准写法）
+
 函数只读取结构体数据、不修改，加 `const` 提升安全性，内核接口大量使用
-```c
+
+---c
 struct Dev { int id; };
 // 仅读设备，不修改
 void print_dev(const struct Dev *dev)
@@ -2134,50 +2565,51 @@ void print_dev(const struct Dev *dev)
     printf("%d", dev->id);
     // dev->id = 10; 报错
 }
-```
+
 
 ### 场景3：结构体内部const成员
+
 结构体实例化后该成员永久不可修改
-```c
+
+---c
 struct Info {
     const int uid;
 };
 struct Info i = {1001};
 // i.uid = 2000; 报错
-```
+
 
 ## 4. const 结合 void* / 函数指针拓展
+
 ### 常量void指针（只读内存缓冲区，memcpy源参数）
-```c
+
+---c
 void copy_buf(void *dst, const void *src, size_t len)
 {
     memcpy(dst, src, len); // src标记只读，防止函数内误写源数据
 }
-```
+
 
 ### const 函数指针（回调函数不可替换）
-```c
+
+---c
 void (*const fp)(int) = test_fn;
 // fp = other_fn; // 报错，函数指针固定不可替换
-```
+
 
 ## OS底层价值
+
 1. `const char *str = "xxx"`：字符串常量存放 `.rodata` 只读段，理解进程内存分区；
 2. 内核函数传参统一用 `const 结构体*`，保证只读不篡改原始数据；
 3. 区分指针与内容只读，写驱动、缓冲区拷贝、系统调用参数必备规范；
 4. 编译期检查非法修改，提前规避内存破坏类bug。
-
 ```
-
-
 
 # 第五阶段：编译、链接、库、汇编交互（2天，打通程序加载底层）
 
 ## 5.1 静态库 .a 制作与链接
 
 `ar` 打包、gcc静态链接，优缺点（占用空间、无法更新）
-
-
 
 ```md
 # 5.1 静态库 .a 完整讲解（编译链接底层）
@@ -2189,29 +2621,34 @@ void (*const fp)(int) = test_fn;
 ## 2. 制作静态库完整流程
 ### 步骤1：源码编译为目标文件 `.o`（只编译不链接）
 
-```
+
 # -c：只编译生成 .o，不链接
+
 gcc -c func.c -o func.o
 gcc -c math.c -o math.o
-```
+
 
 ### 步骤2：ar 打包成静态库 libxxx.a
 规范：静态库文件名必须以 `lib` 开头
 
-```
+
 # ar 参数 rcs
+
 # r：插入/替换模块
+
 # c：创建库文件
+
 # s：生成索引，加速链接
+
 ar rcs libmylib.a func.o math.o
-```
 
 ### 步骤3：gcc 链接静态库
 
-```
+
 # -L 指定库搜索目录，-lxxx 对应 libxxx.a
+
 gcc main.c -o app -L./ -lmylib
-```
+
 
 ## 3. 链接行为原理
 
@@ -2238,32 +2675,29 @@ gcc main.c -o app -L./ -lmylib
 
 ## 补充实操完整示例
 func.c
-```
+---
 #include <stdio.h>
 void hello() {
     printf("静态库函数\n");
 }
-```
+
 
 main.c
-```
+---
 void hello();
 int main() {
     hello();
     return 0;
 }
-```
+
 
 编译打包链接命令：
-```
+
 gcc -c func.c
 ar rcs libhello.a func.o
 gcc main.c -o test -L. -lhello
 ./test
-```    
 ```
-
-
 
 ## 5.2 动态库 .so 编译、加载、运行时链接
 
@@ -2280,21 +2714,24 @@ gcc main.c -o test -L. -lhello
 ### 编译生成 .so 核心参数
 `-fPIC`：生成**位置无关代码**，so可加载到虚拟内存任意地址，多进程共享同一份物理内存。
 
-```
+
 # 1. 编译源码为PIC目标文件
+
 gcc -c -fPIC func.c -o func.o
+
 # 2. 链接生成动态库 libxxx.so
+
 gcc -shared func.o -o libmylib.so
-```
 
 规范：库名 `libxxx.so`
 
 ## 二、编译主程序链接动态库
 
-```
+
 # -L 指定库目录，-lmylib 对应 libmylib.so
+
 gcc main.c -o app -L./ -lmylib
-```
+
 
 此时 `app` 可执行文件**只存函数符号表，不含库二进制代码**。
 
@@ -2311,11 +2748,12 @@ gcc main.c -o app -L./ -lmylib
 
 ### 运行报错：找不到库解决
 
-```
+
 # 临时指定库搜索路径
+
 export LD_LIBRARY_PATH=./
 ./app
-```
+
 
 ## 四、两大加载模式
 
@@ -2328,7 +2766,7 @@ export LD_LIBRARY_PATH=./
 代码里按需加载库，不用启动时全部载入，插件系统、驱动框架常用。
 头文件 `<dlfcn.h>`，链接加 `-ldl`：
 
-```
+
 #include <dlfcn.h>
 int main() {
     // 打开动态库
@@ -2339,13 +2777,11 @@ int main() {
     dlclose(handle);
     return 0;
 }
-```
+
 
 编译命令：
-
-```
 gcc main.c -o app -ldl
-```
+
 
 ## 五、核心机制：动态库代码段共享（OS内存关键）
 
@@ -2375,40 +2811,41 @@ gcc main.c -o app -ldl
 ## 完整实操示例
 
 func.c
+---
 
-```
 #include <stdio.h>
 void hello() {
     printf("动态库函数\n");
 }
-```
+
 
 main.c
+---
 
-```
 void hello();
 int main() {
     hello();
     return 0;
 }
-```
+
 
 编译脚本：
 
-```
+
 # 生成动态库
+
 gcc -c -fPIC func.c
 gcc -shared func.o -o libmylib.so
+
 # 编译主程序
+
 gcc main.c -o app -L. -lmylib
+
 # 运行
+
 export LD_LIBRARY_PATH=.
 ./app
 ```
-
-```
-
-
 
 ## 5.3 与汇编混合编程（看懂CPU指令，衔接计算机组成原理）
 
@@ -2428,11 +2865,13 @@ export LD_LIBRARY_PATH=.
 ## 1. C 内嵌汇编 asm()（gcc 扩展语法）
 ### 基础格式
 ```
-asm(汇编指令 : 输出操作数 : 输入操作数 : 破坏寄存器);
-```
 
+asm(汇编指令 : 输出操作数 : 输入操作数 : 破坏寄存器);
+
+```
 极简示例：读取 CPU 寄存器 rax 值到 C 变量
 ```
+
 #include <stdio.h>
 
 int main(void)
@@ -2443,15 +2882,16 @@ int main(void)
     printf("rax = %lx\n", val);
     return 0;
 }
-```
 
+```
 ### 实用场景：内核底层操作寄存器、关闭中断、读写CPU标志位
 ```
+
 // 关闭中断（内核常用内嵌汇编）
 asm volatile ("cli" ::: "memory");
 // volatile：阻止编译器优化汇编代码
-```
 
+```
 ## 2. 独立汇编文件 .s 基础认知
 ### 关键段
 - `.text`：代码段，存放指令
@@ -2471,21 +2911,24 @@ asm volatile ("cli" ::: "memory");
 ## 3. 函数栈帧完整流程（重中之重）
 以普通C函数为例：
 ```
+
 void func(int a, int b) {
     int x = 10;
     int y = 20;
 }
-```
 
+```
 ### 汇编栈帧标准序言 prologue
 ```
+
 push rbp        ; 把上一层函数rbp压栈保存
 mov  rbp, rsp   ; 当前rbp = rsp，划定本函数栈帧边界
 sub  rsp, 16    ; 分配局部变量栈空间（向下拓展栈）
-```
 
+```
 ### 栈帧内存布局（rbp为基准）
 ```
+
 高地址 ← 上层栈
 rbp+16：函数第7个及以后栈参数
 rbp+8 ：返回地址（call指令自动压入）
@@ -2493,15 +2936,16 @@ rbp   ：上一层rbp（push rbp保存）
 rbp-4 ：局部变量x
 rbp-8 ：局部变量y
 低地址 ← rsp（栈顶）
-```
 
+```
 ### 函数收尾 epilogue
 ```
+
 mov rsp, rbp  ; 回收局部变量栈空间
 pop rbp       ; 恢复上层函数栈基址
 ret           ; 弹出返回地址，跳回调用处
-```
 
+```
 ### 完整调用流程拆解
 1. 调用方 `call func(a,b)`
    - 参数放入 rdi/rsi；
@@ -2518,8 +2962,8 @@ ret           ; 弹出返回地址，跳回调用处
 
 ## 5. 完整混合编程示例（C调用汇编函数）
 asm\_func.s
-
 ```
+
 section .text
 global add_func
 add_func:
@@ -2527,11 +2971,11 @@ add_func:
     mov rax, rdi
     add rax, rsi
     ret
-```
 
+```
 main.c
-
 ```
+
 #include <stdio.h>
 unsigned long add_func(unsigned long a, unsigned long b);
 int main()
@@ -2539,27 +2983,22 @@ int main()
     printf("%lu\n", add_func(10,20));
     return 0;
 }
-```
 
+```
 编译运行：
-
 ```
+
 gcc -c asm_func.s
 gcc main.c asm_func.o -o test
 ./test
-```
 
+```
 ## OS底层价值
 1. 看懂CPU指令执行、栈硬件模型；
 2. 理解进程栈空间、栈帧布局，解释段错误、栈溢出；
 3. 内核、中断、系统调用底层全由汇编+C混合实现；
 4. 掌握ABI调用约定，看懂函数参数传递、寄存器使用规则。
-
-
-
 ```
-
-
 
 ## 5.4 ELF可执行文件基础
 
@@ -2649,25 +3088,13 @@ readelf -l test
 readelf -S test
 # 查看符号
 readelf -s test
-
-
 ```
-
-
-
-
-
-
-
-
 
 # 第六阶段：C实战项目（2天，直接对接操作系统知识点）
 
 ## 项目1：简易内存分配器（复刻简易malloc）
 
 目标：理解堆、mmap、内存块管理、内存碎片（操作系统堆管理器核心）
-
-
 
 ```md
 # 项目1：简易内存分配器（复刻迷你malloc，吃透Linux堆管理）
@@ -2689,14 +3116,14 @@ readelf -s test
 ### 2. 内存块头部元数据（关键）
 堆内存不能只存用户数据，每个块开头要存管理信息，用结构体描述：
 
-```
+
 // 内存块头部元数据
 typedef struct block_header {
     size_t size;               // 当前块总大小（header+用户区）
     int free;                  // 1=空闲，0=已分配
     struct block_header *next; // 链表下一块，串联所有堆块
 } block_t;
-```
+
 
 用户拿到的指针 = 块头地址 + sizeof(block\_t)
 
@@ -2736,7 +3163,7 @@ typedef struct block_header {
 malloc + memset 内存清零。
 
 ## 四、完整极简可运行实现（基于sbrk，首次适配分配器）
-```
+---c
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -2767,6 +3194,7 @@ block_t *extend_heap(size_t size) {
     blk->free = 1;
     blk->next = NULL;
     return blk;
+
 }
 
 // 遍历空闲链表找合适块
@@ -2814,6 +3242,7 @@ void *my_malloc(size_t size) {
     }
     blk->free = 0;
     return (char*)blk + HEADER_SIZE;
+
 }
 
 // free + 相邻块合并
@@ -2828,6 +3257,7 @@ void my_free(void *ptr) {
         blk->next = blk->next->next;
     }
     // 向前合并需要双向链表，本简易版本省略，仅演示后向合并
+
 }
 
 // 测试
@@ -2839,7 +3269,7 @@ int main(void)
     int *p3 = my_malloc(8); // 复用p1空闲块
     return 0;
 }
-```
+---
 
 ## 五、内存碎片两种类型（OS核心痛点）
 1. **外部碎片**
@@ -2861,12 +3291,7 @@ int main(void)
 2. 增加 `mmap` 大块分配分支；
 3. 实现tcache缓存，提升小内存分配速度；
 4. 增加内存泄漏检测、遍历打印所有堆块状态。
-
 ```
-
-
-
-
 
 ## 项目2：简易shell解释器
 
@@ -2895,18 +3320,17 @@ fork+exec+wait实现命令执行，理解进程创建、父子进程、文件描
 
 ## 三、头文件依赖
 
-```
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-```
+
 
 ## 四、完整可运行代码（支持：基础命令 + >输出重定向 + cd/exit内置命令）
 
-```
+---c
 #define BUF_LEN 1024
 #define ARG_MAX 64
 
@@ -3002,8 +3426,9 @@ int main(void)
         }
     }
     return 0;
+
 }
-```
+---
 
 ## 五、关键模块拆解
 
@@ -3030,9 +3455,7 @@ int main(void)
 
 #### 测试重定向示例
 
-```
 mysh > ls -l > log.txt
-```
 
 终端无输出，内容全部写入 log.txt。
 
@@ -3053,24 +3476,16 @@ mysh > ls -l > log.txt
 5. 区分内置命令（shell进程执行）与外部命令（新建子进程执行）。
 
 ## 编译运行
-
-```
 gcc mysh.c -o mysh
 ./mysh
-```
 
 测试指令：
-
-```
 mysh > ls
 mysh > pwd
 mysh > ls -l > test.log
 mysh > cd /home
 mysh > exit
 ```
-```
-
-
 
 ## 项目3：遍历/proc伪文件系统读取进程信息
 
@@ -3099,7 +3514,7 @@ mysh > exit
 
 ## 三、完整可运行代码
 
-```
+---c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -3123,6 +3538,7 @@ char* get_cmd(int pid, char *buf, size_t bufsz)
         if (buf[i] == '\0') buf[i] = ' ';
     }
     return buf;
+
 }
 
 // 读取 /proc/pid/stat 获取 ppid、进程状态
@@ -3136,6 +3552,7 @@ void get_pid_info(int pid, int *ppid, char *state)
     // stat格式第3字段state，第4字段ppid
     fscanf(fp, "%*d %*s %c %d", state, ppid);
     fclose(fp);
+
 }
 
 int main(void)
@@ -3165,8 +3582,9 @@ int main(void)
     }
     closedir(dir);
     return 0;
+
 }
-```
+---
 
 ## 四、核心函数分步解释
 
@@ -3194,7 +3612,6 @@ int main(void)
 
 新增函数打印进程所有内存段（代码、栈、堆、.so动态库）：
 
-```
 void print_maps(int pid)
 {
     char path[128];
@@ -3207,7 +3624,7 @@ void print_maps(int pid)
     }
     fclose(fp);
 }
-```
+
 
 每行包含：虚拟地址区间、权限、偏移、设备、inode、文件路径。
 
@@ -3220,10 +3637,9 @@ void print_maps(int pid)
 
 ## 七、编译运行
 
-```
 gcc proc_list.c -o proclist
 ./proclist
-```
+
 
 ## 拓展练习方向
 
@@ -3231,11 +3647,7 @@ gcc proc_list.c -o proclist
 2. 读取 `/proc/uptime` 获取系统开机时间；
 3. 读取 `/proc/meminfo` 获取整机内存使用；
 4. 读取 `/proc/[pid]/status` 获取RSS、VSS内存占用。
-
-
 ```
-
-
 
 ## 项目4：双向循环链表（纯C实现，Linux内核标准list_head）
 
@@ -3243,7 +3655,6 @@ gcc proc_list.c -o proclist
 
 ```md
 # 项目4：双向循环链表（复刻Linux内核 list\_head）
-
 ## 一、内核链表设计思想（和普通链表完全不同）
 
 普通C链表：数据结构体里存数据+前后指针，一种结构体一套链表，无法复用。
@@ -3255,8 +3666,6 @@ Linux `list_head` 设计：
 4. 一套链表代码，管理任意业务对象（进程、页、设备、缓冲区），实现C的“泛型容器”。
 
 ## 1. 内核标准链表头定义（复刻原版）
-
-```
 #include <stdio.h>
 #include <stddef.h>
 
@@ -3278,13 +3687,13 @@ static inline int list_empty(const struct list_head *head)
 {
     return head->next == head;
 }
-```
+
 
 ## 2. 核心基础操作：插入、删除节点
 
 ### list\_add：头插（插入head后第一个位置）
 
-```
+
 static inline void __list_add(struct list_head *new,
                               struct list_head *prev,
                               struct list_head *next)
@@ -3299,20 +3708,20 @@ static inline void list_add(struct list_head *new, struct list_head *head)
 {
     __list_add(new, head, head->next);
 }
-```
+
 
 ### list\_add\_tail：尾插（插入head前）
 
-```
+
 static inline void list_add_tail(struct list_head *new, struct list_head *head)
 {
     __list_add(new, head->prev, head);
 }
-```
+
 
 ### list\_del：删除节点（仅断链，不清空节点）
 
-```
+
 static inline void __list_del(struct list_head *prev, struct list_head *next)
 {
     next->prev = prev;
@@ -3326,13 +3735,12 @@ static inline void list_del(struct list_head *entry)
     entry->next = NULL;
     entry->prev = NULL;
 }
-```
+
 
 ## 3. 核心宏：container\_of（指针强转精华）
 
 已知结构体内部成员地址，反向求出整个结构体首地址
 
-```
 // type：宿主结构体类型
 // member：结构体里list_head成员名
 // ptr：list_head成员指针
@@ -3340,7 +3748,7 @@ static inline void list_del(struct list_head *entry)
     const typeof(((type *)0)->member) *__mptr = (ptr); \
     (type *)((char *)__mptr - offsetof(type, member)); \
 })
-```
+
 
 拆解逻辑：
 
@@ -3350,7 +3758,7 @@ static inline void list_del(struct list_head *entry)
 
 ## 4. 遍历链表宏（内核标准for循环）
 
-```
+
 // 正向遍历链表
 #define list_for_each(pos, head) \
     for (pos = (head)->next; pos != (head); pos = pos->next)
@@ -3360,11 +3768,10 @@ static inline void list_del(struct list_head *entry)
     for (pos = container_of((head)->next, typeof(*pos), member); \
          &pos->member != (head); \
          pos = container_of(pos->member.next, typeof(*pos), member))
-```
+
 
 ## 5. 完整测试示例：模拟进程结构体存入链表
 
-```
 // 业务结构体：进程
 struct task {
     int pid;
@@ -3402,12 +3809,12 @@ int main(void)
         printf("PID: %d, NAME: %s\n", p->pid, p->name);
     }
     return 0;
+
 }
-```
+---
 
 ### 运行输出
 
-```
 PID: 1, NAME: init
 PID: 2, NAME: kthreadd
 PID: 100, NAME: mysh
@@ -3415,7 +3822,7 @@ PID: 100, NAME: mysh
 删除t2后：
 PID: 1, NAME: init
 PID: 100, NAME: mysh
-```
+
 
 ## 6. 底层OS核心价值
 
@@ -3433,8 +3840,6 @@ PID: 100, NAME: mysh
    - 内核list\_head：纯节点分离，通用无耦合。
 ```
 
-
-
 # 第七阶段：C→操作系统底层知识衔接（1天，知识串联）
 
 学完C后，对应OS核心知识点映射，明确学习方向：
@@ -3446,8 +3851,6 @@ PID: 100, NAME: mysh
 5. 函数栈帧/汇编 → CPU中断、上下文切换
 6. 静态/动态链接 → 程序加载、动态链接器
 7. 位域/volatile → 硬件IO、设备驱动、寄存器操作
-
-
 
 ```md
 # 第七阶段 C语言 ↔ 操作系统底层完整串联映射
@@ -3536,16 +3939,7 @@ PID: 100, NAME: mysh
 2. 看懂用户态底层程序：简易分配器、shell、proc读取、内核链表
 3. 基于上面映射关系，切入操作系统核心：内存管理→进程管理→文件系统→中断/驱动
 4. 进阶Linux内核源码：list_head、file_operations、地址映射、内存分配器等核心模块完全复用你学的C范式
-
 ```
-
-
-
-
-
-
-
-
 
 # 配套学习工具&实操要求
 
@@ -3563,7 +3957,3 @@ PID: 100, NAME: mysh
 2. Go指针有严格限制，C指针可任意地址转换，直接对应虚拟地址
 3. Python一切对象，C直接操作硬件级内存、寄存器、系统调用
 4. Go协程高层封装，C只能手动fork进程，直面操作系统进程模型
-
-
-
-

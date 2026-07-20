@@ -689,8 +689,14 @@ CMD ["uv", "run", "python", "main.py"]
 
 ## 推荐教程地址
 
-[官方教程](https://docs.python.org/zh-cn/3/tutorial/index.html)
-[廖雪峰python](https://www.liaoxuefeng.com/wiki/1016959663602400)
+```md
+https://docs.python.org/zh-cn/3.14/index.html
+
+https://liaoxuefeng.com/books/python/introduction/index.html
+```
+
+[官方教程(https://docs.python.org/zh-cn/3.14/index.html)
+[廖雪峰python (https://www.liaoxuefeng.com/wiki/1016959663602400)
 
 # 第二阶段 python基础
 
@@ -2421,8 +2427,6 @@ print(demo_func.__closure__)   # 闭包变量，非闭包函数为 None
 ## 可迭代对象 / 迭代器 / 生成器 深度解析
 
 ```python
-python
-运行
 # ==================================================
 # 可迭代对象 / 迭代器 / 生成器 深度解析
 # 核心本质：一套「统一遍历 + 惰性计算」的设计模式，是Python高效处理数据的基石
@@ -3182,7 +3186,29 @@ defaultdict(list)         # 带默认值字典，避免键不存在报错
 from functools import partial, lru_cache
 
 # 14. pickle：Python对象序列化（可保存自定义类、列表、字典到本地文件）
+
+# 导入 pickle 模块：用于对象的序列化与反序列化
 import pickle
+
+# 创建一个普通的 Python 字典对象
+d = dict(name='Bob', age=20, score=88)
+
+# pickle.dumps() 将 Python 对象序列化为字节流（bytes）
+# 序列化：将内存中的对象转换为可存储/传输的字节序列
+print(pickle.dumps(d))
+
+# ============ 以下是将对象序列化到文件的方式（已注释） ============
+# f = open('dump.txt', 'wb')         # 以二进制写入模式打开文件
+# pickle.dump(d, f)                  # 将对象直接序列化写入文件
+# f.close()                          # 关闭文件
+
+
+# ============ 反序列化：从文件恢复对象 ============
+f = open('dump.txt', 'rb')           # 以二进制读取模式打开文件  
+d = pickle.load(f)                   # 从文件中读取并反序列化为 Python 对象
+print(d)                             # 输出恢复后的字典对象
+f.close()                            # 关闭文件
+
 
 # 15. csv：读写csv表格文件
 import csv

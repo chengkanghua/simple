@@ -4171,6 +4171,8 @@ systemctl stop firewalld
 systemctl disable firewalld
 systemctl start iptables
 systemctl enable iptables
+
+
 ```
 
 ---
@@ -4350,6 +4352,8 @@ yum install nginx --enablerepo=epel
 
 # 列出所有启用/禁用仓库
 yum repolist all
+
+
 ```
 
 #### Debian 系 APT：`apt` 命令、源配置
@@ -14664,8 +14668,6 @@ NFS/Samba/MinIO/FTP + NTP 时间同步 + Rsync 实时备份 + BIND 内网 DNS
 5. **原生安全隔离**：账号隔离、文件权限隔离、进程资源隔离、网络隔离、SELinux、分区隔离
 6. **标准化故障排查**：系统资源瓶颈、启动故障、网络故障、权限故障、服务异常、内核硬件报错
 ```
-
-
 
 # Linux内核核心子系统 + 容器/云原生依赖内核特性（运维必掌握）
 

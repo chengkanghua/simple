@@ -555,9 +555,9 @@ MR/PR：GitLab 叫 Merge Request，GitHub 叫 Pull Request，用于代码评审�
 - **常驻分支（1 条）**：`main` / `master`，唯一可信主干，代码永远可部署，禁止直接提交
 
 - 临时分支
-  
+
   ：从主干拉取，用完即删
-  
+
   - `feature/xxx`：功能开发分支
   - `fix/xxx`：普通 bug 修复分支
   - `hotfix/xxx`：线上紧急 bug 修复分支
@@ -743,4 +743,27 @@ git stash apply
 git stash drop   # 删除最近一条stash
 # 或清空所有stash
 # git stash clear
+```
+
+# win11 git 参数设置
+
+```bash
+# DNS改阿里云
+netsh interface ipv4 set dns "以太网" static 223.5.5.5 primary
+netsh interface ipv4 add dns "以太网" 223.6.6.6 index=2
+ipconfig /flushdns
+# Git传输参数优化
+git config --global http.postBuffer 524288000
+git config --global http.timeout 600
+git config --global http.lowSpeedLimit 0
+git config --global http.lowSpeedTime 999999
+git config --global --unset http.proxy
+git config --global --unset https.proxy
+
+# 全局所有仓库永久关闭校验（一劳永逸）
+git config --global http.sslVerify false
+
+
+# 双仓库推送，保证Gitee一定上传成功
+git push origin main; git push origin1 main
 ```

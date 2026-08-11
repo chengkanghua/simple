@@ -1,3 +1,5 @@
+# Git 高频命令
+
 ## 一、核心基础概念（先搞懂原理，命令才不会记混）
 
 Git 是分布式版本控制系统，核心分为 4 个工作区域，所有命令都是在这几个区域之间流转文件：
@@ -9,7 +11,7 @@ Git 是分布式版本控制系统，核心分为 4 个工作区域，所有命�
 
 标准提交流程：工作区修改代码 → `git add` 存入暂存区 → `git commit` 提交到本地仓库 → `git push` 推送到远程仓库
 
-# Git 分布式含义
+## Git 分布式含义
 
 **1、什么是分布式？**
 
@@ -29,12 +31,12 @@ Git 是分布式版本控制，**本地拥有完整仓库，不依赖中心服�
 
 ### 1. 初始化与基础配置
 
-```
+```bash
 # 本地文件夹初始化一个全新Git仓库
 git init
 
 # 克隆远程仓库到本地（最常用，直接拉取已有项目）
-git clone shturl.cc/4yWaFcJbxDUK5RanMNF0SvDDLsc
+git clone https://gitlab.example.com/team/project.git
 
 # 配置全局用户名和邮箱（第一次安装Git必做）
 git config --global user.name "你的名字"
@@ -46,7 +48,7 @@ git config --list
 
 ### 2. 代码提交（工作区 → 暂存区 → 本地仓库）
 
-```git
+```bash
 # 查看当前文件状态（修改、新增、删除了哪些文件，日常高频使用）
 git status
 
@@ -65,7 +67,7 @@ git commit --amend -m "新的提交说明"
 
 ### 3. 远程仓库交互
 
-```
+```bash
 # 查看当前绑定的远程仓库地址
 git remote -v
 
@@ -84,7 +86,7 @@ git fetch origin
 
 ### 4. 分支管理（团队协作核心）
 
-```
+```bash
 # 查看所有本地分支
 git branch
 
@@ -115,7 +117,7 @@ git push origin --delete 远程分支名
 
 ### 5. 版本查看与回退
 
-```
+```bash
 # 查看完整提交历史（带提交哈希、作者、时间、说明）
 git log
 
@@ -143,7 +145,7 @@ git revert 提交哈希值
 
 ### 6. 标签管理（版本发布标记用）
 
-```
+```bash
 # 创建轻量版本标签
 git tag v1.0.0
 
@@ -191,7 +193,7 @@ git tag
 
 ### 1. 分支命名规范
 
-```
+```text
 功能分支：feature/模块名-功能描述
 示例：feature/user-login-page
 
@@ -235,7 +237,7 @@ bug修复分支：fix/问题描述
 
 代码写到一半，需要临时切换分支修 bug，又不想提交半成品代码：
 
-```
+```bash
 # 暂存当前工作区所有修改
 git stash
 
@@ -253,7 +255,7 @@ git stash clear
 
 只把某一个提交的改动复制到当前分支，不用合并整个分支：
 
-```
+```bash
 git cherry-pick 提交哈希值
 ```
 
@@ -274,7 +276,7 @@ git cherry-pick 提交哈希值
 
 把当前分支的提交 “平移” 到目标分支的最新提交后面，让提交历史变成一条直线，更整洁。
 
-```
+```bash
 # 把当前分支变基到目标分支
 git rebase 目标分支名
 ```
@@ -288,7 +290,7 @@ git rebase 目标分支名
 
 项目根目录创建 `.gitignore` 文件，指定不需要 Git 管理的文件，企业项目必配：
 
-```
+```text
 # Java项目示例
 target/
 *.class
@@ -303,8 +305,6 @@ target/
 .env
 ```
 
-需要我补充某个具体场景的操作步骤，或者整理一份可直接保存的 Git 命令速查精简版吗？
-
 # git命令大全
 
 ```bash
@@ -315,7 +315,7 @@ git --version
 # 配置全局用户名（所有仓库生效）
 git config --global user.name "你的姓名"
 # 配置全局邮箱
-git config --global user.email "你的企业邮箱@shturl."
+git config --global user.email "你的企业邮箱@example.com"
 
 # 查看所有git配置信息
 git config --list
@@ -324,8 +324,7 @@ git config --list
 git init
 
 # 克隆远程仓库到本地
-git clone https://gitlab.shturl./xxx/demo.git
-
+git clone https://gitlab.example.com/xxx/demo.git
 
 # ====================== 二、工作区、暂存区、本地仓库提交操作 ======================
 # 查看当前文件状态（新增、修改、未追踪文件）
@@ -359,7 +358,7 @@ git rm --cached test.txt
 git remote -v
 
 # 本地初始化仓库后绑定远程仓库
-git remote add origin https://gitlab.shturl./xxx/demo.git
+git remote add origin https://gitlab.example.com/xxx/demo.git
 
 # 将本地分支推送到远程仓库
 git push origin main
@@ -403,7 +402,6 @@ git branch -D feature/user-login
 # 删除远程分支
 git push origin --delete feature/user-login
 
-
 # ====================== 五、提交日志查看、版本回退操作 ======================
 # 查看详细提交日志
 git log
@@ -424,7 +422,6 @@ git reset HEAD demo.java
 
 # 反向提交回滚（公共远程分支安全回退方式，生成新提交不删除历史）
 git revert 提交哈希值
-
 
 # ====================== 六、Stash 工作区临时储藏（临时切分支用） ======================
 # 储藏当前所有未提交的修改
@@ -447,8 +444,10 @@ git tag -a v1.0.0 -m "线上正式v1.0.0版本发布"
 git push origin v1.0.0
 
 # ====================== 八、企业高频进阶命令 ======================
-# 二分查找定位引入bug的那次提交
-git bisect
+# 二分查找定位引入bug的那次提交（start/bad/good 三步）
+git bisect start
+git bisect bad                    # 标记当前版本是坏的
+git bisect good 好版本哈希值      # 标记已知正常版本，自动二分定位
 
 # 在全仓库中全局搜索指定字符串
 git grep "需要搜索的关键字"
@@ -526,7 +525,7 @@ git push origin v1.0.0              # 推送标签到远程
 
 八、高频进阶命令
 git cherry-pick 哈希值      # 拣选单个提交合并到当前分支
-git bisect                 # 二分查找定位bug提交节点
+git bisect                 # 二分查找定位bug提交节点（配合 start/bad/good）
 git grep "关键字"           # 仓库全局搜索内容
 git mv 旧名 新名           # 文件重命名
 
@@ -554,10 +553,7 @@ MR/PR：GitLab 叫 Merge Request，GitHub 叫 Pull Request，用于代码评审�
 
 - **常驻分支（1 条）**：`main` / `master`，唯一可信主干，代码永远可部署，禁止直接提交
 
-- 临时分支
-
-  ：从主干拉取，用完即删
-
+- **临时分支**：从主干拉取，用完即删
   - `feature/xxx`：功能开发分支
   - `fix/xxx`：普通 bug 修复分支
   - `hotfix/xxx`：线上紧急 bug 修复分支
@@ -638,7 +634,7 @@ MR/PR：GitLab 叫 Merge Request，GitHub 叫 Pull Request，用于代码评审�
 
 在 GitLab/GitHub 后台开启，是所有企业的标配：
 
-- 主分支（main/master、develop）**禁止直接 push**，必须通过 MR/PR 合并 
+- 主分支（main/master、develop）**禁止直接 push**，必须通过 MR/PR 合并
   - **MR = GitLab 里的合并请求**
   - **PR = GitHub 里的合并请求**
 - 合并必须指定至少 1~2 位审批人，审批通过才能合入
@@ -655,7 +651,7 @@ MR/PR：GitLab 叫 Merge Request，GitHub 叫 Pull Request，用于代码评审�
 
 通用标准是 **Conventional Commits** 格式，企业几乎都会统一：
 
-```
+```text
 feat: 新增用户分页查询接口
 fix: 修复登录接口token过期异常
 docs: 更新部署文档
@@ -672,21 +668,18 @@ chore: 更新Jenkins流水线配置
 - 功能分支：`feature/模块名-功能描述`
 - bug 分支：`fix/问题描述`
 - 热修复：`hotfix/线上bug描述`
-- 版本标签：`v1.2.0`（语义化版本：主版本。次版本。修订号）
+- 版本标签：`v1.2.0`（语义化版本：主版本号.次版本号.修订号）
 
 ### 5. CI 门禁强制卡点
 
 和 Jenkins 流水线联动，MR 合入前必须通过：
 
 1. 代码编译通过
-
 2. SonarQube 质量门禁通过
-
 3. 核心单元测试通过
-
 4. 代码无高危安全漏洞
 
-   不满足条件自动阻断合并，从源头拦截劣质代码。
+不满足条件自动阻断合并，从源头拦截劣质代码。
 
 ### 6. 仓库权限分级
 
@@ -706,6 +699,8 @@ chore: 更新Jenkins流水线配置
 - **传统项目、版本发布周期长、多版本维护**：选 GitFlow，流程规范可控
 - **大厂、高频交付、工程能力强**：选 Trunk Based Development
 
+## 六、常见问题排查：git pull 提示已是最新但远程代码没拉下来
+
 先理清现象：本地有自己的修改，执行 `git pull` 提示已是最新，但**远程新代码没拉下来、也没合并**，
 
 核心原因：**本地工作区改动未提交 / 暂存，Git 优先保护本地修改，不会直接覆盖**。
@@ -720,7 +715,6 @@ git remote -v
 git fetch
 git log --oneline origin/当前分支名  # 例：git log --oneline origin/main
 git fetch 只会拉取远程代码索引，不会合并，先确认远程确实有新提交。
-
 
 场景 1：你保留本地修改，合并远程最新代码（最常用）
 适合：自己改的内容有用，需要和远程新代码合并。
@@ -748,10 +742,6 @@ git stash drop   # 删除最近一条stash
 # win11 git 参数设置
 
 ```bash
-# DNS改阿里云
-netsh interface ipv4 set dns "以太网" static 223.5.5.5 primary
-netsh interface ipv4 add dns "以太网" 223.6.6.6 index=2
-ipconfig /flushdns
 # Git传输参数优化
 git config --global http.postBuffer 524288000
 git config --global http.timeout 600
@@ -760,10 +750,17 @@ git config --global http.lowSpeedTime 999999
 git config --global --unset http.proxy
 git config --global --unset https.proxy
 
-# 全局所有仓库永久关闭校验（一劳永逸）
+# 全局所有仓库永久关闭 SSL 校验（内网自签证书才建议，公网慎用，有中间人攻击风险）
 git config --global http.sslVerify false
-
 
 # 双仓库推送，保证Gitee一定上传成功
 git push origin main; git push origin1 main
+
+
+推荐规范配置（团队统一 LF，跨平台无冲突）
+# 全局设input：提交统一LF，拉取不改换行
+git config --global core.autocrlf input
+# 全局默认换行LF
+git config --global core.eol lf
+
 ```

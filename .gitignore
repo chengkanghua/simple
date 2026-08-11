@@ -131,3 +131,7 @@ dmypy.json
 # mac 
 .DS_Store
 .idea/
+
+
+#codebuddy
+.codebuddy

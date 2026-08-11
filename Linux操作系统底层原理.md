@@ -49,8 +49,8 @@ I	      空闲内核线程	        内核后台线程（kworker 类）
 s：session leader（会话首进程，如 bash）
 l：多线程进程（拥有多个 LWP 轻量级线程）
 +：前台进程，绑定终端
-N：低 nice 值，优先级降低
-<：高优先级进程
+N：低优先级进程（nice>0，优先级被调低）
+<：高优先级进程（nice<0，优先级被调高）
 L 进程持有内存锁（mlock 锁定内存不换出）
 
 示例
@@ -58,7 +58,7 @@ Sl = 可中断睡眠 + 多线程程序
 S+ = 前台运行的休眠进程
 Rl+ = 前台多线程就绪 / 运行进程
 
-三、内核 7 种完整 task_struct 状态（底层原理，和 ps 对应）
+三、内核核心 task_struct 状态（底层原理，和 ps 对应）
 TASK_RUNNING (R)
 TASK_INTERRUPTIBLE (S)
 TASK_UNINTERRUPTIBLE (D)
@@ -130,7 +130,6 @@ PGID 进程组 ID：管道、后台作业同属一个进程组
 SID 会话 ID：终端登录会话，setsid 创建守护进程
 前台 / 后台进程、SIGTTIN/SIGTTOU 终端控制信号
 2. 7 种进程状态（task_struct->state，面试必考）
-plaintext
 TASK_RUNNING        运行/就绪，可被调度上CPU
 TASK_INTERRUPTIBLE  可中断睡眠，等待资源，信号可唤醒（ps S）
 TASK_UNINTERRUPTIBLE不可中断睡眠，磁盘IO/锁，信号无法唤醒（ps D）
@@ -141,7 +140,8 @@ EXIT_DEAD           彻底销毁，资源全部释放
 僵尸进程危害：PCB 残留，占用 PID 资源，大量僵尸导致无法新建进程
 孤儿进程：父进程先退出，自动被 PID1 收养，不会变僵尸
 3. 调度核心（关联 Linux1.0 调度伪代码）
-CFS 完全公平调度器、时间片 counter、动态优先级公式
+Linux 1.0：时间片 counter + 动态优先级公式（O(n) 遍历调度）
+现代内核：CFS 完全公平调度器（红黑树）
 nice -20~19，PRI 调度优先级
 Load Average 含义：运行态 + 不可中断睡眠进程总数
 上下文切换：用户态 <-> 内核态切换，频繁切换损耗 CPU 性能
@@ -202,45 +202,7 @@ D 状态不可中断进程：磁盘卡死、存储故障，无法 kill，只能�
 
 ```
 
-进程状态
 
-```bash
-ps 命令展示的进程状态（Linux 标准，分两类：内核原始 state /ps 展示简写）
-一、ps 输出常见单字符状态码（ps aux / top 看到的 STAT 列）
-表格
-状态字符	内核真实状态	          含义说明
-R	      TASK_RUNNING	        运行 / 就绪态：正在 CPU 运行，或排队等待调度
-S	      TASK_INTERRUPTIBLE	可中断睡眠：等待资源，能被信号唤醒（最常见）
-D	      TASK_UNINTERRUPTIBLE	不可中断睡眠（磁盘 IO 阻塞），无法被 kill -9 杀死
-Z	      EXIT_ZOMBIE	        僵尸进程：子进程已退出，父进程未回收 PCB
-T	      TASK_STOPPED	        暂停：收到 SIGSTOP、gdb 断点调试暂停
-t	      TASK_TRACED	        被调试器跟踪（gdb 附加调试）
-X	      EXIT_DEAD	            进程彻底消亡，仅短暂出现，基本看不到
-I	      空闲内核线程	        内核后台线程（kworker 类）
-二、额外附加标识（STAT 列第二个字符）
-s：session leader（会话首进程，如 bash）
-l：多线程进程（拥有多个 LWP 轻量级线程）
-+：前台进程，绑定终端
-N：低 nice 值，优先级降低
-<：高优先级进程
-L 进程持有内存锁（mlock 锁定内存不换出）
-示例
-Sl = 可中断睡眠 + 多线程程序
-S+ = 前台运行的休眠进程
-Rl+ = 前台多线程就绪 / 运行进程
-三、内核 7 种完整 task_struct 状态（底层原理，和 ps 对应）
-TASK_RUNNING (R)
-TASK_INTERRUPTIBLE (S)
-TASK_UNINTERRUPTIBLE (D)
-TASK_STOPPED (T)
-TASK_TRACED (t)
-EXIT_ZOMBIE (Z)
-EXIT_DEAD (X)
-运维高频考点
-D 状态进程：等待磁盘 / 存储硬件 IO，kill 无效，只能修复磁盘或重启服务器；
-Z 僵尸进程：代码缺少 wait/waitpid 回收，堆积会耗尽 PID；
-大量 R 进程：CPU 满载，存在计算瓶颈。
-```
 
 
 
@@ -258,7 +220,7 @@ Z 僵尸进程：代码缺少 wait/waitpid 回收，堆积会耗尽 PID；
    - slab/slub 分配器：缓存内核小对象，解决内部碎片，提升内存分配效率
 3. 页缓存（Page Cache）
    - 内核用空闲内存缓存文件数据，是`free`命令中`cached`的主体
-   - 写缓存机制：先写内存再异步刷盘，由`pdflush`内核线程负责；`dirty`相关参数控制刷盘阈值
+   - 写缓存机制：先写内存再异步刷盘，由内核`flush`线程（pdflush 已在 2.6.24 后被 flush 线程替代）负责；`dirty`相关参数控制刷盘阈值
    - Buffer Cache：缓存块设备元数据，现代内核已逐步与页缓存融合
 4. Swap 交换机制
    - 本质：用磁盘空间模拟内存，由`kswapd`内核线程触发内存回收
@@ -327,7 +289,7 @@ iostat`、`iotop`、`df`、`du`、`fio`、`dd`、`tune2fs`、`xfs_info
 
 4. Netfilter 防火墙机制
 
-   - 五表五链钩子机制，iptables 数据包的完整处理流程
+   - 四表五链钩子机制（filter/nat/mangle/raw 四表 + 五条链），iptables 数据包的完整处理流程
    - nftables 对 iptables 的演进与替代
 
 5. 零拷贝技术
@@ -554,7 +516,7 @@ OOM Killer：物理内存耗尽触发，根据 oom_score 打分，杀死占用�
 VFS 虚拟文件系统：内核抽象层，向上提供统一文件操作接口，屏蔽 ext4、xfs、nfs 等不同文件系统差异
 inode：存储文件元数据（权限、大小、时间、数据块指针），不存文件名；文件名存在目录块中
 硬链接：同一 inode 多个目录项，不能跨分区、不能链接目录；软链接是独立文件，存放文件路径，可跨分区、链接目录
-Buffer Cache 块缓存：缓存磁盘块；Page Cache 页缓存：文件读写页缓存；脏页：内存修改未刷入磁盘，定时 pdflush 刷盘
+Buffer Cache 块缓存：缓存磁盘块；Page Cache 页缓存：文件读写页缓存；脏页：内存修改未刷入磁盘，内核 flush 线程定时刷盘（旧称 pdflush）
 IO 类型：顺序 IO、随机 IO；iowait 高：CPU 空闲，进程等待磁盘 IO 完成
 误删文件恢复：只要文件被进程占用，通过lsof找到临时句柄恢复；无进程占用无法恢复
 设备分类：字符设备（字节流：键盘、串口）、块设备（块缓存：磁盘）、网络设备
@@ -810,26 +772,29 @@ lsof -p PID | wc -l 统计进程打开句柄数
 1. 大量 TIME_WAIT 连接，端口耗尽，新建连接失败
 原因：短连接频繁创建关闭，主动关闭方大量 TIME_WAIT 占用端口。
 优化内核参数：
-plaintext
 net.ipv4.tcp_tw_reuse = 1
 net.ipv4.tcp_timestamps = 1
 net.ipv4.ip_local_port_range = 1024 65535
 2. 大量 ESTABLISHED 连接不释放，服务卡死
 排查：ss -ant | grep ESTAB；检查是否没有心跳保活、客户端异常断网。
 优化 tcp_keepalive 相关内核参数。
-3. 服务能 ping 通，但是端口 telnet 不通
+3. 大量 CLOSE_WAIT 连接堆积（面试高频）
+原因：被动关闭方收到 FIN 后，应用层没调用 close() 释放 socket，通常是代码未关闭连接、HTTP 连接复用异常。
+排查：ss -ant | grep CLOSE_WAIT 看堆积数量与对端；lsof -p PID | grep socket 定位连接归属进程。
+解决：修复代码及时 close()；临时调大进程句柄上限（ulimit -n）；排查连接池泄漏。
+4. 服务能 ping 通，但是端口 telnet 不通
 排查顺序：
 服务是否正常监听 ss -lntp | grep 端口
 监听 IP 是否为 0.0.0.0，而非 127.0.0.1
 防火墙 firewalld/iptables 是否放行端口
 云服务器安全组是否放通出入规则
-4. 网络丢包，业务超时
+5. 网络丢包，业务超时
 排查：
 mtr 目标IP 逐跳定位丢包节点
 tcpdump 抓包看是否重传、乱序
-查看网卡是否有错包、丢包：ethtool eth0、ifconfig
+查看网卡是否有错包、丢包：ethtool -S eth0、ip -s link（ifconfig 已过时）
 检查网卡软中断是否均衡，多队列网卡 irq 绑定 CPU。
-5. 连接出现 Connection refused
+6. 连接出现 Connection refused
 三种原因：
 服务没启动；
 服务只监听 127.0.0.1；
@@ -875,8 +840,6 @@ PVC 没有绑定 PV；
 整体排查顺序：先系统 → 再硬件 IO → 网络 → 进程 / 容器 → 应用日志
 第一步：先看系统全局状态（5 秒定位大方向）
 查看负载、CPU、运行时间
-bash
-运行
 uptime
 top
 重点观察：
@@ -884,14 +847,10 @@ Load Average 是否远大于 CPU 核心数
 us、sy、id、wa 四个 CPU 占比
 有没有 D、Z 状态异常进程
 查看内存、Swap 使用
-bash
-运行
 free -h
 vmstat 1
 重点：Swap 是否频繁升高，dmesg 查看是否触发 OOM 杀死进程。
 查看磁盘整体使用率
-bash
-运行
 df -h
 df -i  # 检查inode是否耗尽
 第二步：CPU 异常专项排查
@@ -962,8 +921,7 @@ LISTEN 为空：服务未启动、监听 127.0.0.1
 4）抓包验证报文是否到达本机 tcpdump -i 网卡 port 端口
 网卡异常
 bash
-运行
-ifconfig / ethtool 网卡名
+ip -s link show 网卡名 / ethtool 网卡名
 查看 error、dropped、overrun 是否持续增长，网卡软中断是否均衡。
 
 第六步：进程 / 容器资源限制排查
@@ -1080,8 +1038,8 @@ ss -ant | awk '{print $1}' | sort | uniq -c
 # 4. 抓包分析
 tcpdump -i any port 端口 -nn
 # 5. 查看网卡错包丢包
-ifconfig
-ethtool 网卡名
+ip -s link        # ifconfig 已过时，用 ip 查看收发字节/错包/丢包
+ethtool -S 网卡名
 
 六、进程异常：僵尸、D 状态、句柄超限
 bash
@@ -1186,7 +1144,7 @@ ESTABLISHED 堆积不释放：无保活机制、连接泄漏。
 4. tcpdump -i any port xxx -nn
 只有 SYN 没有 SYN+ACK：防火墙拦截 / 服务没监听；
 大量重传包：网络丢包。
-5. ifconfig /ethtool 网卡名
+5. ip -s link / ethtool 网卡名
 errors、dropped、overrun 持续上涨：网卡硬件 / 队列问题，需要调网卡队列、绑定 CPU。
 六、进程异常排查
 1. ps -ef | grep defunct
@@ -1395,9 +1353,9 @@ Linux 采用**单根树形目录结构**，统一遵循 FHS（文件系统层次
 
 | 目录                  | 核心作用                                                     | 权限与场景                                                   |
 | :-------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- |
-| `/bin`-->/usr/bin/    | 基础通用命令（ls、cp、mv、cat 等）                           | 所有用户可执行，单用户模式也能使用                           |
-| `/sbin`-->/usr/sbin/  | 系统级管理命令（fdisk、reboot、ifconfig 等）                 | 仅 root 可用，用于系统维护修复                               |
-| `/usrusr/sbin/`       | 全称 *Unix Software Resource*，系统软件资源主目录，相当于 Windows 的 Program Files | 系统自带软件、包管理器安装的软件都在此                       |
+| `/bin -> /usr/bin`    | 基础通用命令（ls、cp、mv、cat 等）                           | 所有用户可执行，单用户模式也能使用                           |
+| `/sbin -> /usr/sbin`  | 系统级管理命令（fdisk、reboot、ip 等）                       | 仅 root 可用，用于系统维护修复                               |
+| `/usr`                | 全称 *Unix System Resources*，系统软件资源主目录，相当于 Windows 的 Program Files | 系统自带软件、包管理器安装的软件都在此                       |
 | `/usr/bin`            | 大部分普通用户命令、应用程序可执行文件                       | 普通用户可执行，日常命令大多在这里                           |
 | `/usr/sbin`           | 更多系统管理命令、网络工具                                   | 仅 root 可执行                                               |
 | `/usr/lib /usr/lib64` | 程序依赖的动态库、静态库文件                                 | 程序运行报错「缺少库文件」时排查此处                         |
@@ -1471,7 +1429,7 @@ Linux 采用**单根树形目录结构**，统一遵循 FHS（文件系统层次
 
 
 
-# python 伪代码 linux内核模块
+# Python 伪代码模拟 Linux 内核模块
 
 ## Linux 1.0 进程调度子系统
 
@@ -1497,8 +1455,8 @@ class ProcessPCB:
         # 进程当前状态，新建进程默认进入就绪态
         self.state = TASK_RUNNING
         # 基础优先级：决定进程初始时间片大小，受nice值影响
-        # nice 取值范围 -20~19，值越小优先级越高
-        self.base_priority = priority + (20 - nice)
+        # nice 取值范围 -20~19，值越小优先级越高（Linux 1.0：priority默认20，nice越小时间片越大）
+        self.base_priority = priority - nice
         # 剩余时间片 counter：调度核心字段，单位为时钟滴答
         # 每次时钟中断减1，减到0则让出CPU，触发重新调度
         self.counter = self.base_priority
@@ -1963,7 +1921,7 @@ if __name__ == "__main__":
 
 
 
-```bash
+```python
 # ====================== Linux 1.0 文件系统与IO子系统 完整伪代码（Python版） ======================
 # 对应内核源码 fs/ 目录核心逻辑，IO栈分层：块设备驱动 → Buffer Cache块缓存 → IO调度器 → Ext2文件系统 → VFS虚拟文件系统
 # 说明：Linux 1.0 时代以 Buffer Cache 为核心块级缓存（尚未引入Page Cache），VFS已完成抽象，Ext2为主流文件系统
@@ -3387,7 +3345,7 @@ if __name__ == "__main__":
 
 ## linux1.0 设备驱动子系统
 
-```bash
+```python
 # ====================== Linux 1.0 设备驱动子系统 完整伪代码（Python版） ======================
 # 对应内核源码 drivers/ 目录核心逻辑，是内核与硬件之间的唯一桥梁
 # 核心设计：按设备类型分为「字符设备 / 块设备 / 网络设备」三大类，通过「设备号 + 操作函数集」统一管理
@@ -3823,3 +3781,137 @@ SRE 是强实战岗位，面试和工作都看重落地成果，而非纸面知�
 
 - 书籍：《SRE：Google 运维解密》（建立核心认知）、《SRE 工作手册》（落地实践指南）
 - 社区：CNCF 云原生全景图、SREcon/KubeCon 会议资料、大厂技术团队博客
+# 附：操作系统底层原理经典面试题（带答案）
+
+> 覆盖进程、内存、文件 IO 栈、网络协议栈、启动初始化、系统调用、设备驱动、IPC 八大底层方向。标注必背度：🔴 必背 / 🟡 熟练 / 🟢 了解。
+
+## 一、进程与调度
+
+**1. 🔴 进程和线程的区别？**
+
+- 进程是资源分配单位（独立地址空间、文件、信号）；线程是 CPU 调度单位（共享进程资源）。
+- 线程切换比进程切换快（不换地址空间、TLB 命中率高）。
+- 追问：为什么要有线程？——并发执行共享数据，开销小；多进程隔离强但通信成本高。
+
+**2. 🔴 CFS 调度器怎么选进程？**
+
+- 红黑树按 vruntime（虚拟运行时间）排序，每次选最小者。
+- 权重影响 vruntime 增长：权重高增长慢、分 CPU 多。
+- 追问：实时进程怎么调？——SCHED_FIFO/RR 实时调度优先级高于 CFS，走单独调度类。
+
+**3. 🟡 fork 和 exec 流程？**
+
+- fork 复制父进程（写时复制 COW 优化，只有写才真正复制页面），返回两次。
+- exec 用新程序替换进程映像（代码/数据/堆栈），pid 不变。
+- 追问：fork 后子进程先跑还是父进程先跑？——由调度器决定，无保证；COW 让 fork 成本很低。
+
+**4. 🔴 一次上下文切换发生了什么？**
+
+1. 保存当前进程寄存器、PC 到进程控制块（PCB）/内核栈。
+2. 切换到内核态（如果是用户态发起）。
+3. 切换页表/CR3、刷新 TLB。
+4. 加载新进程上下文，恢复用户态。
+- 追问：线程切换也刷 TLB 吗？——同进程线程共享页表，不刷 TLB，所以更便宜。
+
+## 二、内存管理
+
+**5. 🔴 虚拟内存解决了什么问题？**
+
+- 进程隔离（每个进程独立地址空间）、逻辑连续（物理可不连续）、按需加载、支持换页。
+- 追问：32 位进程为什么最大 4GB？——虚拟地址 32 位，2^32 = 4GB。
+
+**6. 🔴 分页与分段区别？**
+
+- 分段按逻辑（代码/数据/栈段）划分，地址=段+偏移，碎片多。
+- 分页按固定大小页划分，无外部碎片、适合虚拟内存换页，现代系统用分页。
+- 追问：页大小能改吗？——一般 4KB，可配 2MB/1GB 大页（HugePage）。
+
+**7. 🟢 页面置换算法有哪些？**
+
+- LRU（最近最少使用）、FIFO、Clock 时钟算法（近似 LRU，Linux 使用）。
+- 追问：Linux 为什么用 Clock 不用纯 LRU？——纯 LRU 维护成本高，Clock 用标志位近似，开销低。
+
+## 三、文件系统与 IO 栈
+
+**8. 🔴 一个 read() 从应用到磁盘的完整路径？**
+
+应用 → 系统调用 → VFS（虚拟文件系统）→ 具体文件系统（ext4/xfs）→ page cache 命中？→ 未命中 → 块层 → IO 调度器 → 驱动 → 磁盘。
+- 追问：page cache 命中就不碰磁盘吗？——是，读命中直接返回用户空间；写也先入 cache，由后台线程刷盘。
+
+**9. 🟡 脏页回写机制？**
+
+- 脏页超时（默认 30s）或超量（dirty_ratio/background_ratio）由内核线程异步写回。
+- 追问：突然断电会丢多少数据？——未刷盘的脏页数据会丢，所以数据库要 fsync 主动落盘。
+
+**10. 🟢 零拷贝原理？**
+
+- sendfile/splice 让数据在内核态直接搬移，避免用户态↔内核态多次拷贝，大文件传输性能大幅提升。
+- 追问：Kafka/Nginx 为什么用零拷贝？——高吞吐消息/静态文件场景，减少 CPU 拷贝开销。
+
+## 四、网络协议栈
+
+**11. 🔴 一个 TCP 请求从网卡到应用的路径？**
+
+网卡 → 驱动 → 硬中断 → 收包队列 → 软中断（NET_RX）→ 协议栈（IP/TCP）→ socket 接收队列 → 应用 recv。
+- 追问：为什么会有软中断处理网络？——硬中断不能做重活（会阻塞系统），包处理放软中断可延迟、合并、平衡到多核。
+
+**12. 🟡 epoll 为什么比 select 高效？**
+
+- select 每次全量扫描 fd、有 1024 上限、只有水平触发。
+- epoll 用红黑树管理 fd、事件驱动（只返回就绪 fd）、支持边缘触发，O(1) 复杂度。
+- 追问：epoll 边缘触发要注意什么？——数据可能没读完要循环读，否则丢事件。
+
+**13. 🟢 高并发下 TIME_WAIT / CLOSE_WAIT 怎么处理？**
+
+- TIME_WAIT 多：tcp_tw_reuse、长连接池、调小 tcp_fin_timeout。
+- CLOSE_WAIT 多：应用没 close 连接（代码 bug），排查进程 fd 与对应连接。
+- 追问：怎么看连接状态？——ss -ant / netstat -ant，统计各状态数量。
+
+## 五、系统启动与初始化
+
+**14. 🔴 Linux 完整启动流程？**
+
+BIOS/UEFI → 引导加载器（GRUB）→ 加载内核 → 初始化硬件/驱动 → 挂载根文件系统 → 启动 PID 1（systemd）→ 并行启动服务 → 进入登录。
+- 追问：GRUB 到内核之间发生了什么？——GRUB 读 /boot 里的 vmlinuz 和 initramfs，initramfs 提供早期驱动与根文件系统，再切到真正根分区。
+
+**15. 🟡 systemd 相对 SysV init 优势？**
+
+- 并行启动、按依赖排序、cgroup 管理服务、unit 化、自动重启与资源限制。
+- 追问：怎么看服务启动失败原因？——systemctl status <svc>、journalctl -u <svc> -xe。
+
+## 六、系统调用与中断
+
+**16. 🔴 系统调用和函数调用的区别？**
+
+- 函数调用在同一地址空间、无特权级切换；系统调用进入内核态、有特权级切换与上下文开销。
+- 追问：怎么减少系统调用开销？——批处理（readv/writev、io_uring）、缓存结果、降低调用频率。
+
+**17. 🟢 中断上下半部机制？**
+
+- 上半部：硬中断，快速响应、记录信息，不能做耗时操作。
+- 下半部：softirq/tasklet/workqueue，推迟处理耗时逻辑。
+- 追问：网卡收包用哪个下半部？——软中断 softirq（NET_RX），可合并与多核处理。
+
+## 七、IPC
+
+**18. 🔴 6 种 IPC 及选择？**
+
+- 管道（简单、单向）、信号（通知）、共享内存（最快、需同步）、消息队列（有格式、解耦）、信号量（同步互斥）、UDS（本机高效）。
+- 生产：大数据量用共享内存/UDS；解耦用消息队列；跨机用网络。
+- 追问：共享内存为什么最快？——零拷贝，多进程直连同一物理内存。
+
+## 八、设备驱动与内核模块
+
+**19. 🟡 字符设备、块设备、网络设备区别？**
+
+- 字符设备：字节流、顺序访问（串口/键盘）。
+- 块设备：固定块读写、有缓存与 IO 队列（磁盘/SSD）。
+- 网络设备：数据包收发，走协议栈（网卡）。
+- 追问：怎么区分设备类型？——ls -l 看设备文件首字符 c/b；mknod 可创建设备节点。
+
+**20. 🟢 内核模块怎么管理？**
+
+- lsmod 查看、modprobe/insmod 加载、rmmod 卸载、dmesg 看加载日志。
+- 追问：为什么很多驱动要做成模块？——按需加载、支持热插拔、减小内核体积。
+
+> **速记口诀**：进程切换刷 TLB，CFS 红黑树选最小；内存隔离靠分页，IO 慢先查 page cache；网络软中断收包，epoll 高并发；systemd 并行启，共享内存 IPC 最快。

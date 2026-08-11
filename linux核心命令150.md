@@ -1,31 +1,32 @@
-线上查询及帮助命令
-文件和目录操作命令
-查看文件及内容处理命令
-文件压缩及解压缩命令
-信息显示命令
-搜索文件命令
-用户管理命令
-基础网络操作命令
-深入网络操作命令
-有关磁盘与文件系统的命令
-关机和查看系统信息的命令
-系统管理相关命令
-系统安全相关命令
-查看系统用户登录信息的命令
-其他
-系统性能监视高级命令
+# Linux 核心命令 150 条（整理版）
+
+**目录**：
+1. 线上查询及帮助命令
+2. 文件和目录操作命令
+3. 查看文件及内容处理命令
+4. 文件压缩及解压缩命令
+5. 信息显示命令
+6. 搜索文件命令
+7. 用户管理命令
+8. 基础网络操作命令
+9. 深入网络操作命令
+10. 有关磁盘与文件系统的命令
+11. 关机和查看系统信息的命令
+12. 系统管理相关命令
+13. 系统安全相关命令
+14. 查看系统用户登录信息的命令
+15. 其他
+16. 系统性能监视高级命令
 
 ## 线上查询及帮助命令
 
-```
+```bash
 [root@m01 ~]# man ls
 [root@m01 ~]# ls --help
-info cp  
-
-
+info cp
 
 # 以及安装的执行文件 查找是属于哪个包
-[root@m01 ~]# rpm -q --whatprovides `which nslookup`  
+[root@m01 ~]# rpm -q --whatprovides `which nslookup`
 bind-utils-9.11.4-26.P2.el7_9.16.x86_64
 
 # 未安装的软件,只知道命令,找包
@@ -38,11 +39,10 @@ yum provides router
 ls -lht --full-time  # l 长格式显示 h 人类可读显示  t 排序 --full-time 完整时间格式
 cd  /
 cd ~  # ~家目录
-cd -  # 返回上一次目录位置   
+cd -  # 返回上一次目录位置
 cd ..  # . 当前目录  .. 上级目录
 
-
-ln -s /bin/last lin/last  #创建软链接   
+ln -s /bin/last lin/last  #创建软链接
 cp lin/last tmp/  #复制文件  cp [option]  source dest
 cp -r tmp lin      # -r 递归复制目录及目录里所有文件
 cp -a  === -pdr
@@ -54,10 +54,9 @@ cp -a  === -pdr
 -v：详细模式
 -f：强制复制  如果目标文件已存在，会直接覆盖而不提示。
 
-
 # find 起始目录 搜索条件 操作
 # 按文件名搜索
-find /home -name "*.txt"   
+find /home -name "*.txt"
 find /home -iname  "bilibili"     #-iname 不区分大小写
 
 # 按文件类型搜索
@@ -70,11 +69,10 @@ find /home -iname  "bilibili"     #-iname 不区分大小写
 -size -5k    #小于5kb文件
 -size 10k   # 正好10kb文件
 
-# 按时间搜索 
+# 按时间搜索
 -mtime n   #文件修改时间搜索, n表示天数, -mtime +7表示修改时间在7天前的文件, -mtime -1表示1天内修改的文件
 -atime :  按访问时间修改
 -ctime   按文件状态改变时间(如权限更改等)
-
 
 # 操作
 -exec command {} \;   对搜索到的文件执行指定的命令.
@@ -86,10 +84,9 @@ find /tmp -mtime +7 -type f -delete  #删除一周前的文件  /tmp目录下的
 find /var/log -type f -size +1G  #找出大于1G的日志文件
 find /data -name "*.bak" -exec cp {} /backup \; #找到.bak文件复制到/backup 目录下.
 
-
 mkdir   #创建目录
-mkdir [选项] 目录名  
--p   可以创建多级目录   
+mkdir [选项] 目录名
+-p   可以创建多级目录
 -v   显示创建过程详细信息
 
 mkdir test_dir
@@ -122,7 +119,7 @@ rename -v file newfile *.txt
 `file3.txt' -> `newfile3.txt'
 
 rm    remove删除文件或目录
-rm 文件名 
+rm 文件名
 rm -r 目录名
 -f   --force  强制删除
 -i   --interactive   交互式删除
@@ -133,10 +130,8 @@ rmdir 是一个用于删除空目录的命令行工具。它是 "remove director
 -p 或 --parents：删除指定目录及其上级目录，直到遇到非空目录为止。
 -v 或 --verbose：显示每个删除目录的信息。
 
-
-rmdir my_empty_directory 
+rmdir my_empty_directory
 rmdir -p my_empty_directory/sub_directory  # 删除一个空目录及其上级目录（如果它们也是空的）
-
 
 touch  用于创建和更新文件的时间戳, 还可以创建空文件
 touch [选项] 文件...
@@ -148,7 +143,6 @@ touch [选项] 文件...
 -d 或 --date=DATE：设置文件的访问和修改时间为指定的日期和时间。
 -r 或 --reference=FILE：将指定文件的访问和修改时间复制到当前文件。
 
-
 [root@m01 tmp]# stat file2
   File: ‘file2’
   Size: 0               Blocks: 0          IO Block: 4096   regular empty file
@@ -158,7 +152,7 @@ Access: 2024-08-12 16:28:21.438816399 +0800
 Modify: 2024-08-12 16:28:21.438816399 +0800
 Change: 2024-08-12 16:28:21.438816399 +0800
  Birth: -
-[root@m01 tmp]# touch -d '2 weeks ago' file2  # # 设置文件时间为两周前的日期 
+[root@m01 tmp]# touch -d '2 weeks ago' file2  # # 设置文件时间为两周前的日期
 
 touch -am  file1
 touch -c file1
@@ -166,14 +160,11 @@ touch -c file1
 touch -t 1905200520 file2    # 19年05月20号05点20分
 
 
-
-
-[root@m01 tmp]# date +%s  #当前时间戳 
+[root@m01 tmp]# date +%s  #当前时间戳
 1723452299
 [root@m01 tmp]# date -d "2023-09-20 15:30:00" +%s   #指定时间戳
 1695195000
 [root@m01 tmp]# # sudo date -s "2023-09-20 15:30:00"  #设置系统时间
-
 
 tree  图形化展示目录结构和文件列表
 tree [选项] [目录]
@@ -209,7 +200,6 @@ bin
 [root@m01 tmp]# basename -s / /usr/local/bin/python
 python
 
-
 dirname  获取文件路径中目录部分(去除结尾的文件名)
 #!/bin/bash
 file_path="/home/user/data.txt"
@@ -238,7 +228,6 @@ lsattr /etc/passwd   #查看文件属性
 lsattr -R /etc      #递归显示目录属性
 lsattr -a /home  #显示所有文件和目录的属性
 
-
 file  用于确定文件的类型
 -b：仅输出文件类型信息，不包括文件名。
 -f：从指定的文件中读取文件名列表。
@@ -255,7 +244,6 @@ file1: text/plain; charset=us-ascii
 file1: ASCII text
 file2: ASCII text
 
-
 md5sum  计算和校验文件MD5值
 MD5（Message-Digest Algorithm 5）是一种广泛使用的哈希函数，它将任意长度的数据计算为一个128位的哈希值（通常以32个十六进制字符表示）。
 1 唯一性
@@ -269,7 +257,7 @@ d404401c8c6495b206fc35c95e55a6d5  file1
 
 ```bash
 cat  查看文件
-cat file1 ; 
+cat file1 ;
 cat file1 file2
 cat file1 file2 > merged.txt
 cat -n file1   #显示行号
@@ -282,7 +270,6 @@ cat > new_script_file.txt << EOF
 这是一个在脚本中使用 cat 创建的文件内容。
 包含了多行信息。
 EOF
-
 
 tac  将文件内容反向输出
 tac [OPTION]... [FILE]...
@@ -301,18 +288,15 @@ abc
 123
 abc
 
-
 more  分页显示文件内容的命令
 more  large_file.txt  # 这样在处理特别大的文件时，可能在内存使用效率上更有优势，因为它不需要一次性将整个文件加载到内存中。
-交互操作  
+交互操作
     space  滚动一整页
     enter    滚动一行的内容
     q          退出
 
-
-
 less #文件查看器，与more类似
-less large_file.txt  
+less large_file.txt
 交互操作
     上下箭头
     空格和page down  下翻一页
@@ -322,13 +306,9 @@ less large_file.txt
 
 less file1 file2   #打开多文件 :n 切换到一下文件  :p 上一个文件
 
-
-
 head  # 查看文件开头的部分文件内容
 head file.txt # 默认前10行内容
-head -n 行数 file.txt  
-
-
+head -n 行数 file.txt
 
 tail #查看文件尾部
 tail file.txt  # 最后10行内容
@@ -353,8 +333,6 @@ cut -f2 file.txt   #文件的第二列。
 echo "apple,banana,cherry" | cut -d, -f1
 
 
-
-
 split # 将文件分割成多个较小文件
 split [OPTION]... [INPUT [PREFIX]]
 OPTION：可选参数，用于修改命令的行为。
@@ -372,7 +350,6 @@ PREFIX：指定输出文件的前缀。默认前缀是 x。
  split -l 1000 bigfile.txt part_  # 每个文件包含1000行，文件名前缀为 part_。
  split -l 500 -a 3 bigfile.txt part_  # 每个文件包含500行，文件名前缀为 part_，后缀长度为3。
 
-
  #将一个大的数据库备份文件通过网络传输到另一个服务器，
  # 可以先在本地将其分割，然后逐块传输，
  tar -cf etc.tar /etc && split -b 10MB etc.tar etc_
@@ -386,7 +363,6 @@ PREFIX：指定输出文件的前缀。默认前缀是 x。
 [root@m01 tmp]# split file1 part_ && for f in part_*; do md5sum $f; done;
 5ad6e1ebf4c1ce91a3af827c8301ed81  part_aa
 .........
-
 
 paste  # 将多个文件或标准输入的内容合并在一起
 paste [OPTION]... [FILE]...
@@ -421,7 +397,6 @@ sort file1.cfg | paste -d '\t' - file2.cfg
 # 将合并后的内容中的old替换为new，并保存到新的报告文件中。
 paste data1.txt data2.txt | sed 's/old/new/g' > report.txt
 
-
 sort # 文件内容或标准输入进行排序
 常用选项
 -r：逆序排序（降序）。
@@ -429,23 +404,20 @@ sort # 文件内容或标准输入进行排序
 -f：忽略大小写差异进行排序。
 -n：按照数值大小进行排序。
 
-sort file1.txt 
+sort file1.txt
 sort file1.txt > sorted_file.txt
 sort -r file.txt  #排序翻转
 sort -f file.txt   #排序不区分大小写字母
 sort -k 2 file1.txt  # 默认按空格分割 按第二列字段排序
  sort -t ',' -k 2 data.txt  #指定用逗号分隔符,取第二字段排序
 
-
-
 # 扩展
 # 从一个逗号分隔的 CSV 文件中提取第二列（假设是用户ID）并进行排序。
-cut -d ',' -f 2 data.csv | sort > sorted_ids.txt 
+cut -d ',' -f 2 data.csv | sort > sorted_ids.txt
 # 先过滤出包含"ERROR"的日志行，然后按日志中的时间字段（假设是第四列）进行排序。
 grep "ERROR" access.log | sort -k 4
 awk '{print $2}' data.txt | sort
 cut -f 2 -d '\t' data.txt | sort  #取第二列  制表符\t作为分隔符, 后排序
-
 
 uniq  # 用于报告或忽略文件中的重复行，通常与 sort 命令配合使用，因为它只能作用于相邻的重复行。
 niq [选项] [输入文件 [输出文件]]。
@@ -474,8 +446,6 @@ cherry
 apple 2
 banana 2
 cherry 1
-
-
 
 wc  （word count） 用于统计指定文件中的行数、单词数和字节数
 wc [OPTION]... [FILE]...
@@ -510,14 +480,11 @@ FILE：要转换编码的文件。如果未指定文件，iconv 将从标准输�
 #  要将其转换为 UTF-8 编码并保存为新文件 new.txt：
 iconv -f GBK -t UTF-8 old.txt > new.txt
 
-
 dos2unix  # 于将DOS（Windows）格式的文本文件转换为Unix/Linux格式的文本文件
 常用选项
 -n：指定输出文件名，将转换后的内容保存到新文件中，而不是覆盖原文件。
 -k：保留文件的日期和时间戳信息。
 dos2unix example.txt  #单个文件转换为Unix格式：
-
-
 
 
 file  # 用于确定文件类型
@@ -528,9 +495,7 @@ file  # 用于确定文件类型
 [root@m01 tmp]# file text.txt
 text.txt: ASCII text
 
-
 diff # 用于比较两个文件或目录之间的差异。
-
 
 [root@m01 tmp]# echo "this is file1" > file1
 [root@m01 tmp]# echo "this is file2" > file2
@@ -555,21 +520,17 @@ diff -r -x "*.log" dir1 dir2  # -x 忽略的文件
 -this is file1
 +this is file2
 
-
 vimdiff #  Vim 编辑器的一个功能模式，主要用于比较和合并两个或多个文件之间的差异
 vimdiff 文件 1 文件 2
 # -o或-O：-o表示水平分屏打开文件，-O表示垂直分屏打开文件
 # 使用Ctrl + w，然后再按w可以在不同的窗口之间切换。
 # 使用方向键或j（下）、k（上）、h（左）、l（右）在文件中移动。
 
-
 rev #  用于反转行中字符顺序的命令
 # rev [文件或输入流]
 [root@m01 tmp]# echo 'hello' |rev
 olleh
 [root@m01 tmp]# rev text.txt
-
-
 
 grep  （Global Regular Expression Print） # 强大的文本搜索工具。它通过指定的模式来过滤文本，并将匹配该模式的行打印出来
 grep [选项] 模式 [文件...]
@@ -617,9 +578,7 @@ grep -r "pattern" --exclude-dir={dir1,dir2,...}  #跳过的目录
 grep -F "exact_string" filename    #以固定字符搜索,而不是正则表达式. 提高搜索速度
 grep -l "banana" *     # 显示匹配的文件名
 
-
 egrep   是 grep -E 的别名
-
 
 join  # 用于将两个文件中具有共同字段的行合并在一起
 join [选项] 文件1 文件2
@@ -649,7 +608,6 @@ join [选项] 文件1 文件2
 102 Bob B
 103 Carol
 
-
 tr # 用于对输入的文本进行字符转换或删除.
 tr [选项] [字符集1] [字符集2]
 常用的 tr 选项：
@@ -661,7 +619,6 @@ echo "Hello World" | tr -d '\n'  #删除文本的换行符
 echo "Hello World" | tr 'a-z' 'A-Z'  # 小写字母转换为大写：
 echo "Hello, World! 123" | tr -d -c '[:alnum:]' #删除所有非字母数据字符
 echo "This   is  a test" | tr -s ' '    #压缩连续的空格为单个空格
-
 
 vi/vim  # 文本编辑器 "visual interface"
 基本操作：
@@ -731,7 +688,6 @@ find /backup/directory -name "*.tar.gz" -mtime +30 -exec rm {} \;
 # scp 命令安全地将 tar 文件传输到远程服务器。
 scp /path/to/archive.tar.gz user@remotehost:/path/to/destination
 
-
 unzip # 专门用于解压缩 .zip 格式的压缩文件
 unzip [选项] 压缩文件.zip
 常用选项
@@ -748,8 +704,6 @@ unzip file.zip -d /path/to/destination  #解压文件到指定目录
 unzip -l file.zip                                       #查看一下不解压
 
 
-
-
 gzip # 用于压缩文件。它使用 Lempel-Ziv 编码（LZ77）算法，压缩效果通常很好，尤其适用于文本文件
 gzip [选项] 文件名
 常用选项
@@ -764,8 +718,7 @@ gzip -d filename.txt.gz                          # 解压缩
 gzip -l filename.txt.gz                           #查看压缩信息
 
 # # 解压缩 filename.gz 文件，并将内容解压到指定目录
-gzip -cd filename.gz | tar -xv -C /path/to/destination 
-
+gzip -cd filename.gz | tar -xv -C /path/to/destination
 
 zip  # 创建压缩文件（通常称为 .zip 文件
 zip [选项] 压缩文件名.zip 文件或目录...
@@ -821,7 +774,6 @@ x86_64
 [root@m01 tmp]# uname -o
 GNU/Linux
 
-
 hostname  # 用于显示或设置系统的主机名;主机名是一个网络节点的名称，用于标识网络中的设备。
 
 [root@m01 tmp]# hostname   #查看主机名
@@ -831,24 +783,18 @@ m01
 # hostnamectl set-hostname new_hostname  #命令永久修改主机名,会修改文件.
 
 
-
-
 dmesg # 用于查看和控制内核环形缓冲区（kernel ring buffer）。内核环形缓冲区记录了系统启动时的信息以及硬件和驱动程序的消息。
 dmesg | grep "特定文本"
 dmesg -wH   #查看实时内核消息：
-
-
 
 uptime  # 显示系统已经运行了多长时间，以及系统的平均负载情况。
 
 [root@m01 tmp]# uptime
  10:54:36 up 46 min,  1 user,  load average: 0.00, 0.01, 0.03
-10:54:36 当前时间  
-up 46 min  已经运行46分钟 
+10:54:36 当前时间
+up 46 min  已经运行46分钟
 1 user   当前登录系统的用户数
 load average: 0.00, 0.01, 0.03: 系统过去的 1 ,5 ,15 分钟的平均负载,理想情况下，这个值应该低于CPU核心数，表示系统负载正常。
-
-
 
 file  #用于确定文件类型
 常见选项
@@ -869,8 +815,6 @@ archive.zip: ASCII text (Zip archive data, at least v1.0 to extract)
 安全扫描：检查上传的文件类型，以防止恶意文件上传。
 自动化脚本：在自动化脚本中使用，以根据文件类型执行不同的操作。
 故障排查：当遇到文件相关的问题时，可以使用 file 命令来确认文件的格式和内容。
-
-
 
 stat  # 用于显示文件或文件系统状态的详细信息
 # 文件的元数据，如大小、块数、权限、最后访问、修改和改变时间等
@@ -900,8 +844,6 @@ Modify: 文件内容最后一次被修改的时间。
 Change: 文件的元数据（如权限或所有权）最后一次被改变的时间。
 Birth: 文件创建时间。并非所有文件系统都记录这个时间，因此这里可能显示为“-”。
 
-
-
 du  # 用于估算文件和目录的磁盘使用空间
 常用选项
 -h: 以人类可读的格式（如KB、MB、GB）显示大小。
@@ -915,7 +857,6 @@ du -sh  #显示当前目录的总磁盘使用情况
 du -sh /path/to/directory  #指定目录
 du -ah /path/to/directory  #显示指定目录里每个文件的大小
 
-
 df  #用于报告文件系统的磁盘空间使用情况
 常用选项
 -h: 以人类可读的格式（如KB、MB、GB）显示大小。
@@ -928,7 +869,6 @@ df -h
 df -h /dev/sda1
 df -hT | grep ext4
 df -hi
-
 
 top #实时系统监控工具
 # 动态更新的视图，显示系统中进程的资源使用情况，包括CPU、内存、运行状态等信息
@@ -981,7 +921,7 @@ Cpu(s): 0.3%us：用户空间占用CPU的百分比。
 0.0%wa：等待I/O的CPU时间百分比。
 0.0%hi：硬件中断请求占用CPU的百分比。
 0.0%si：软件中断请求占用CPU的百分比。
-0.0%st：虚拟机占用的CPU时间百分比（在虚拟化环境中）。  
+0.0%st：虚拟机占用的CPU时间百分比（在虚拟化环境中）。
 第四行：内存状态。
 Mem: 16275200k total：物理内存总量。
 15618080k used：已使用的内存总量。
@@ -1008,13 +948,10 @@ S：进程状态（S表示睡眠，R表示运行，Z表示僵尸进程，等等�
 TIME+：进程自启动以来使用的CPU时间总量。
 COMMAND：启动进程的命令名。
 
-
-# 扩展  
+# 扩展
 # htop  (top升级版)
 # atop  (监控CPU、内存、磁盘I/O、网络I/O、进程等)
 # dstat(vmstat, iostat, netstat, ifstat,的结合)
-
-
 
 free #显示系统中空闲和已使用的物理及交换内存总量
 
@@ -1033,8 +970,6 @@ free：表示当前未被使用的内存总量。
 shared：表示被多个进程共享的内存总量（在某些系统上可能不准确或不显示）。
 buff/cache：表示被内核用作文件系统缓存的内存总量。
 available：表示估计的可用于启动新应用的内存总量，它考虑了当前的缓存和缓冲区，但不包括交换空间。
-
-
 
 date #用于显示和设置系统的日期和时间
 date -u                                                # 显示当前的UTC时间：
@@ -1068,8 +1003,6 @@ which # 确定可执行文件的位置
 [root@m01 tmp]# which ls
 alias ls='ls --color=auto'
         /usr/bin/ls
-
-
 
 find # 文件系统中搜索文件和目录
 find [路径] [条件] [动作]
@@ -1110,7 +1043,6 @@ find . -path "./node_modules" -prune -o -type f -print
 find . -newer reference.txt
 find . -type d -empty  #查找空目录
 
-
 whereis  #快速查找二进制文件、源代码和手册页的位置
 
 whereis [选项] 命令名
@@ -1129,7 +1061,6 @@ locate  #快速查找文件和目录的位置
 # 这使得 locate 在速度上通常比 find 快得多，
 # 但它的缺点是不能找到在数据库更新之后新创建或修改的文件。
 yum install -y locate
-
 
 locate [选项] 模式
 常用选项
@@ -1188,11 +1119,9 @@ usermod -s /bin/zsh oldname    #更改shell
 usermod -g newgroup oldname  #更改组
 usermod -a -G newgroup oldname  #添加新组
 # 锁定和解锁用户
-usermod -L oldname  
+usermod -L oldname
 usermod -U oldname
 usermod -e 2023-12-31 oldname  #设置账户过期日期
-
-
 
 userdel   #删除用户账户
 userdel [选项] 用户名
@@ -1213,8 +1142,6 @@ groupadd newgroup
 groupadd -g 1010 newgroup
 groupadd -r systemgroup
 
-
-
 passwd   #，用于更改用户账户的密码
 选项
 -l：锁定用户账户，使其无法登录。
@@ -1227,8 +1154,6 @@ sudo passwd 用户名 # 系统管理员为其他用户设置或更改密码
 sudo passwd -l john #锁定用户
 sudo passwd -u john # 解锁用户
 sudo passwd -e john #强制用户 john 在下次登录时更改密码
-
-
 
 
 chage #用于管理用户密码过期信息
@@ -1246,8 +1171,6 @@ sudo chage -M 60 john  #设置用户 john 的密码最大使用天数为60天
 sudo chage -W 7 john    # 设置用户 john 在密码过期前7天开始警告
 sudo chage -I 30 john     #设置用户 john 的密码过期后账户禁用30天：
 sudo chage -d 0 john      # 强制用户 john 在下次登录时更改密码：
-
-
 
 
 id   #显示当前用户或指定用户的用户ID（UID）、组ID（GID）以及所属的其他组信息
@@ -1271,8 +1194,6 @@ id -G
 显示指定用户的ID信息（例如用户 john）：
 id john
 
-
-
 su  # 切换当前用户身份到另一个用户
 su [选项] [用户名]
 如果不指定用户名，su 默认切换到root用户。
@@ -1286,9 +1207,6 @@ su -   #切换到root用户
 su -c 'command'  #以root身份执行单个命令
 su -c 'tail -f /var/log/syslog'  #以root身份查看日志文件
 su - john   #切换john 用户并加载john的环境变量
-
-
-
 
 
 
@@ -1309,7 +1227,6 @@ john ALL=(ALL) NOPASSWD: ALL
 # 限制用户 jane 只能在 webserver 主机上使用 sudo 执行 service 命令：
 jane webserver=(ALL) NOPASSWD: /usr/sbin/service
 
-
 conf-----------------------------------------------
 # 用户别名
 User_Alias ADMINS = alice, bob
@@ -1329,8 +1246,6 @@ ADMINS ALL=(ALL:ALL) ALL
 # 特定命令权限
 alice SERVERS=(root) SYSTEMCTL
 
-
-
 sudo  #它允许用户以另一个用户的身份（通常是超级用户root）执行命令
 sudo [选项] 命令
 选项
@@ -1345,8 +1260,6 @@ sudo -u john /bin/ls /home/john  #以特定用户执行命令
 sudo -s                                           # 启动root用户shell
 sudo -l                                            #列出当前用户可执行的sudo命令
 sudo -v
-
-
 
 sudo和su有什么区别？
 1. 目的和使用场景
@@ -1384,8 +1297,6 @@ telnet example.com 8080
 网络调试：telnet 可用于网络调试，例如检查特定端口是否开放。
 特定服务测试：在某些情况下，telnet 可用于测试特定服务是否正常运行，如测试HTTP服务是否响应。
 
-
-
 ssh  #（Secure Shell）是一种网络协议，用于在不安全的网络中为计算机之间提供安全的加密通信
 ssh [选项] 用户名@主机名 [远程命令]
 用户名：远程服务器上的用户名。
@@ -1404,7 +1315,6 @@ ssh -p 2222 username@remote_host
 ssh -i /path/to/private_key username@remote_host
 ssh username@remote_host 'ls -l'
 
-
 # SSH密钥认证比密码认证更安全。生成密钥对（公钥和私钥），将公钥添加到服务器的 ~/.ssh/authorized_keys 文件中，然后使用私钥进行认证。
 ssh-keygen
 ssh-copy-id username@remote_host
@@ -1415,14 +1325,12 @@ ssh -L [本地绑定地址:]本地端口:远程主机:远程端口 用户名@SSH
 [本地绑定地址:] 是可选的，用于指定本地端口绑定的地址，默认是 localhost
 ssh -L 3306:localhost:3306 username@example.com
 
-
-
 # 远程端口转发
 #将 example.com 上的8080端口转发到本地计算机的80端口。现在，你可以通过 example.com 的8080端口访问本地的HTTP服务。
 ssh -R [远程绑定地址:]远程端口:本地主机:本地端口 用户名@SSH服务器
 ssh -R 8080:localhost:80 username@example.com
 
-# 使用SSH隧道 
+# 使用SSH隧道
 # SSH隧道通常是指通过SSH连接建立的加密通道，用于保护通过该通道传输的数据。这个术语强调的是数据传输的安全性。
 # 创建一个隧道，将本地的3306端口转发到 ssh_host 上的3306端口。
 ssh -fNg -L 3306:localhost:3306 username@ssh_host
@@ -1431,8 +1339,7 @@ ssh -fNg -L 3306:localhost:3306 username@ssh_host
 #可以使用 ssh -S /tmp/sshsocket 来复用这个连接
 ssh -N -f -M -S /tmp/sshsocket username@ssh_host
 
-
-# ssh的socks代理 
+# ssh的socks代理
 -----------------------------------------------------------------------------------
 #服务器端 保证有ssh服务端口开通  端口转发功能打开(默认开)
 ssh-keygen
@@ -1441,7 +1348,7 @@ ssh-copy-id root@10.0.0.3
 nohup ssh -D 1080 root@10.0.0.3 & #放后台 ,目前不成功
 yum install screen
 screen   #启动一个新的screen会话
-ssh -D 1080 root@10.0.0.3 
+ssh -D 1080 root@10.0.0.3
 # ctrl+A 然后再按D  返回原始的终端会话
 # screen -r  再回到screen  会话
 
@@ -1451,7 +1358,7 @@ lsof -i :1080
 # 测试代理是否正常工作
 curl --socks5 localhost:1080 https://www.baidu.com
 
-操作系统设置 代理   手动设置代理  
+操作系统设置 代理   手动设置代理
 代理ip地址写 localhost
 端口 1080
 --------------------------------------------------------------------------------
@@ -1481,12 +1388,10 @@ scp -i /path/to/private_key local_file.txt username@remote_host:/path/to/remote/
 网络要求：scp 需要能够访问远程主机的SSH服务。确保远程主机的SSH服务正在运行，并且端口没有被防火墙阻塞。
 性能：对于大文件或大量文件的传输，scp 可能会比较慢。考虑使用 rsync 或其他文件同步工具来提高效率。
 
-注意: 
+注意:
 安全性：scp 使用SSH进行加密传输，因此比使用FTP等非加密协议更安全。
 权限和所有权：复制文件时，文件的所有权和权限可能会改变。使用 -p 选项可以保留原文件的权限和时间戳。
 性能：对于大文件或大量文件的传输，scp 可能会比较慢。考虑使用 rsync 或其他文件同步工具来提高效率。
-
-
 
 
 wget # 用于从网络上下载文件
@@ -1507,16 +1412,14 @@ wget -O mydownload.zip http://example.com/file.zip
 wget -c http://example.com/largefile.zip
 wget -b http://example.com/file.zip
 ##下载 http://example.com/ 网站的所有内容，但不会下载父目录中的内容
-wget -r -np http://example.com/  
+wget -r -np http://example.com/
 
 axel  #多线程下载工具
 sudo yum install axel  # CentOS 7 及以下版本
 axel -n 线程数 URL
 
 
-
-
-ping  #测试网络连接 
+ping  #测试网络连接
 # 它通过发送ICMP（Internet Control Message Protocol）回显请求消息到目标主机，并等待接收回显应答
 ping [选项] 目标主机
 常用选项
@@ -1556,8 +1459,6 @@ packets received：接收到的数据包数量。
 packet loss：丢包率，如果为0%，表示没有丢包。
 time：测试的总时间。
 rtt min/avg/max/mdev：最小、平均、最大往返时间以及标准偏差（mdev），标准偏差越小表示网络延迟越稳定。
-
-
 
 route #显示和修改IP路由表
 选项说明
@@ -1607,7 +1508,6 @@ M (Modified)：表示该路由被 metricom 程序修改过。
 ! (Reject)：表示该路由是一个被拒绝的路由。所有不符合其他路由规则的数据包都会被发送到这个路由，通常用于实现默认路由的“拒绝”行为。
 R：表示对该路由进行动态更新（例如，通过路由协议）
 
-
 ifconfig  # 用于配置和显示网络接口参数
 ifconfig -a  # 查看所有网络接口状态
 选项说明
@@ -1617,7 +1517,6 @@ eth0：指定要配置的网络接口名称。在Linux中，网络接口通常�
 
 sudo ifconfig eth0 192.168.1.10 netmask 255.255.255.0 up
 sudo ifconfig eth0 down
-
 
 [root@kh1 tmp]# ifconfig -a
 eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
@@ -1638,7 +1537,7 @@ lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
         TX packets 107  bytes 33923 (33.1 KiB)
         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
 
-字段解释: 
+字段解释:
 eth0: 网络接口的名称
 flags=4163<UP,BROADCAST,RUNNING,MULTICAST>: 接口状态标志。UP 表示接口已启用，BROADCAST 表示接口支持广播，RUNNING 表示接口正在运行，MULTICAST 表示接口支持多播。
 
@@ -1685,8 +1584,6 @@ RUNNING: 二进制的第3位，十进制的8。
 将这些数值相加（1 + 128 + 8），我们得到73。因此，flags=73 实际上是这些标志组合的数值表示。
 
 
-
-
 ifup  # 用于激活（启动）网络接口
 选项
 -a：激活所有未激活的网络接口。
@@ -1697,8 +1594,6 @@ ifup  # 用于激活（启动）网络接口
 sudo ifup eth0
 
 
-
-
 ifdown #用于关闭（停用）网络接口
 选项
 -a：停用所有已激活的网络接口。
@@ -1707,7 +1602,6 @@ ifdown #用于关闭（停用）网络接口
 --no-act：不实际停用接口，只是显示将要执行的操作。
 
 sudo ifdown eth0
-
 
 netstat  # 用于显示网络连接、路由表、接口统计、伪装连接和多播成员
 netstat [选项]
@@ -1727,7 +1621,6 @@ netstat -tulpn   #显示每个套接字的进程ID和名称：
 netstat -r          # 显示路由表
 netstat -i           # 显示网络接口统计信息
 
-
 netstat 的输出通常包含以下列：
 
 Proto：协议类型（TCP或UDP）。
@@ -1744,7 +1637,7 @@ IRTT（Initial Round Trip Time，初始往返时间
 state 网络连接状态:
 LISTEN:  监听 ;表示服务器程序正在等待连接进入
 ESTABLISHED: 已经建立连接;
-SYN_SENT: 
+SYN_SENT:
   -客户端已发送 SYN（同步）数据包来发起连接，但尚未收到对方的 SYN-ACK（同步确认）数            据包。这是在 TCP 三次握手过程中的一个中间状态。
     -当客户端尝试连接到服务器时，首先发送 SYN 包，此时客户端的连接状态就是SYN_SENT。
 SYN_RECV:
@@ -1774,8 +1667,6 @@ LAST_ACK
 CLOSED
 - 连接已经完全关闭，资源已释放。这是连接的最终状态，当两端都完成了关闭操作后，连接就会进入 CLOSED 状态。
 - 一旦进入这个状态，相关的套接字资源会被系统回收
-
-
 
 [root@kh1 tmp]# netstat -i
 Kernel Interface table
@@ -1824,7 +1715,6 @@ nmap -O -sV 192.168.1.1     #进行操作系统探测和版本探测
 nmap -A 192.168.1.1  #对 192.168.1.1 进行高级探测，包括操作系统探测、版本探测等
 nmap -sV 192.168.1.1 #对 192.168.1.1 进行版本探测，尝试确定开放端口上运行的服务和版本信息
 
-
 # 于对一个子网进行快速扫描，并保存结果到文件
 nmap -sP 192.168.1.0/24 -oN network_scan_results.txt
 
@@ -1868,17 +1758,10 @@ NODE：节点号。
 NAME：文件名或网络连接的详细信息。
 
 
-
-
 mail  #用于发送和接收电子邮件  #待添加
 
 
-
-
 mutt  #  流行的文本界面邮件用户代理（MUA）
-
-
-
 
 
 nslookup #获取域名或IP地址映射信息
@@ -1898,9 +1781,6 @@ Name:   www.taobao.com.danuoyi.tbcache.com
 Address: 240e:cf:8800:15:3::3d1
 
 
-
-
-
 dig  #（domain information groper）是一个灵活的命令行工具，用于查询DNS（域名系统）信息
 dig [@服务器] 域名 [查询类型] [选项]
 服务器：指定用于查询的DNS服务器。
@@ -1913,9 +1793,8 @@ dig [@服务器] 域名 [查询类型] [选项]
 +tcp：使用TCP协议进行查询。
 +time=T：设置查询的超时时间，其中 T 是秒数。
 
-
 dig www.baidu.com  #查询域名A记录
-dig example.com MX  
+dig example.com MX
 dig @8.8.8.8 example.com #指定dns服务器进行查询
 dig +trace www.baidu.com  #显示详细信息
 
@@ -1946,8 +1825,6 @@ PTR 记录（Pointer Record） 将IP地址映射回域名（反向DNS）。
 SRV 记录（Service Locator Record） 指定提供特定服务的服务器地址和端口
 SOA 记录（Start of Authority Record） 标识域名的权威DNS服务器。
 
-
-
 host  #查询域名系统（DNS）并获取域名相关信息
 host [选项] 域名 [服务器]
 域名：要查询的域名。
@@ -1973,7 +1850,6 @@ traceroute [选项] 目标主机
 -w：设置等待每个响应的超时时间（秒）。
 -m：设置最大跳数。
 -q：设置每个路由器的探测次数。
-
 
 [root@m01 ~]# traceroute www.qq.com
 traceroute to www.qq.com (58.246.163.58), 30 hops max, 60 byte packets
@@ -2002,12 +1878,11 @@ tcpdump [选项]
 -v, -vv, -vvv：增加详细程度，-vvv 提供最详细的输出。
 
 tcpdump -i eth0           #监听eth0接口上的所有数据包：
-tcpdump -i eth0 tcp   
+tcpdump -i eth0 tcp
 tcpdump -i eth0 'tcp port 80'  #监听eth0接口上的所有HTTP请求
 tcpdump -c 10 -v  #捕获10个数据包并显示详细信息：
 tcpdump -w capture.pcap  #捕获的数据写入文件
 #pcap文件分析：捕获的数据包可以使用Wireshark等图形界面工具进行详细分析。
-
 
 [root@m01 ~]# tcpdump -c 2 -v
 tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
@@ -2053,15 +1928,13 @@ auto/noauto：指定该文件系统是否在执行 mount -a 时自动挂载。
 user/nouser：允许（user）或禁止（nouser）普通用户挂载文件系统。
 
 mount  #命令用于显示已挂载的文件系统信息
-sysfs on /sys type sysfs (rw,nosuid,nodev,noexec,relatime) 
+sysfs on /sys type sysfs (rw,nosuid,nodev,noexec,relatime)
 表示 sysfs 文件系统已经被挂载到 /sys 目录上，并且具有以下挂载选项：
 rw：表示该文件系统是以读写模式挂载的。
 nosuid：表示不允许设置SUID位。这意味着即使文件或目录设置了SUID位，执行时也不会以文件所有者的身份执行，这增加了安全性。
 nodev：表示不允许设备文件。这意味着 /sys 目录下的文件不会被视为设备文件，这有助于防止某些类型的攻击。
 noexec：表示不允许在该文件系统上执行二进制文件。这有助于防止恶意代码的执行。
 relatime：表示提供相对时间戳。这个选项优化了文件系统访问时间的记录，当文件被访问时，只有当文件的访问时间比其修改时间或状态改变时间更晚时，才会更新其访问时间。这可以提高性能，特别是在文件系统访问频繁的情况下。
-
-
 
 mount /dev/sda1 /mnt/data
 mount -t ext4 /dev/sda1 /mnt/data
@@ -2073,8 +1946,6 @@ mount -t vfat /dev/sdb1 /mnt/usb
 
 # 只读模式挂载一个分区
 sudo mount -o ro /dev/sda1 /mnt/data
-
-
 
 #注意
 挂载点：挂载点目录必须事先存在，且在挂载前应为空目录。
@@ -2092,8 +1963,6 @@ sudo umount /dev/sdb1  #卸载设备文件
 fuser -m /mnt/usb
 sudo kill -9 $(fuser -m /mnt/usb)
 
-
-
 df  #（disk free） 用于报告文件系统的磁盘空间使用情况
 df [选项] [文件或目录]
 常用选项
@@ -2103,7 +1972,7 @@ df [选项] [文件或目录]
 -t 或 --target-directory：仅显示指定目录所在的文件系统的使用情况。
 -x 或 --exclude-type：排除指定类型的文件系统。
 
-df -h 
+df -h
 df /path/to/directory  #显示特定目录的使用情况
 df -i     #显示索引节点的使用情况
 
@@ -2128,7 +1997,6 @@ du -sh  #显示当前目录的总磁盘使用情况
 du -sh /path/to/directory  #指定目录
 du -ah /path/to/directory  #显示指定目录里每个文件的大小
 
-
 fsck #（File System Check）用于检查和修复文件系统一致性
 fsck [选项] 文件系统设备或挂载点
 检查并修复/dev/sda1分区上的文件系统，可以使用：fsck /dev/sda1
@@ -2149,7 +2017,6 @@ umount /dev/sdd1（卸载分区）
 fsck /dev/sdd1（执行检查和修复）
 mount /dev/sdd1 /mnt（重新挂载到/mnt目录）
 
-
 dd  #用于数据的复制、转换和备份
 dd if=/dev/sda of=/dev/sdb
 常用选项
@@ -2161,8 +2028,6 @@ count：指定要复制的块数量。
             例如：count=100表示复制 100 个块。
 status=progress  #显示dd命令的进度。
 
-
-
 #创建一个大小为 10MB 的空文件empty_file
 dd if=/dev/zero of=empty_file bs=1M count=10
 #  ISO 文件刻录到 USB 设备
@@ -2171,8 +2036,6 @@ dd if=your_iso_file.iso of=/dev/sdc
 #dd命令和cp命令的区别?
 dd 更为底层和灵活的工具，能够进行按块级别的数据复制操作  还可以数据格式转换,处理设备文件,磁盘镜像制作
 cp 用于文件和目录的复制，更侧重于文件系统层面的操作
-
-
 
 dumpe2fs  #用于查看 ext2、ext3 或 ext4 文件系统详细信息
 dumpe2fs [选项] 设备文件名
@@ -2214,8 +2077,6 @@ sectsz=512 sunit=0 blks, lazy-count=1：扇区大小为512字节，日志的条�
 realtime=none extsz=4096 blocks=0, rtextents=0：文件系统没有使用实时设备，实时区域的块大小为4096字节，没有实时块和实时区域扩展。
 
 
-
-
 dump  #linux系统中用于备份文件系统
 #dump 通常用于创建文件系统的完整备份（全备份）或增量备份（只备份自上次备份以来发生变化的数据）。与 tar 不同，dump 是专门为备份文件系统设计的，因此它能够处理文件系统的特殊结构和属性。
 
@@ -2232,7 +2093,7 @@ dump [选项] 备份级别 目标文件系统
 -S：显示备份的估计大小。
 -W：显示需要备份的文件系统列表。
 
-#执行全备份并保存到文件 
+#执行全备份并保存到文件
 #-0 表示全备份，-u 表示更新备份记录文件（通常是 /etc/dumpdates），-f 指定备份文件的路径。
 dump -0u -f /path/to/backup_file /dev/sda1
 
@@ -2263,7 +2124,6 @@ restore -r -f /path/to/backup_file   #2进入交互式恢复模式
 使用 quit 命令退出 restore。
 umount /mnt/restore  #卸载备份文件
 
-
 xfsdump ,xfsrestore  # 专门用于XFS文件系统的备份和恢复工具
 xfsdump [选项] 备份级别 备份目标 源文件系统或目录
 源文件系统：要备份的XFS文件系统的设备文件名，如 /dev/sda1。
@@ -2291,8 +2151,6 @@ xfsrestore [选项] [命令] 备份文件   [目标目录]
 mkdir /mnt/restore
 xfsrestore -f /path/to/backup_file -L full_backup /mnt/restore
 
-
-
 fdisk #用于磁盘分区
 # fdisk 可以列出、创建、删除和修改磁盘分区。它支持多种类型的分区表，包括MBR（Master Boot Record）和GPT（GUID Partition Table）
 
@@ -2304,7 +2162,7 @@ fdisk [选项] 设备名
 -b：指定分区表的大小（通常用于GPT）。
 
 fdisk -l
-# fdisk 交互式界面 
+# fdisk 交互式界面
 sudo fdisk /dev/sda
 fdisk 交互式命令
 在 fdisk 的交互式界面中，你可以使用以下命令：
@@ -2321,8 +2179,6 @@ q：不保存更改并退出。
 在 fdisk 交互式界面中，输入 n 创建新分区，然后按照提示操作。
 2.删除分区：
 在 fdisk 交互式界面中，输入 d 删除现有分区，然后按照提示操作。
-
-
 
 # 如何查看当前磁盘是不是gpt 分区表
 [root@m01 ~]# fdisk -l /dev/sdb
@@ -2347,9 +2203,6 @@ Start / End: 分区的起始和结束扇区。
 Blocks: 分区的大小，以块为单位
 Id: 分区类型代码。
 System: 分区类型描述。
-
-
-
 
 
 gdisk  #使用gpt分区表
@@ -2377,7 +2230,6 @@ Number  Start (sector)    End (sector)  Size         Code     Name
 
 gdisk  /dev/sdb   #交互式操作, 和fdisk 操作类似
 
-
 parted  # 适用于创建、删除、调整大小和管理磁盘分区, 大于2TB的分区用它处理
 parted [选项] [设备名]
 常用选项
@@ -2395,7 +2247,7 @@ rm：删除分区。
 resizepart：调整分区大小。
 quit：退出 parted。
 
-# 实战 
+# 实战
 # 1 确定分区的磁盘设备
  fdisk -l /dev/sdb  # 或者 lsblk
 parted /dev/sdb #2 进入交互式界面
@@ -2411,9 +2263,7 @@ quit
 # 格式化新分区
 mkfs.ext4 /dev/sda1
 
-
-
-mkfs  #make filesystem 用于创建文件系统, 
+mkfs  #make filesystem 用于创建文件系统,
 # 将一个分区或存储设备格式化为特定类型的文件系统，如ext2、ext3、ext4、xfs、vfat
 mkfs [选项] [-t 文件系统类型] 设备名
 常用选项
@@ -2428,8 +2278,6 @@ mkfs -t ext4 /dev/sda1
 mkfs -t xfs /dev/sda1
 mkfs -t vfat /dev/sda1
 
-
-
 partprobe  #用于通知操作系统内核分区表已经更改，无需重启系统
 # 当你对磁盘进行分区操作（如使用 fdisk、parted 等工具添加、删除或修改分区）后，内核可能不会立即意识到这些更改。运行 partprobe 可以让内核重新读取分区表，从而识别新的分区或分区更改。
 
@@ -2440,7 +2288,6 @@ blkid 是一个用于显示块设备属性的命令行工具，包括分区的UU
 parted -l  用于列出所有分区信息。
 fdisk -l  列出所有分区信息
 lsblk     列出所有可用块设备信息
-
 
 e2fsck  #用于检查和修复第二扩展文件系统（ext2）、扩展文件系统（ext3）和扩展文件系统4（ext4）的工具
 
@@ -2458,7 +2305,7 @@ e2fsck /dev/sda1       # 检查 /dev/sda1 文件系统：
 e2fsck -f -p /dev/sda1  #强制检查并自动修复错误
 e2fsck -v /dev/sda1     #详细模式检查
 
-# xfs 文件系统使用  xfs_repair 
+# xfs 文件系统使用  xfs_repair
 # 修复XFS文件系统中的错误，它可以在文件系统未挂载或以只读方式挂载时运行。
 xfs_repair [选项] 设备名
 常用选项
@@ -2470,8 +2317,6 @@ xfs_repair [选项] 设备名
 xfs_repair /dev/sda1
 xfs_repair -f /dev/sda1
 xfs_repair -v /dev/sda1
-
-
 
 
 mkswap  # （swap space） 创建交换分区或交换文件。
@@ -2509,15 +2354,10 @@ cat /etc/fstab
          根文件系统（/）通常设置为 1，其他文件系统设置为 2。如果设置为 0，则不进行检查。
 
 
-
-
-
 sync  #用于将所有未写入磁盘的文件系统缓冲区数据强制写入磁盘
 
 # 在关闭或重启系统之前，运行 sync 命令可以确保所有文件系统的更改都被写入磁盘。
 #  在编写脚本时，如果需要确保数据被写入磁盘，可以在脚本中加入 sync 命令
-
-
 
 resize2fs # resize2fs 是一个用于调整（ext2（ext3（ext4）大小的命令行工具
 resize2fs [选项] 设备名 [新大小]
@@ -2533,7 +2373,7 @@ sudo resize2fs /dev/sda1
 
 sudo resize2fs /dev/sda1 10G  # 将 /dev/sda1 文件系统调整为10GB大小
 
-# 注意: 
+# 注意:
 文件系统未挂载或只读挂载: 文件系统未挂载或只读挂载 才能使用
 检查文件系统：在调整文件系统大小之前，建议先运行 e2fsck 来检查文件系统是否有错误
 
@@ -2576,8 +2416,6 @@ shutdown -c   #取消安排的关机或重启
 shutdown -h +5 "System will shutdown in 5 minutes for maintenance."  #5分钟后关机,并向所有用户广播
 
 
-
-
 halt   #用于停止Linux系统运行的命令
 halt [选项]
 常用选项
@@ -2588,11 +2426,9 @@ halt [选项]
 -i 或 --init：在停止系统之前，使用init程序来停止所有进程。
 
 halt      #立即停止系统
-halt -p  #立即停止系统并关闭电源： 
+halt -p  #立即停止系统并关闭电源：
 halt -f   #强制停止系统
 halt -i   #在停止系统之前使用init程序停止所有进程
-
-
 
 init  # init 是一个传统的系统初始化程序，用于启动、停止和管理运行在Linux系统上的进程
 
@@ -2612,7 +2448,6 @@ init 使用运行级别（runlevels）来定义系统启动的不同状态。每
 6：重启（reboot）
 
 init [运行级别]  0/1/2/3/5/6  #命令切换
-
 
 什么是Upstart和systemd？
 Upstart和systemd都是Linux系统中用于初始化和管理系统服务的工具，它们替代了传统的init系统
@@ -2656,12 +2491,11 @@ ps [选项]
 -x：显示没有控制终端的进程。
 -o：指定输出格式，后面跟上需要显示的列名，如 pid,ppid,cmd,stat,rss,vsz,etime,command。
 
-
 ps -ef  #显示完整格式的进程信息
 ps -u username  # 特定用户的进程
 ps -C command_name # 显示特定命令名的进程
 ps -eo pid,ppid,cmd,stat,rss,vsz,etime,command   #自定义输出格式
-ps axu   
+ps axu
 To print a process tree:
   ps -ejH
   ps axjf
@@ -2670,7 +2504,7 @@ To print a process tree:
 UID   PID   PPID  C STIME TTY          TIME CMD
 root    1      0       0 18:19  ?        00:00:01 /usr/lib/systemd/systemd --switched-root --system --deserialize 22
 root    2      0       0 18:19  ?        00:00:00 [kthreadd]
-root    4      2       0 18:19  ?        00:00:00 [kworker/0:0H]        
+root    4      2       0 18:19  ?        00:00:00 [kworker/0:0H]
 ps -ef 输出的列说明：
 1.UID：用户ID（User ID），表示启动该进程的用户。
 2.PID：进程ID（Process ID），唯一标识每个进程。
@@ -2700,8 +2534,6 @@ ps axu 输出的列说明：
 9.START：进程启动时间。
 10.TIME：进程自启动以来所占用的CPU时间。
 11.COMMAND：启动进程的命令名。
-
-
 
 free  #上面有
 
@@ -2745,8 +2577,6 @@ id：空闲CPU百分比。
 wa：等待I/O的CPU时间百分比。
 st：被偷取时间的百分比（在虚拟化环境中，指被其他虚拟机占用的时间）。
 
-
-
 mpstat #用于报告多处理器系统中每个可用处理器的CPU使用情况
 # 它提供了关于CPU活动的详细信息，包括用户空间、内核空间、空闲时间、等待I/O的时间等
 mpstat [选项] [刷新间隔 [次数]]
@@ -2772,10 +2602,9 @@ CPU：显示每个CPU的统计信息。
 %soft：处理软件中断的CPU使用率。
 %steal：虚拟机管理程序偷取CPU时间的百分比（在虚拟化环境中）。
 %guest：在虚拟处理器上运行客户机的CPU使用率。
-%gnice：表示高优先级用户态（niced）的 CPU 时间百分比.  
+%gnice：表示高优先级用户态（niced）的 CPU 时间百分比.
                 具有特定高优先级设置或特殊调整的用户态进程所占用的时间.
 %idle：CPU空闲时间的百分比。
-
 
 iostat #用于监控系统输入/输出设备负载
 # 提供关于CPU使用率、设备I/O负载、吞吐量等的详细统计信息
@@ -2798,7 +2627,6 @@ tps 显示了每秒传输的I/O请求数。
 kB_read/s 和 kB_wrtn/s 分别显示了每秒读取和写入的数据量（以千字节为单位）。
 kB_read 和 kB_wrtn 显示了总共读取和写入的数据量。
 
-
 CPU部分
 %user：在用户级别运行应用程序所占用的CPU百分比。
 %nice：在用户级别运行应用程序，且优先级被调整（nice）所占用的CPU百分比。
@@ -2806,9 +2634,6 @@ CPU部分
 %iowait：CPU空闲时等待I/O操作完成的时间所占的百分比。
 %steal：虚拟机管理程序（hypervisor）为了另一个虚拟处理器而偷取（steal）当前虚拟处理器的时间所占的百分比。
 %idle：CPU空闲且没有等待I/O操作的时间所占的百分比。
-
-
-
 
 
 sar(sysstats包)  # System Activity Reporter）是一个用于收集、报告和保存系统活动信息
@@ -2821,7 +2646,6 @@ sar(sysstats包)  # System Activity Reporter）是一个用于收集、报告和
 -b：显示I/O和传输速率统计信息。
 -P：显示指定CPU的信息。
 -w：显示进程创建和切换统计信息。
-
 
 sar -u 2 5  #每10秒收集一次CPU使用率信息，共收集5次：
 sar -d 2 10  #每5秒收集一次磁盘I/O信息，共收集10次
@@ -2859,7 +2683,6 @@ await: 这个值是请求从提交到完成的平均时间。如果这个值很�
 svctm: 这个值表示完成一个I/O请求所需的平均时间。如果 svctm 很高，而 await 也很高，这可能表明磁盘性能不佳。
 %util: 这个值表示磁盘在I/O请求期间的忙碌百分比。如果这个值接近100%，表明磁盘几乎一直在处理I/O请求。
 
-
 [root@m01 ~]# sar -r 2 1
 Linux 3.10.0-1160.71.1.el7.x86_64 (m01)         08/14/2024      _x86_64_        (1 CPU)
 
@@ -2896,10 +2719,6 @@ ALL：显示所有网络相关的统计信息。
 
 
 
-
-
-
-
 chkcofnig  #一个在基于System V的初始化系统中用于管理服务的命令行工具，它允许用户设置服务在不同运行级别下的启动和停止
 # chkconfig 主要用于较旧的Linux发行版，而较新的发行版（如基于systemd的发行版）则使用 systemctl 命令来管理服务
 chkconfig [选项] [服务名]
@@ -2911,11 +2730,10 @@ chkconfig [选项] [服务名]
 --level 运行级别：指定服务在哪些运行级别下启动或停止。
 
 chkconfig --list  # 列出所有服务的状态：
-chkconfig --list httpd 
+chkconfig --list httpd
 chkconfig httpd on   #设置服务在所有运行级别下启动
 chkconfig httpd off
 chkconfig --level 35 httpd on # 设置 httpd 服务在运行级别3和5下启动。
-
 
 systemctl   #用于控制 systemd 系统和服务管理器的命令行工具
 systemctl [命令] [服务名]
@@ -2985,7 +2803,6 @@ chmod a-w file
 更改文件所属组：chgrp group filename
 递归更改目录权限：chmod -R 755 directory
 
-
 chown #（change owner） 用于更改文件或目录的所有者和/或所属组
 chown [选项] 用户名[:组名] 文件或目录
 用户名：新的所有者用户名。
@@ -3004,8 +2821,6 @@ chgrp newgroup filename
 chgrp -R newgroup directory
 
 
-
-
 chage  #  #用于管理用户密码过期信息  # 上面有
 
 passwd  # 用于更改用户账户密码
@@ -3022,7 +2837,6 @@ passwd -d username
 passwd -e username
 passwd -S username
 echo "newpassword" | sudo passwd --stdin username   #一行命令修改用户密码,
-
 
 su        #上面有
 sudo    #上面有
@@ -3049,7 +2863,6 @@ umask 0027  #临时修改掩码值
 -默认值：不同的系统和用户可能有不同的默认 umask 值。通常，系统级的 umask 值在 /etc/profile 或 /etc/bashrc 中设置，而用户级的 umask 值在用户的家目录下的 .bashrc 或 .profile 文件中设置。
 -持久化设置：如果你希望 umask 值在每次登录时都生效，可以将 umask 命令添加到用户的 .bashrc 或 .profile 文件中。
 
-
 chattr  #上面有
 lsattr   #上面有
 ```
@@ -3061,8 +2874,6 @@ whoami  #用于显示当前用户的有效用户ID
 [root@m01 ~]# whoami
 root
 
-
-
 who  #用于显示当前登录到系统的用户信息
 输出解释
 用户名：登录系统的用户名称。
@@ -3072,7 +2883,6 @@ who  #用于显示当前登录到系统的用户信息
 [root@m01 ~]# who
 root     tty1         2024-08-14  18:20
 root     pts/0        2024-08-14 18:22 (10.0.0.1)
-
 
 w  # 与 who 命令类似，w 提供了关于登录用户的信息，但它还提供了额外的细节，如用户登录后执行的命令、用户空闲时间、CPU使用情况等。
 
@@ -3090,8 +2900,6 @@ root     pts/0    10.0.0.1         18:22         5.00s    0.11s  0.00s w
 6.JCPU：与该终端相关的所有进程的CPU时间。这包括所有在该终端上运行的进程的CPU使用时间。
 7.PCPU：当前正在运行的进程的CPU时间。这通常显示为用户当前活动的进程的CPU使用时间。
 8.当前活动：用户当前执行的命令或活动。这可以是用户正在运行的命令，或者显示用户当前的活动状态，例如 w 命令本身。
-
-
 
 last    #用于显示系统登录历史
 last [选项] [用户]
@@ -3115,8 +2923,6 @@ last 命令的输出通常包含以下列：
 登出时间：用户登出的时间。如果用户仍然登录，这将显示为 still logged in。
 持续时间：用户登录的持续时间。
 
-
-
 lastlog  #用于查看系统中所有用户最后一次登录信息
 # 它从 /var/log/lastlog 文件中读取数据，该文件记录了每个用户的最后一次登录时间、登录地点（终端或远程主机）以及登录状态（成功或失败）
 lastlog [选项]
@@ -3128,14 +2934,11 @@ lastlog
 lastlog -u username   #username 的用户的最后一次登录信息
 lastlog -b 30  # 超过30天没有登录的用户列表
 
-
-
 users   #用于显示当前登录到系统的所有用户
 [root@m01 ~]# users
 root root
 输出解释
 用户名列表：输出的每一项代表一个当前登录的用户。如果多个用户登录到同一个终端，它们的名字会连续显示，用空格分隔。
-
 
 finger  #用于显示本地或远程系统上用户信息
 #查看用户账户的详细信息，包括用户名、真实姓名、登录状态、登录时间、终端位置等
@@ -3178,8 +2981,6 @@ echo -e "This is a tab\tseparated line"
 而双引号允许变量扩展和转义字符的解释。
 
 
-
-
 printf  #用于格式化并输出字符串
 printf format [arguments]
 format：指定输出格式的字符串。
@@ -3196,8 +2997,6 @@ Hello, Alice
 Name         123
 
 printf "%.2f\n" 123.4567    #指定精度
-
-
 
 rpm  #（RPM包管理器） 用于安装、卸载、更新、查询和验证软件包
 
@@ -3221,7 +3020,6 @@ rpm -ql package_name
 rpm -V package_name
 -V：验证软件包。
 
-
 yum   #（Yellowdog Updater Modified）  它用于安装、更新、删除和管理软件包，以及处理软件包之间的依赖关系
 #yum 通过与远程仓库通信来下载和安装软件包，这些仓库包含了大量预先编译好的软件包。
 
@@ -3242,7 +3040,6 @@ yum info package_name  #查询软件包详情
 yum deplist package_name  #检查软件包依赖性
 yum provides commond  #根据命令找软件包
 
-
 apt # apt（Advanced Package Tool）软件包管理工具
 apt update    #更新软件包列表 ; 即从软件仓库获取最新的软件包信息
 apt upgrade  #升级所有已安装的软件包到最新版本
@@ -3250,7 +3047,6 @@ apt install package_name
 apt remove package_name
 apt search keyword
 apt show package_name
-
 
 dpkg（Debian package manager）# 用于安装、构建、删除和管理软件包
 dpkg -i package_file.deb
@@ -3284,9 +3080,7 @@ alias    #查看当前定义的所有别名
 unalias 别名  #删除别名
 unalias ll
 
-
 date  ##用于显示和设置系统的日期和时间;  #上面有
-
 
 clear   #清屏   快捷键 ctrl +l
 
@@ -3302,7 +3096,6 @@ history -d 3
 历史记录数量：默认情况下，历史记录的数量是有限制的，可以通过修改shell配置文件（如 .bashrc 或 .bash_profile）来调整这个限制。
 隐私和安全：由于历史记录中可能包含敏感信息，确保在共享终端或在公共环境中使用时采取适当的安全措施。
 
-
 eject  #用于弹出或卸载可移动媒体，如CD-ROM、DVD-ROM、软盘驱动器或USB闪存驱动器
 常用选项
 -t：锁定媒体托盘，防止自动弹出。
@@ -3313,8 +3106,6 @@ eject  #用于弹出或卸载可移动媒体，如CD-ROM、DVD-ROM、软盘驱�
 eject /dev/cdrom
 eject
 
-
-
 time   #用于测量命令执行时间的实用工具
 [root@m01 ~]# time ls
 [root@m01 ~]# time -p ls  #-p 选项将提供更详细的输出
@@ -3322,7 +3113,6 @@ time   #用于测量命令执行时间的实用工具
 real：实际时间，即从命令开始到结束的总时间。
 user：用户CPU时间，即命令在用户模式下运行所消耗的CPU时间。
 sys：系统CPU时间，即命令在内核模式下运行所消耗的CPU时间。
-
 
 nohup  #用于运行命令，使其在用户注销或终端关闭后继续运行
 # nohup 是 "no hang up" 的缩写，意味着即使终端会话结束，运行的命令也不会被挂起或终止
@@ -3336,7 +3126,6 @@ nohup ping localhost &    #在后台运行命令：
 nohup ping localhost > ping_output.txt 2>&1 &  #重定向输出
 #ping 命令的输出重定向到 ping_output.txt 文件中。2>&1 是将标准错误（stderr）重定向到标准输出（stdout）的常用方法。
 
-
 2>&1 是一个常见的重定向操作符组合，用于将标准错误（stderr）重定向到标准输出（stdout）
 尤其是在需要将命令的输出和错误信息都重定向到同一个文件时。
 符号说明
@@ -3344,7 +3133,6 @@ nohup ping localhost > ping_output.txt 2>&1 &  #重定向输出
 1：代表标准输出（stdout），是程序输出正常信息的通道。
 >：重定向操作符，用于将输出重定向到文件或设备。
 &：当与数字一起使用时，它表示一个文件描述符。当单独使用时，它表示标准输出（stdout）
-
 
 文件描述符：在Unix系统中，
             0 代表标准输入（stdin），
@@ -3373,8 +3161,6 @@ n>&： 将文件描述符 n 的输出重定向到另一个文件描述符。
 示例
 3>&1： 将文件描述符 3 的输出重定向到标准输出（文件描述符 1）。
 1>&3： 将标准输出（文件描述符 1）的输出重定向到文件描述符 3。
-
-
 
 
 screen   #创建多个虚拟终端（也称为窗口），在这些窗口中运行多个程序
@@ -3412,7 +3198,6 @@ I/O   vmstat  mpstat  iostat sar
 进程： ipcs  ipcrm  lsof strace ltrace
 负载：  uptime
 
-
 ipcs # 用于报告关于进程间通信设施状态
 ipcs [选项]
 常用选项
@@ -3432,7 +3217,6 @@ key        shmid      owner      perms      bytes      nattch     status
 
 ------ Semaphore Arrays --------
 key        semid      owner      perms      nsems
-
 
 输出解释
 ipcs -a 的输出通常分为三个部分，每个部分对应一种类型的IPC资源：
@@ -3461,7 +3245,6 @@ owner：创建信号量的用户。
 perms：信号量的权限设置。
 nsems：信号量集合中的信号量数量。一个信号量集合可以包含多个信号量。
 
-
 ipcrm # 用于删除消息队列、共享内存段和信号量等进程间通信（IPC）资源
 ipcrm [选项] [资源类型] [资源标识符]
 资源类型：指定要删除的IPC资源类型，可以是 msg（消息队列）、shm（共享内存）或 sem（信号量）。
@@ -3476,8 +3259,6 @@ ipcrm shm shmid
 3.删除信号量：
 ipcrm sem semid
 这里 sem 表示资源类型为信号量，semid 是信号量集的标识符。
-
-
 
 strace  #监控和记录一个进程对系统调用和接收到的信号的调用情况
 # 查看进程正在执行哪些系统调用，以及这些调用的参数和返回值
@@ -3505,8 +3286,6 @@ strace -e open ls
 strace -p 1234
 4.将输出重定向到文件：
 strace -o output.txt ls
-
-
 
 ltrace   #用于跟踪程序运行时调用的库函数
 # 与 strace 相比，strace 用于跟踪系统调用，而 ltrace 用于跟踪程序调用的动态链接库（DLL）中的函数
@@ -3574,11 +3353,10 @@ fg %作业编号，它就会回到前台继续运行。
 [root@m01 ~]# fg %1
 vim test.txt
 
-
 kill， killall ， pkill ： 杀掉进程
 kill -9 1234 # -9信号 1234进程id号
 killall httpd # 通过进程名称来终止进程
-pkill -u username ;# 可以终止指定用户的所有进程 
+pkill -u username ;# 可以终止指定用户的所有进程
 pkill -t pts/0     #终止与指定终端相关的进程。
 
 kill -l 命令用于列出系统中所有可用的信号名称及其对应的数字
@@ -3591,7 +3369,6 @@ SIGKILL (9)：  强制终止信号，不能被捕获或忽略，用于立即终�
 SIGTERM (15)：终止信号，是 kill 命令默认发送的信号，可以被捕获或忽略，用于请求进程终止。
 SIGSTOP (19)：停止信号，不能被捕获或忽略，用于暂停进程。
 SIGCONT (18)：继续信号，用于从暂停状态恢复进程。
-
 
 crontab: # 安排和管理计划任务（cron jobs）
 # 它允许用户设置定时执行的命令或脚本，这些命令或脚本可以在指定的时间自动运行，无需人工干预。crontab 文件通常由系统守护进程 cron 管理，该守护进程会定期检查 crontab 文件并执行其中的计划任务。
@@ -3624,8 +3401,6 @@ crontab -ri
 
 0 1 * * * /path/to/backup.sh  #每天凌晨1点执行 backup.sh 脚本。
 
-
-
 ps： 查看进程
 pstree： 显示进程树
 top： 显示进程
@@ -3633,12 +3408,12 @@ nice：改变优先权
 nohup： 用户退出系统后继续工作
 pgrep： 查找匹配条件的进程
 strace： 跟踪一个进程的系统调用
-ltrace： 跟踪进程调用库函数的情况 
+ltrace： 跟踪进程调用库函数的情况
 vmstat: 报告虚拟内存统计信息
 runlevel  init  service
 
 非常危险的系统命令
-mv rm fdisk parted dd  
+mv rm fdisk parted dd
 
 linux 系统四位剑客
 grep （egrep ） sed  awk find
@@ -3648,7 +3423,7 @@ grep （egrep ） sed  awk find
 
 ```bash
 Tab          自动补全
-Ctrl + a  把光标移动到行首   a=begin 
+Ctrl + a  把光标移动到行首   a=begin
 Ctrl + e  把光标移动到行尾   e=end
 Ctrl + c  取消 cancel     c=cancel
 Ctrl + d  退出当前用户     d=delete，
@@ -3661,4 +3436,155 @@ ctrl+q/c   解锁  q=quit
 Ctrl + r   搜索最近使用的命令 r=reverse
 ```
 
-以后linux 命令问题请按 介绍,语法,常用选项,示例,生产环境建议及常用组合命令
+# 附：Linux 核心命令常见经典面试题（带答案）
+
+> 从 150 条核心命令中提炼面试最高频的命令与场景，覆盖文件/权限/进程/网络/磁盘/系统性能六大方向。标注必背度：🔴 必背 / 🟡 熟练 / 🟢 了解。
+
+## 一、文件与目录
+
+**1. 🔴 cp、mv、rm 常用选项？生产上删除文件要注意什么？**
+
+- cp -r 递归复制目录、cp -a（-pdr）保留属性；mv 移动/改名；rm -rf 慎用。
+- 生产删文件先确认路径：`ls -l 目标`、确认无引用再删；重要文件先改名或备份。
+- 追问：rm 误删怎么恢复？——无回收站，用 extundelete/备份恢复；所以重要数据必须备份 + 权限管控。
+
+**2. 🔴 ln 硬链接和软链接区别？**
+
+- 硬链接：同一 inode、链接数 +1、不能跨文件系统、不能链接目录。
+- 软链接：独立 inode 存目标路径、可跨文件系统、可链接目录、源删除即失效（红字闪烁）。
+- 追问：怎么看链接类型？——ls -l 首字符：`-`普通、`l`软链；硬链接显示普通文件但 inode 相同。
+
+**3. 🟡 find 常用搜索场景？**
+
+- 按名 `find / -name "*.log"`；按大小 `-size +1G`；按时间 `-mtime +7`（7 天前）；按类型 `-type f/d`。
+- 批量删除 `find /tmp -name "*.tmp" -exec rm -rf {} \;` 或 `-delete`。
+- 追问：find 和 locate 区别？——locate 查预建数据库快但不实时；find 实时精确但慢。
+
+**4. 🟡 查看文件内容命令各适合什么场景？**
+
+- cat 全文小文件、head/tail 头尾、tail -f 实时日志、less/more 分页浏览、grep 过滤、sed 流处理。
+- 追问：查看超大文件用什么？——less 按需加载不占内存、tail -n 100、awk/grep 流式处理。
+
+## 二、权限与用户
+
+**5. 🔴 文件权限 rwx 含义？数字权限怎么换算？**
+
+- r=4 读、w=2 写、x=1 执行；owner/group/other 三组权限位拼接。
+- 755 = rwxr-xr-x（属主读写执行，组/他人读执行）；644 常用文件权限。
+- 追问：目录的 x 权限什么作用？——进入目录的通行证，无 x 无法 cd 进入。
+
+**6. 🔴 SUID / SGID / 粘滞位？**
+
+- SUID：以属主身份执行（如 /usr/bin/passwd）；SGID：目录内新建文件继承组；粘滞位：/tmp 防他人删自己文件。
+- 查看：ls -l 出现 s/S、t/T；数字法 4（SUID）、2（SGID）、1（粘滞位）加在权限最前。
+- 追问：为什么 passwd 要 SUID？——普通用户需以 root 身份改 /etc/shadow。
+
+**7. 🟡 useradd、usermod、userdel 常用操作？**
+
+- useradd 创建用户、-g 指定组、-s 指定 shell、-u 指定 uid；usermod 改属性；userdel -r 连家目录删除。
+- 追问：添加用户后为什么还要 passwd？——useradd 默认锁定用户，需设密码才能登录。
+
+**8. 🟡 sudo 和 su 区别？**
+
+- su 切换用户（要目标用户密码，切 root 要 root 密码）；sudo 以他人权限执行单条命令（要自己密码 + 授权）。
+- 生产规范：禁 root 直登，运维用 sudo 精确授权，审计可查。
+- 追问：sudo 配置文件？——/etc/sudoers，用 visudo 编辑，`用户名 ALL=(ALL) ALL` 授权。
+
+## 三、进程与系统
+
+**9. 🔴 ps、top、pstree 各自看什么？**
+
+- ps 静态快照（-ef、aux）；top 动态实时（含负载、CPU 各态、内存）；pstree 看父子关系树。
+- 追问：怎么按 CPU/内存排序？——top 内按 P/M 排序；ps aux --sort=-%cpu / -%mem。
+
+**10. 🔴 怎么定位 CPU / 内存 / IO 瓶颈？**
+
+- CPU：top 看 us/sy/wa、load 与核数对比、pidstat -u 定位进程。
+- 内存：free -h 看 available/swap、top 按 RES 排序、cat /proc/meminfo。
+- IO：iostat -x 看 %util/await、iotop 定位进程。
+- 追问：wa 高说明什么？——CPU 等待磁盘 IO，磁盘是瓶颈，不是 CPU 不够。
+
+**11. 🟡 kill 常用信号？D 状态进程杀不掉怎么办？**
+
+- SIGTERM(15) 优雅终止、SIGKILL(9) 强杀、SIGHUP(1) 重载、SIGINT(2) Ctrl+C。
+- D 状态：不可中断睡眠（等磁盘/内核 IO），kill 无效，等 IO 恢复或重启系统。
+- 追问：僵尸进程怎么处理？——杀父进程让 init 收养，或重启父进程让其 wait。
+
+**12. 🟡 nohup、&、setsid 区别？**
+
+- `cmd &` 后台运行（终端关闭可能被杀）；nohup cmd & 忽略挂断信号 + 后台；setsid 新会话彻底脱离终端。
+- 生产：nohup 配日志重定向 `nohup cmd > log 2>&1 &`。
+- 追问：怎么找后台任务？——jobs -l、ps -ef | grep 进程名；真正守护用 systemd 管理。
+
+## 四、网络
+
+**13. 🔴 怎么排查端口被占用 / 服务连不上？**
+
+- 看监听：ss -tulnp / netstat -tulnp；测连通：telnet ip port、nc -vz。
+- 查连接：ss -ant 各状态统计；抓包：tcpdump。
+- 追问：ss 和 netstat 区别？——ss 读内核 socket 信息更快更准，netstat 老命令，ss 首选。
+
+**14. 🟡 静态 IP 配置方式？**
+
+- nmcli 配置（推荐）：`nmcli con mod eth0 ipv4.addresses ...` + `ipv4.method manual` + `nmcli con up eth0`。
+- 传统 ifcfg 文件：/etc/sysconfig/network-scripts/ifcfg-eth0，改 BOOTPROTO=static + IPADDR 等。
+- 追问：改完怎么生效？——nmcli con up、systemctl restart network（CentOS7）或 NetworkManager reload。
+
+**15. 🟡 域名解析排查？**
+
+- nslookup/dig 查 DNS 记录；getent hosts 看系统实际解析（含 hosts 文件）。
+- 解析顺序：/etc/hosts → DNS 缓存 → DNS 服务器。
+- 追问：突然解析不了？——先 ping IP 排除网络，再检查 /etc/resolv.conf 的 nameserver 是否可达。
+
+**16. 🟢 scp / rsync 区别？**
+
+- scp 简单加密复制；rsync 增量同步、支持断点、可做备份，效率更高。
+- 追问：rsync 常用选项？——-a 归档、-v 详细、-z 压缩、--delete 同步删除、-e ssh 走加密通道。
+
+## 五、磁盘与文件系统
+
+**17. 🔴 df 和 du 区别？磁盘满但删了文件空间没释放？**
+
+- df 看文件系统空间（含已删未释放句柄）；du 看实际目录占用。
+- df 满 du 小：文件被进程占用未释放 → `lsof | grep deleted` 找到进程重启或释放。
+- 追问：inode 耗尽怎么办？——df -i 为 100%，大量小文件占满，清理小文件或扩容。
+
+**18. 🟡 磁盘分区、格式化、挂载流程？**
+
+- fdisk/parted 分区 → partprobe 重读分区表 → mkfs.ext4/xfs 格式化 → mount 挂载 → 写 /etc/fstab 开机自动挂载。
+- 追问：开机自动挂载配置哪？——/etc/fstab，格式：设备 挂载点 类型 选项 dump pass。
+
+**19. 🟡 RAID / LVM / 软 RAID？**
+
+- 硬件 RAID 靠阵列卡，软 RAID mdadm；LVM 逻辑卷管理（pvcreate/vgcreate/lvcreate）支持在线扩容。
+- 追问：LVM 优点？——跨盘扩容、快照、在线扩展，生产常用。
+
+**20. 🟢 swap 的作用与配置？**
+
+- 内存不足时交换空间兜底，防止 OOM；但频繁 swap 性能暴跌。
+- 创建：dd/mkswap/swapon；永久：写 /etc/fstab。
+- 追问：数据库服务器要不要 swap？——一般调小或关闭，避免关键进程被 swap 拖垮，宁可回收 cache。
+
+## 六、系统性能与排障
+
+**21. 🔴 系统负载 load average 怎么看？**
+
+- 1/5/15 分钟平均运行队列长度；合理值 ≈ 逻辑核数，长期高于核数说明资源紧张。
+- 追问：load 高一定是 CPU 问题吗？——不一定，D 状态进程（IO 等待）也会拉高 load，要结合 us/sy/wa 判断。
+
+**22. 🟡 查看历史登录与安全排查命令？**
+
+- last 登录记录、lastlog 最后登录时间、w 当前登录、who 在线用户、lastb 失败登录尝试。
+- 追问：发现异地 IP 登录？——改口令、禁 root 直登、查 /var/log/secure、加固防火墙。
+
+**23. 🟡 系统启动与计划任务？**
+
+- systemctl 管理服务（enable/start/status）、开机自启设置；crontab 定时任务（分 时 日 月 周）。
+- 追问：crontab 没执行怎么排查？——看 /var/log/cron、检查 crond 服务、检查脚本权限与路径。
+
+**24. 🟢 查看系统信息的常用命令？**
+
+- uname -a 内核版本、hostnamectl 主机名、uptime 负载、dmesg 内核日志、lscpu/lsmem 硬件、dmidecode 硬件详情。
+- 追问：看操作系统发行版？——cat /etc/os-release、cat /etc/redhat-release。
+
+> **速记口诀**：查端口 ss，看实时 top，分 IO 用 iostat，磁盘满找 deleted 句柄，权限 r4w2x1，后台 nohup 重定向，重启服务 systemctl，定时任务 crontab。

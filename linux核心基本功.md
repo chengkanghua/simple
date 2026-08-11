@@ -41,7 +41,7 @@ GNU 提供了我们现在每天用的工具：`ls、cat、cp、bash、gcc、sed�
 ## 3. 发展关键节点
 1. 90年代中后期：各大厂商基于内核打包软件、包管理器、配置工具，诞生各类发行版；
 2. 2004：Ubuntu 发布，降低 Linux 使用门槛，普及桌面；
-3. 2012：RedHat 发布 RHEL7，全面转向 systemd，成为企业服务器标杆；
+3. 2014：RedHat 发布 RHEL7，全面转向 systemd，成为企业服务器标杆；
 4. 2013后：云时代爆发，Linux 垄断服务器、容器、云底层；
 5. 国内阶段：
    - 早期基于 CentOS 修改衍生国产系统；
@@ -438,6 +438,7 @@ init 6
 # 开机默认级别配置文件
 vi /etc/inittab
 id:3:initdefault:
+```
 
 # 二、systemd Target 目标单元（CentOS7+/Ubuntu16.04+ 主流）
 
@@ -456,6 +457,7 @@ systemd 抛弃数字runlevel，改用**target目标**，target之间存在依赖
 
 ## 2. 核心操作命令
 
+```bash
 # 查看当前默认启动目标
 systemctl get-default
 
@@ -468,6 +470,7 @@ systemctl isolate graphical.target
 
 # 查看目标依赖的服务
 systemctl list-dependencies multi-user.target
+```
 
 ## 3. systemd 启动流程简化
 
@@ -495,11 +498,13 @@ systemctl list-dependencies multi-user.target
    按 `Ctrl + X` 启动，直接进入root bash，无需密码
 
    ## 步骤4：重置密码
+
+   ```bash
    # 修改root密码
    passwd root
    # SELinux环境必须更新上下文，否则重启无法登录
    touch /.autorelabel
-
+   ```
 
    ## 步骤5：重启生效
 
@@ -549,7 +554,6 @@ systemctl isolate rescue.target
 3. 单用户模式重置密码核心修改点：ro改rw、添加init=/bin/bash，SELinux机器必须touch /.autorelabel。
 4. 单用户适合单纯忘密码；rescue救援模式用于磁盘、fstab、系统文件损坏等严重启动故障。
 5. emergency紧急模式：根分区只读，挂载异常自动进入，修复磁盘分区故障。
-```
 
 #### SSH 全套知识点（运维面试 + 生产落地完整）
 
@@ -1159,8 +1163,8 @@ stat test.txt
 # 查找当前目录硬链接相同inode文件
 find . -inum 131073
 
-# 统计目录下文件数量（判断inode消耗）
-ls -l | wc -l
+# 统计目录下文件数量（判断inode消耗；ls -l会多算总行，用ls -A更准）
+ls -A | wc -l
 
 
 ## 五、面试背诵精简总结
@@ -1465,7 +1469,7 @@ cat /proc/sys/vm/dirty_ratio
 3. 可修改硬件配置：调整IO调度、网卡节能、电源策略。
 ```
 
-四、/proc vs /sys 核心区分（面试必背）
+## 四、/proc vs /sys 核心区分（面试必背）
 
 | 维度       | /proc                   | /sys                |
 | -------- | ----------------------- | ------------------- |
@@ -1869,6 +1873,27 @@ chgrp nginx test.log
 chgrp -R nginx /var/log/nginx
 
 
+## 4. umask：新建文件/目录的默认权限（面试高频）
+
+原理：系统给「权限最大值」减去 umask，得到新建文件的默认权限。
+- 文件默认最大值 666（新建文件默认不带执行位）：666 - umask
+- 目录默认最大值 777：777 - umask
+
+示例（umask=022，CentOS默认值）：
+- 新文件：666-022 = 644（rw-r--r--）
+- 新目录：777-022 = 755（rwxr-xr-x）
+
+命令：
+# 查看当前 umask（默认0022；前导0表示第4位特殊权限位不受影响）
+umask
+# 临时设置 umask 为 027
+umask 027
+# 永久设置：写入 /etc/profile.d/ 下脚本（对全局用户生效）
+echo "umask 027" >> /etc/profile.d/umask.sh && source /etc/profile
+
+注意：umask=0027 中第3位 7 会封掉属组的写权限，适合需要收紧共享目录的场景。
+
+
 # 四、面试高频总结
 
 1. 目录缺少x权限：无法cd进入，无法ls -l查看文件详情；只有w无x也删不了文件。
@@ -1986,7 +2011,7 @@ find / -perm -2000 2>/dev/null
 
 ### 配置方式
 
-数字法（1开头
+数字法（4位，第1位为特殊权限位，1开头）：
 chmod 1777 /tmp
 
 
@@ -3989,7 +4014,7 @@ ip addr del 192.168.1.100/24 dev eth0   # 删除临时IP
 ip route add default via 192.168.1.1 dev eth0
 
 # 2. CentOS/RHEL 网卡配置文件永久静态IP
-# 文件路径：/etc/sysconfig/network-scripts/ifcfg-eth0
+# 文件路径：/etc/sysconfig/network-scripts/ifcfg-eth0（CentOS7及更早；RHEL8+ 已弃用ifcfg，推荐下方 nmcli 方式）
 cat > /etc/sysconfig/network-scripts/ifcfg-eth0 <<EOF
 TYPE=Ethernet
 BOOTPROTO=static       # static静态 / dhcp自动获取
@@ -4002,11 +4027,13 @@ GATEWAY=192.168.1.1
 DNS1=223.5.5.5
 DNS2=114.114.114.114
 EOF
-# 重启网卡生效
+# 重启网卡生效（CentOS6/7）
 systemctl restart network
-# 新版NetworkManager命令
-nmcli c reload
-nmcli c up eth0
+# RHEL8+/CentOS8+ 标准方式：NetworkManager + nmcli 配置静态IP
+nmcli connection add con-name eth0 type ethernet ifname eth0 \
+  ipv4.method manual ipv4.addresses 192.168.1.100/24 \
+  ipv4.gateway 192.168.1.1 ipv4.dns "223.5.5.5 114.114.114.114" ipv4.autoconnect yes
+nmcli connection up eth0
 
 # 3. 主机名修改
 hostname                      # 查看当前主机名
@@ -4112,8 +4139,8 @@ iptables -A INPUT -i lo -j ACCEPT
 # 放行已建立、相关连接（响应包自动通行）
 iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
-# 生产白名单：仅允许192.168.1.0/24访问22端口ssh
-iptables -A INPUT -s 192.168.1.0/24 --dport 22 -j ACCEPT
+# 生产白名单：仅允许192.168.1.0/24访问22端口ssh（--dport 必须配合 -p tcp 使用）
+iptables -A INPUT -s 192.168.1.0/24 -p tcp --dport 22 -j ACCEPT
 # 放行80、443所有来源
 iptables -A INPUT -p tcp --dport 80 -j ACCEPT
 iptables -A INPUT -p tcp --dport 443 -j ACCEPT
@@ -4136,9 +4163,12 @@ service iptables save
 yum install iptables-services
 systemctl enable iptables
 service iptables save
+# 通用保存/恢复（不依赖iptables-services包，CentOS6/7通用）
+iptables-save > /etc/sysconfig/iptables
+iptables-restore < /etc/sysconfig/iptables
 
 # ====================== 第二部分 firewalld 区域、端口/服务、永久规则、与iptables关系 ======================
-# 关系：firewalld 是iptables上层封装工具，底层依旧调用netfilter/iptables，语法更简单
+# 关系：firewalld 是上层防火墙管理工具；RHEL7 底层基于 iptables，RHEL8+ 底层默认 nftables（iptables 命令走兼容层），语法比 iptables 更简单
 # 核心概念：zone区域，按可信程度划分流量，默认public
 # 常用zone：trusted全部放行、internal内网、public公网、dmz隔离区、block全部拒绝
 
@@ -8144,10 +8174,9 @@ cat >> /etc/my.cnf <<'EOF'
 server-id = 1                    # 全局唯一ID，主从节点必须不同
 log_bin = /var/lib/mysql/mysql-bin  # 开启binlog，主从复制依赖
 binlog_format = ROW              # 行级模式，数据一致性最高，生产标准
-expire_logs_days = 7             # binlog自动过期清理
-binlog-ignore-db = mysql         # 不同步系统库
-binlog-ignore-db = information_schema
-binlog-ignore-db = performance_schema
+binlog_expire_logs_seconds = 604800  # binlog自动过期清理（8.0替代expire_logs_days；5.7旧版用 expire_logs_days=7）
+# 注意：information_schema/performance_schema 系统库本身不会进binlog，无需ignore；
+# 复制过滤建议用 replicate-ignore-db（从库端）而非 binlog-ignore-db（主库端，易引发主从不一致）
 EOF
 
 # 2. 重启主库生效
@@ -8172,9 +8201,9 @@ cat >> /etc/my.cnf <<'EOF'
 server-id = 2                    # 必须与主库不同
 relay_log = /var/lib/mysql/relay-bin  # 中继日志
 read_only = ON                   # 普通用户只读，防止业务误写从库（root等super权限不受限）
-# 8.0 并行复制配置，解决SQL单线程重放延迟
-slave_parallel_type = LOGICAL_CLOCK
-slave_parallel_workers = 4
+# 并行复制配置，解决SQL单线程重放延迟（5.7用 slave_parallel_type；8.0已更名 replica_parallel_type）
+replica_parallel_type = LOGICAL_CLOCK
+replica_parallel_workers = 4
 EOF
 
 # 2. 重启从库，导入全量备份数据
@@ -8183,6 +8212,7 @@ mysql -uroot -p < /tmp/full_backup.sql
 
 # 3. 配置主库连接信息，启动复制
 mysql -uroot -p <<EOF
+# 8.0+ 新语法：CHANGE REPLICATION SOURCE TO ... / START REPLICA / SHOW REPLICA STATUS
 CHANGE MASTER TO
   MASTER_HOST='192.168.1.10',
   MASTER_PORT=3306,
@@ -8194,7 +8224,7 @@ START SLAVE;
 EOF
 
 # 4. 验证主从状态
-mysql -uroot -p -e "SHOW SLAVE STATUS\G"
+mysql -uroot -p -e "SHOW SLAVE STATUS\G"   # 8.0+ 可用 SHOW REPLICA STATUS
 # 正常核心标志：
 # Slave_IO_Running: Yes    IO线程正常，持续接收binlog
 # Slave_SQL_Running: Yes   SQL线程正常，持续重放数据
@@ -8895,8 +8925,9 @@ redis-cli -p 6380 ping
 # 以下配置追加到所有实例配置文件中
 cat >> /etc/redis/6379.conf <<'EOF'
 # ========== 1. 禁止外网访问 ==========
-# 仅绑定本地回环+内网网段，生产严禁 bind 0.0.0.0
-bind 127.0.0.1 192.168.1.0/24
+# 仅绑定本地回环+内网IP，生产严禁 bind 0.0.0.0
+# 注意：bind 只支持具体IP，不支持 CIDR/掩码写法；限制网段需结合防火墙
+bind 127.0.0.1 192.168.1.10
 
 # ========== 2. 密码强认证 ==========
 # 客户端连接必须先 AUTH 校验，生产禁止无密码运行
@@ -14813,6 +14844,116 @@ Capabilities 细粒度权限、Seccomp 系统调用拦截、SELinux 强制访问
 
 
  介绍一下Linux内核的内存管理子系统
+# 面试答案要点：
+# 1) 职责：分配/回收物理内存，管理虚拟内存（页表映射），每个进程有独立地址空间互不干扰
+# 2) 核心机制：
+#    虚拟内存+页表：进程看到的是虚拟地址，按需映射到物理内存，实现进程隔离与内存复用
+#    swap交换分区：物理内存不足时，把冷数据页换出到磁盘，释放内存给热点数据
+#    页缓存 page cache：读写文件先经过内存缓存，大幅提升IO性能（buff/cache 即此）
+#    OOM Killer：内存彻底耗尽时按评分(oom_score)选择杀进程，防止整个系统崩溃
+#    HugePage 大页：默认4KB页，页表项多、TLB易miss；2MB大页减少页表与TLB miss，DB/Redis优化必备
+# 3) 运维命令：free -m / cat /proc/meminfo / vmstat 1 / top 看内存状态
+# 4) 面试追问：判断内存不足→swap使用率高、free极少、dmesg有OOM日志；
+#    脏页刷盘参数 vm.dirty_ratio（默认20%）调大可提升写吞吐，但宕机丢数据风险升高
  如何优化Linux内核的文件系统性能？
+# 面试答案要点：
+# 1) 选对文件系统：CentOS7默认xfs（大数据量、高并发、大文件强）；小文件海量场景可选ext4
+# 2) 挂载参数优化：noatime/nodiratime（不更新访问时间，减少随机写IO，收益最明显）
+# 3) 磁盘IO调度：SSD/NVMe 用 none(noop)，避免无意义重排序；机械盘用 deadline，减少寻道延迟
+# 4) 内核刷盘参数：调大 vm.dirty_ratio / vm.dirty_background_ratio，让脏页批量落盘，提升吞吐
+# 5) 预读优化：blockdev --setra / sysfs read_ahead_kb 提升顺序读性能；mkfs 时按文件量规划 inode 数量
+# 6) 内存加速：tmpfs 内存盘、HugePage 承载热点数据，绕开磁盘IO瓶颈
+# 7) 验证手段：iostat -x 1 看 await/%util，fio 压测对比调优前后效果
  如何使用Linux内核的IPC进程间通信接口？
+# 面试答案要点（6种IPC全家桶）：
+# 1) 管道 pipe：匿名管道父子进程单向通信，如 cmd1 | cmd2；FIFO命名管道可任意进程通信
+# 2) 信号 Signal：进程间异步通知，kill -9/-15、SIGCHLD 等，运维最常用
+# 3) 共享内存 shmget/shmat：多进程映射同一物理内存，零拷贝速度最快，需信号量配合防并发冲突
+# 4) 消息队列 msgget/msgsnd/msgrcv：有格式消息传递，多对多，适合小数据量解耦
+# 5) 信号量 semget/semop：PV操作实现进程互斥与同步，常与共享内存搭配使用
+# 6) Unix Domain Socket：本地socket走内存不走网卡，速度高；MySQL(/tmp/mysql.sock)、Nginx、Redis 跨进程通信常用
+# 查看/清理：ipcs -m/-q/-s 查看共享内存/消息队列/信号量；ipcrm 按ID删除
+# 面试追问：为什么共享内存最快？→多进程直接映射同一块物理内存，读写零拷贝；管道/消息队列数据都要经内核拷贝。
+```
+```md
+# ==================== 附：Linux 运维核心基本功 经典面试题（带答案） ====================
+
+# 一、系统启动与初始化
+# 1) 从开机到进入 Linux 系统的完整流程？
+#    BIOS/UEFI自检→读MBR/GPT→GRUB加载内核与initramfs→内核初始化硬件→挂载根文件系统→
+#    启动PID1(systemd)→并行启动服务→进入登录界面
+# 2) systemd 相比 SysV init 强在哪？
+#    并行启动、按依赖排序、cgroup管理服务、自动重启、开机更快；SysV 串行脚本慢
+# 3) 如何设置程序开机自启？
+#    systemctl enable 服务名（生成软链）；或 /etc/rc.d/rc.local 加命令并赋执行权限
+# 4) 忘记 root 密码怎么办？
+#    启动菜单按e进入GRUB编辑，在 linux 行末尾加 rd.break 或 init=/bin/sh，切根后 passwd 重置
+
+# 二、文件与权限
+# 5) 硬链接和软链接区别？
+#    硬链接：同一inode、链接计数+1、不能跨文件系统、不能链接目录；
+#    软链接：独立inode存目标路径、可跨文件系统、可链接目录、源文件删除即失效
+# 6) 文件权限 rwx 含义与 umask 作用？
+#    r读4 w写2 x执行1；目录x=进入权限；umask决定新建文件/目录默认权限（文件666减、目录777减）
+# 7) SUID / SGID / 粘滞位？
+#    SUID：以文件属主身份运行；SGID：继承属组（目录继承组）；粘滞位：/tmp 防他人删除自己文件
+# 8) 如何查找大文件 / 目录占用？
+#    du -sh * / du -h --max-depth=1 看目录；find / -size +1G 找大文件；df 看分区
+
+# 三、进程与系统资源
+# 9) 僵尸进程和孤儿进程区别？
+#    僵尸：子进程退出父进程没wait，占用PCB；孤儿：父进程先退，被init(1号)收养
+# 10) 如何定位 CPU / 内存 / IO 瓶颈？
+#    CPU：top看us/sy/wa，load对比核数，pidstat定位进程；
+#    内存：free看available/swap，top按RES排序；
+#    IO：iostat -x看%util/await，iotop定位进程
+# 11) 如何限制进程可打开文件数和线程数？
+#    ulimit -n 文件句柄、ulimit -u 进程数；永久改 /etc/security/limits.conf
+# 12) 进程被 kill -9 杀不掉怎么办？
+#    大概率 D 状态（不可中断睡眠），等待磁盘/内核IO恢复；实在不行只能重启系统
+
+# 四、网络基础
+# 13) TCP 三次握手与四次挥手？
+#    握手：SYN→SYN+ACK→ACK，建立连接；挥手：FIN→ACK→FIN→ACK，先关一方再关另一方
+# 14) 如何排查端口被占用 / 服务连不上？
+#    ss -tulnp 看监听；telnet/nc 测端口连通；netstat -ant 看连接状态；tcpdump 抓包分析
+# 15) 静态 IP 配置两种方式？
+#    nmcli con mod 连接名 ipv4.addresses/ipv4.method manual + nmcli con up；或传统 ifcfg 文件
+# 16) DNS 解析顺序？
+#    hosts文件→系统缓存→DNS服务器；nslookup/dig 查解析，getent hosts 看系统实际解析
+
+# 五、Shell 与文本处理
+# 17) 三剑客各擅长什么？
+#    grep：文本筛选匹配；sed：流编辑替换/删除/增行；awk：列处理统计求和
+# 18) find 高频用法？
+#    find /path -name '*.log' -mtime +7 -delete 按名/时间/大小找并删除；-exec 配合处理
+# 19) 如何查看日志实时输出与关键字？
+#    tail -f 实时跟；tail -n 100 看末尾；grep -i error 过滤；journalctl -u 服务 看systemd日志
+
+# 六、存储与磁盘
+# 20) df 和 du 区别？
+#    df 看文件系统空间（含已删未释放）；du 看实际目录占用；df 满但 du 小→lsof|grep deleted 查已删句柄
+# 21) inode 耗尽怎么办？
+#    df -i 为100%：大量小文件占满；find 找出小文件目录清理，或规划更大 inode 的文件系统
+# 22) LVM 是什么？优势？
+#    逻辑卷管理：跨盘扩容、快照、在线扩展；pvcreate→vgcreate→lvcreate 三步
+
+# 七、服务与安全
+# 23) SSH 安全加固要点？
+#    禁root登录、密钥登录、改端口、禁密码登录、限制来源IP、Fail2ban防爆破
+# 24) firewalld 常用操作？
+#    firewall-cmd --add-port/--add-service --permanent + --reload；zone 概念
+# 25) 系统被入侵第一反应？
+#    断网隔离→查进程/启动项/定时任务→审计日志→修复漏洞→改口令
+
+# 八、容器基础
+# 26) Docker 与虚拟机区别？
+#    Docker 共享宿主机内核，namespace+cgroup隔离，秒级启动、资源开销小；
+#    虚拟机有独立内核，隔离强、开销大
+# 27) 容器日志怎么看？
+#    docker logs -f 容器；挂载/var/log 持久化；生产用日志采集器(Fluentd/Filebeat)
+
+# 九、速记口诀
+# 启动：BIOS→GRUB→内核→systemd；权限：r4w2x1，umask 666/777减；
+# 排查：top看CPU、free看内存、iostat看IO、ss看端口；SSH安全：禁root禁密码
 ```

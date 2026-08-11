@@ -20,7 +20,7 @@ Linux有两种含义
 
 执行坏境
 
-```
+```text
 - 云主机
 - 无数据的pc（不推荐多系统混跑）
 - 虚拟机（推荐方式）
@@ -34,7 +34,7 @@ Linux有两种含义
 
 内核版本
 
-```
+```text
 - https://www.kernel.org
 - 内核版本分为三个部分
 - 主版本号 次版本号 末版本号
@@ -83,9 +83,9 @@ Linux有两种含义
 - info 帮助
 - 使用网络资源（搜索引擎和官方文档）
 
-```
+```text
 man 是manual的缩写
-man 帮助用法演示 
+man 帮助用法演示
 # man ls
 man 也是一条命令， 分为9章
 man 7 man
@@ -140,7 +140,7 @@ ls [选项， 选项...] 参数 。。。
 
 # 12 创建和删除目录
 
-```
+```text
 mkdir /a
 mkdir ./a
 mkdir a
@@ -156,12 +156,12 @@ rm -rf /a    # r 目录删除  f不需要确认
 
 # 13 复制和移动目录
 
-```
+```text
 cp -r /root/a /tmp  # r复制目录
    -p   #保留时间
    -v   # 显示过程
    -a   # 保留时间 权限 所有者 所有组
- 
+
 mv /firlea /file   #改名
 mv /tmp/fileb /filec  # 移动改名
 
@@ -187,7 +187,7 @@ linux 的备份压缩
 - 可以打包后的磁带文件进行压缩存储，压缩的命令是gzip 和 bzip2
 - 经常使用的扩展名是 .tar.gz .tar.bz2 .tgz
 
-```
+```text
 tar cf /tmp/etc-backup.tar  /etc  # 把etc 目录打包了
 tar zcf /tmp/etc-backup.tar /etc  # 打包并且压缩
 tar cjf /tmp/etc-backup.tar.bz2 /etc  #这个压缩的更小
@@ -197,7 +197,7 @@ tar 打包命令
 	c 打包
 	x 解压
 	f 指定操作类型为文件
-	
+
 tar xf /tmp/etc/backup.tar -C /root/   # -C 指定解压位置
 ```
 
@@ -212,7 +212,7 @@ tar xf /tmp/etc/backup.tar -C /root/   # -C 指定解压位置
 
 # 17 vim 正常模式
 
-```
+```text
 插入模式
     i 在当前位置进入插入模式
     I 在行首进入插入模式
@@ -243,7 +243,7 @@ tar xf /tmp/etc/backup.tar -C /root/   # -C 指定解压位置
 
 # 18 vim的命令模式
 
-```
+```text
 :w /root/aa.txt   # 将文件保存
 vim 文件名编辑的方式  :w  直接保存原始文件中了
 :q!  不保存退出
@@ -270,7 +270,7 @@ echo "set nu " >> /etc/vimrc #vim配置文件添加显示行号命令
 
 配合d和(大写i)命令可以进行块的便利操作
 
-```
+```text
 批量在多行开头添加123
 ctrl+v 进入块可视模式
 光标选中所有行开头  然后shift+I 插入模式
@@ -286,7 +286,7 @@ ctrl+v 进入块可视模式
 
 用户管理常用命令
 
-```
+```text
 useradd  新建用户
 userdel  删除用户
 passwd   修改用户密码
@@ -356,7 +356,7 @@ The system shutdown has been cancelled at Thu 2019-11-21 19:25:57 CST!
 
 # 22 用户和用户组的配置文件介绍
 
-```
+```text
 /etc/passwd
 /etc/shadow
 /etc/group
@@ -407,7 +407,7 @@ r--   其他用户的权限
 
 # 24 文件权限的修改方法和数字表示方法
 
-```
+```text
 chmod 修改文件、目录权限
 	chmod u+x /tmp/testfile
 	chmod 755 /tmp/testfile
@@ -419,7 +419,7 @@ chgrp  可以单独更改属组，不常用
 
 # 25 权限管理以及文件的特殊权限
 
-```
+```text
 ls -ld /test
 chmod 777 /test
 touch test/afile
@@ -462,8 +462,8 @@ net-tools VS iproute
    - ip
    - ss
 
-```
-ifconfig 
+```text
+ifconfig
 	eth0 第一块网卡（网络接口）
 	你的第一个网络接口可能叫做下面的名字
 	eno1   板载网卡
@@ -485,10 +485,9 @@ ifconfig
 | 组合1 | 1 | 0 | em1 |
 | 组合2 | 0 | 0 | eth0 |
 
-
 # 27 查看网络配置
 
-```
+```text
 查看网卡物理连接情况
 mii-tool eth0
 
@@ -499,7 +498,7 @@ route -n
 
 # 28 网络配置命令
 
-```
+```text
 ifconfig <接口> <ip地址> [netmask 子网掩码]
 ifup<接口>
 ifdown<接口>
@@ -534,12 +533,12 @@ ip route add 10.0.0.0/24 via 192.168.0.1
 ```bash
 ping -c4 www.baidu.com
 traceroute -w 1 www.baidu.com     #w 超时只等1秒
-mtr   
+mtr
 nslookup www.baidu.com
 telnet www.baidu.com 80   #退出方法 ctrl + 】 或者 ？+回车
 tcpdump -i any -n port 80  # -i any 所有网络接口  -n 不解析用ip形式显示 port 端口80
 tcpdump -i any -n host 10.0.0.1  # host 指定主机
-tcpdump -i any -n host 10.0.0.1 and port 80 # 
+tcpdump -i any -n host 10.0.0.1 and port 80 #
 tcpdump -i any -n host 10.0.0.1 and port 80 -w /tmp/filename # -w 指定结果保存位置
 netstat -ntpl     # n 以ip显示 t tcp连接 p 显示进程号 l 监听状态
 ```
@@ -589,7 +588,7 @@ rpm 命令
    - -i 安装软件包
    - -e 卸载软件包
 
-```
+```text
 dd if=/dev/sr0 of=/xx/xx.iso
 mount /dev/sr0 /mnt
 rpm -qa|more
@@ -606,7 +605,7 @@ rpm -qa|more
 - [https://opsx.alibaba.com/mirror](https://opsx.alibaba.com/mirror)
 - yum 配置文件
    - /etc/yum.repos.d/Centos-Base.repo
-```
+```text
 wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
 ```
 
@@ -619,7 +618,7 @@ yum 命令常用选项
 
 # 34 通过源代码编译安装软件包
 
-```
+```text
 
 - 二进制安装
 - 源代码编译安装
@@ -666,7 +665,7 @@ make install  #安装
 
 升级当前系统最新版本
 
-```
+```text
 yum install epel-release
 yum install kernel
 ```
@@ -681,7 +680,7 @@ yum install kernel
    - grub2-mkconfig -o /boot/grub2/grub.cfg
 - 使用单用户进入系统(忘记root密码)  [https://www.cnblogs.com/chengkanghua/p/11996624.html](https://www.cnblogs.com/chengkanghua/p/11996624.html)
 
-```
+```bash
 [root@oldboy linux-5.3.13]# grub2-set-default 0  #设置第一个内核为启动
 [root@oldboy linux-5.3.13]# grub2-editenv list   #显示默认引导的是哪个内核
 saved_entry=0
@@ -730,10 +729,10 @@ saved_entry=0
    - jobs
    - & 符号
 
-```
+```text
 top -p 9603   		#根据pid查看
 renice -n 15 9603   #调整优先级
-top -p 9603 
+top -p 9603
 
 jobs  #查看任务列表
 fg 1 # 将第1个任务放到前台运行
@@ -762,20 +761,19 @@ ctrl + z #放在后台挂起
    - screen -ls 查看 screen的会话
    - screen -r sessionid 恢复会话
 
-```
+```bash
 # 关闭终端后依然在后台运行
-[root@aliyun ckh]# nohup tail -f /var/log/messages &  
+[root@aliyun ckh]# nohup tail -f /var/log/messages &
 [1] 23673
 [root@aliyun ckh]# nohup: 忽略输入并把输出追加到"nohup.out"
 ```
 
 # 41 screen 和系统日志
 
-```
-screen 
+```text
+screen
 screen -ls
 screen -r 23721
-
 
 [root@aliyun ~]# tail -f /var/log/dmesg  # 内核启动详细信息
 [root@aliyun ~]# tail -f /var/log/secure # 系统的安全日志
@@ -791,7 +789,7 @@ screen -r 23721
    - systemctl start|stop|restart|reload|enable|disable 服务名称
    - 软件包安装的服务单元 /usr/lib/systemd/system/
 
-```
+```bash
 [root@iotcontroll-centos-1 ~]# ll /lib/systemd/system/runlevel*.target
 lrwxrwxrwx. 1 root root 15 Nov 28  2017 /lib/systemd/system/runlevel0.target -> poweroff.target
 lrwxrwxrwx. 1 root root 13 Nov 28  2017 /lib/systemd/system/runlevel1.target -> rescue.target
@@ -893,7 +891,7 @@ tmpfs           199M     0  199M   0% /run/user/0
 [root@vulcan ~]# du -h afile
 40M	afile
 
-[root@vulcan ~]# dd if=/dev/zero of=bfile bs=4M count=10 seek=20  
+[root@vulcan ~]# dd if=/dev/zero of=bfile bs=4M count=10 seek=20
 10+0 records in
 10+0 records out
 41943040 bytes (42 MB) copied, 0.292836 s, 143 MB/s
@@ -918,18 +916,18 @@ tmpfs           199M     0  199M   0% /run/user/0
 - i 节点（inode）
 - 数据块（datablock）
 
-```
+```bash
 [root@vulcan ~]# ll -i
 ```
 
 # 48 i节点和数据块操作
 
-```
+```bash
 [root@vulcan ~]# touch afile
 [root@vulcan ~]# ls -li afile
 33661483 -rw-r--r-- 1 root root 41943040 Dec  9 14:44 afile
 [root@vulcan ~]# echo 1234 > afile
-[root@vulcan ~]# ll -li afile     
+[root@vulcan ~]# ll -li afile
 33661483 -rw-r--r-- 1 root root 5 Dec  9 14:45 afile  #有一个换行符所以是5个字节
 [root@vulcan ~]# du -h afile
 4.0K	afile
@@ -964,7 +962,7 @@ other::r--
 - 常见配置文件
    - /etc/fstab
 
-```
+```bash
 [root@vulcan ~]# fdisk /dev/sdb
 Command (m for help): n
 Select (default p): p
@@ -991,7 +989,7 @@ Command (m for help): w
 - xfs_quota -x -c 'report -ugibh' /mnt/disk1
 - xfs_quota -x -c 'limit -u isoft=5 ihard=10 user1' /mnt/disk1
 
-```
+```bash
 [root@vulcan ~]# mkfs.xfs /dev/sdb1
 [root@vulcan ~]# mkfs.xfs /dev/sdb1 -f
 [root@vulcan ~]# mount -o uquota,gquota /dev/sdb1 /mnt/disk1
@@ -1016,7 +1014,7 @@ touch: cannot touch ‘11’: Disk quota exceeded  #超出磁盘限额
 - 使用文件制作交换分区
    - dd if=/dev/zero bs=4M count=1024 of=/swapfile
 
-```
+```bash
 [root@vulcan ~]# fdisk /dev/sdb1
 Command (m for help): n
 Select (default p): p
@@ -1049,7 +1047,7 @@ vi /etc/fstab
    - RAID 10  是RAID 1 与 RAID 0 的结合
 - 软件 RAID的使用
 
-```
+```bash
 [root@vulcan ~]# yum install mdadm -y
 
 #提前3个分区一样大小的。
@@ -1066,7 +1064,7 @@ brw-rw----. 1 root disk 8, 19 Dec 11 17:23 /dev/sdb3
 [root@vulcan ~]# mdadm -Evs >> /etc/mdadm.conf
 [root@vulcan ~]# mkfs.xfs /dev/md0
 
-#停止运行RAID	
+#停止运行RAID
 [root@vulcan ~]# mdadm -S /dev/md0
 cat /dev/null > /etc/mdadm/mdadm.conf  #删除配置文件
 mdadm --zero-superblock /dev/sdb[1,2]  #删除元数据
@@ -1094,7 +1092,7 @@ mdadm --zero-superblock /dev/sdb[1,2]  #删除元数据
   vg1      2   0   0 wz--n- <13.20g <13.20g   //2个物理卷 0 个逻辑卷
 
 # 创建逻辑卷 -l 大小  -n 名字  vg1 卷组
-[root@vulcan ~]# lvcreate -L 100M -n lv1 vg1  
+[root@vulcan ~]# lvcreate -L 100M -n lv1 vg1
 [root@vulcan ~]# lvs   #查看逻辑卷
 [root@vulcan ~]# mkdir /mnt/test
 [root@vulcan ~]# mkfs.xfs /dev/vg1/lv1   #格式lv1逻辑卷
@@ -1129,7 +1127,7 @@ mdadm --zero-superblock /dev/sdb[1,2]  #删除元数据
    - yum install iftop
    - ftop -p
 
-```
+```bash
 [root@vulcan ~]# yum install syssteat
 # -u 查看cpu使用情况  1秒一次  显示10次
 [root@vulcan ~]# sar -u 1 10
@@ -1173,7 +1171,7 @@ mdadm --zero-superblock /dev/sdb[1,2]  #删除元数据
 
 [root@vulcan ~]# which init
 /usr/sbin/init
-  --> /etc/rc.d 
+  --> /etc/rc.d
 [root@vulcan ~]# top -p 1
     cd /etc/systemd/system/
      --> /usr/lib/systemd/system/
@@ -1187,7 +1185,7 @@ shell 脚本
 - 为了组合命令和多次执行，使用脚本文件来保存需要执行的命令
 - 赋予该文件执行权限（chmod u+rx filename）
 
-```
+```bash
 [root@vulcan var]# cd /var/ ;ls;pwd;du -sh |du -sh *
 [root@vulcan ~]# cat 1.sh
 #!/bin/bash
@@ -1214,7 +1212,7 @@ du -sh *
 
 # 58脚本的不同执行方式的影响
 
-```
+```text
 bash ./filename.sh  #产生一个子进程
 ./filename.sh       #产生一个子进程 用Sha-Bang 解释执行的
 source /filename.sh # 在当前进程执行
@@ -1247,7 +1245,7 @@ I am $USER
 
 EOF
 
-```
+```bash
 [root@aliyun ckh]# wc -l < /etc/passwd
 [root@aliyun ckh]# echo 123 >a.txt
 [root@aliyun ckh]# read var2 < a.txt
@@ -1256,7 +1254,6 @@ EOF
 [root@aliyun ckh]# echo $var2 >> b.txt
 [root@aliyun ckh]# nocomd 2> err.log   #错误重定向
 [root@aliyun ckh]# ls &> err.log  #全部重定向 错误正确都
-
 
 [root@aliyun ckh]# cat 1.sh
 #!/bin/bash
@@ -1305,7 +1302,7 @@ echo "hello bash"
 
 # 63 环境变量，预定义变量与位置变量
 
-```
+```text
 系统环境变量
 - 环境变量: 每个shell 打开都可以获得到的变量
 	- set 和 env 命令
@@ -1314,7 +1311,7 @@ echo "hello bash"
 	- $PS1
 - 位置变量
 	- $1 $2 ....$n
-	
+
 ----------------------------
 PATH=$PATH:/root/
 echo $PS1
@@ -1344,7 +1341,7 @@ $1 $2 ...$9  ${10} #$10要加{}
 - 显示数组的第一个元素
    - echo ${IPTS[0]}
 
-```
+```bash
 [root@aliyun ~]# IPTS=( 10.0.0.1 10.0.0.2  10.0.0.3 )
 [root@aliyun ~]# echo ${IPTS[@]}
 10.0.0.1 10.0.0.2 10.0.0.3
@@ -1372,7 +1369,7 @@ $1 $2 ...$9  ${10} #$10要加{}
 - \n \r \t 单个字母的转义
 - $\” \  单个非字母的转义
 
-```
+```bash
 [root@aliyun ~]# echo "$a"
 
 [root@aliyun ~]# echo "\$a"
@@ -1389,7 +1386,7 @@ $a
 - ‘ 单引号
 - ` 反引号
 
-```
+```bash
 [root@aliyun ~]# var1=123
 [root@aliyun ~]# echo '$var1'
 $var1
@@ -1426,7 +1423,7 @@ $var1
 - (( a++ ))
 - echo $((10+20))
 
-```
+```bash
 [root@aliyun ~]# num1=`expr 4 + 5 `
 [root@aliyun ~]# echo  $num1
 9
@@ -1467,7 +1464,7 @@ $var1
 - `> < =`比较运算符
 - `&& || ！` 逻辑运算符
 
-```
+```bash
 [root@aliyun ~]# (( 5 > 4 && 6 > 5))
 [root@aliyun ~]# echo $?
 0
@@ -1524,7 +1521,7 @@ $var1
 - test 测试语句可以简化为[]符号
 - []符号还有扩展写法[[]] 支持 && || < >
 
-```
+```text
 man test
 [root@aliyun ~]# test -f /etc/passwd
 [root@aliyun ~]# echo $?
@@ -1550,7 +1547,7 @@ if[ 测试条件成立 ] 或 命令返回值是否为0
 then 执行相应命令
 fi 结束
 
-```
+```bash
 [root@aliyun ~]# if [ $UID = 0 ]
 > then
 > echo "root user"
@@ -1624,7 +1621,7 @@ then 执行相应命令
 fi
 fi 结束
 
-```
+```bash
 [root@aliyun ~]# cat 11.sh
 #!/bin/bash
 
@@ -1660,7 +1657,7 @@ case "$变量" in
 
 esac
 
-```
+```bash
 [root@aliyun ~]# chmod +x 12.sh
 [root@aliyun ~]# ./12.sh start
 ./12.sh start.....
@@ -1702,7 +1699,7 @@ esac
 	for 参数 in 列表
 	do 执行的命令
 	done 封闭一个循环
-	
+
 - 使用反引号或$() 方式执行命令，命令的结果当作列表进行处理
 ```
 
@@ -1712,7 +1709,7 @@ esac
 - 对文本处理，要使用文本查看命令取出文本内容
    - 默认逐行处理，如果文本出现空格会当做多行处理
 
-```
+```bash
 [root@aliyun ~]# for i in {1..9}; do echo hello; echo $i;done
 
 [root@aliyun tmp]# touch a.mp3 b.mp3 c.mp3
@@ -1723,7 +1720,7 @@ a.mp4  b.mp4  c.mp4
 
 # 75 c语言风格的for
 
-```
+```text
 for((变量初始值;循环判断条件;变量变化))
 do
 	循环执行命令
@@ -1750,7 +1747,7 @@ until 循环
 
 - until 循环与while循环相反，循环测试为假时，执行循环，为真时循环停止
 
-```
+```text
 
 [root@agent1 ~]# a=1
 [root@agent1 ~]# while [ $a -lt 10 ]; do ((a++)); echo $a;done
@@ -1802,7 +1799,6 @@ do
 		echo $pos $pos
 	fi
 done
-
 
 [root@aliyun ~]# sh 16.sh 1 2 3 45 help
 help help
@@ -1948,7 +1944,7 @@ done
 
 at
 
-```
+```bash
 [root@aliyun tmp]# date
 2019年 12月 26日 星期四 14:13:31 CST
 [root@aliyun tmp]# at 14:15
@@ -1989,7 +1985,7 @@ root
    - anacontab 延时计划任务
    - flock 锁文件
 
-```
+```bash
 [root@aliyun tmp]# cat /root/tmp/15.sh
 #!/bin/bash
 # long time
@@ -1997,8 +1993,6 @@ sleep 100000
 
 [root@aliyun tmp]# chmod +x /root/tmp/15.sh
 [root@aliyun tmp]# flock -xn "/tmp/f.lock" -c "/root/tmp/15.sh"
-
-
 
 ^C
 [root@aliyun tmp]# flock -xn "/tmp/f.lock" -c "/root/tmp/15.sh" #锁文件在不会再次执行
@@ -2022,7 +2016,7 @@ sleep 100000
 元字符
 
 - . 匹配除换行符外的任意单个字符
-- 
+-
 
    - 匹配任意一个跟它前面的字符
 - [] 匹配方括号中的字符类中的任意一个
@@ -2051,7 +2045,7 @@ auth --enableshadow --passalgo=sha512
 
 # 87 find 演示
 
-- 
+-
 
    - 匹配前面的正则表达式至少出现一次
 - ？匹配前面的正则表达式出现零次或一次
@@ -2473,11 +2467,11 @@ var3 = $1
 算数运算符
 
 - 算数操作符
-   - 
+   -
 
-      - 
+      -
 
-         - 
+         -
 
             - / ^
 
@@ -2690,7 +2684,6 @@ user3 87 82 46 07 14 12
 user4 70 72 74 76 74 72
 user5 70 72 74 76 74 72
 
-
 [root@aliyun ckh]# cat result.awk
 {
 sum = 0
@@ -2822,13 +2815,13 @@ iptables 的表和链
 
 ```bash
 # 查看已经设置的那些过滤规则
-[root@vulcan ~]# iptables -t filter -L   
+[root@vulcan ~]# iptables -t filter -L
 Chain INPUT (policy ACCEPT)   #外部进来数据包的规则
-	 
+
 Chain FORWARD (policy DROP)   #数据包经过这台主机转发的规则
 
 Chain OUTPUT (policy ACCEPT)  #本机数据包出去的规则
-	
+
 #允许 10.0.0.1 ip访问
 [root@vulcan ~]# iptables -t filter -A INPUT -s 10.0.0.1 -j ACCEPT
 # 查看过滤信息   -n 取消方向解析
@@ -2842,12 +2835,12 @@ Chain OUTPUT (policy ACCEPT)  #本机数据包出去的规则
 # 查看所有的规则
 [root@vulcan ~]# iptables -vnL
 [root@vulcan ~]# # -A 在已有规则后面添加
-[root@vulcan ~]# # -I 添加到规则第一条  
+[root@vulcan ~]# # -I 添加到规则第一条
 [root@vulcan ~]# #iptable -t filter # -t filter表 默认可以省略
 [root@vulcan ~]# iptables -A INPUT -s 10.0.0.2 -j ACCEPT
 [root@vulcan ~]# iptables -A INPUT -s 10.0.0.2 -j DROP    # 前后有冲突时候，以最前面的规则为准
 [root@vulcan ~]# iptables -I INPUT -s 10.0.0.3 -j ACCEPT  # 插入到第一条
-[root@vulcan ~]# # iptables -I INPUT -s 10.0.0.1 -j ACCEPT  
+[root@vulcan ~]# # iptables -I INPUT -s 10.0.0.1 -j ACCEPT
 [root@vulcan ~]# # iptables -P INPUT DROP #将默认规则改成拒绝 也就是所有进来数据包都拒绝
 [root@vulcan ~]# iptables -F   #清空所有规则(默认规则不会变)
 [root@vulcan ~]# iptables -D INPUT 1   # 删除规则；1是行号
@@ -2907,7 +2900,7 @@ firewallD 服务
 [root@vulcan ~]# firewall-cmd --state  #查看firewalld 状态
 [root@vulcan ~]# firewall-cmd --list-all  #查看具体状态
 public                   # 公共区域
-  target: default      
+  target: default
   icmp-block-inversion: no
   interfaces:                 # 是绑定了哪个网卡
   sources:                    # 允许访问的源ip
@@ -2919,7 +2912,7 @@ public                   # 公共区域
   source-ports:
   icmp-blocks:
   rich rules:
-  
+
 [root@vulcan ~]# firewall-cmd --zone=public --list-services
 
 # 查看默认的所有区域
@@ -3145,7 +3138,7 @@ mount -t cifs -o username=user1 [//127.0.0.1/user1](//127.0.0.1/user1) /mnt
    - 映射网络驱动器
 
 ```bash
-[root@vulcan ~]# useradd user1  
+[root@vulcan ~]# useradd user1
 [root@vulcan ~]# smbpasswd -a user1  #一定要建立一个和系统同名的用户。
 New SMB password:
 Retype new SMB password:
@@ -3367,7 +3360,7 @@ options {
 [root@vulcan html]# vim /etc/named.conf
 zone "." IN {
         type hint;
-        file "named.ca";   #这个在/var/named/   
+        file "named.ca";   #这个在/var/named/
 };
 
 [root@vulcan html]# vi /var/named/named.ca  # 默认缓存域名服务器
@@ -3401,7 +3394,7 @@ zone "0.20.10.in-addr.arpa" IN{
 - NAS支持的协议NFS CIFS FTP
 - 保证数据安全方式  磁盘阵列
 
-```
+```bash
 #准备两个磁盘都格式化成一个分区
 [root@vulcan ~]# fdisk /dev/sdb
 [root@vulcan ~]# fdisk /dev/sdc
@@ -3419,7 +3412,7 @@ Command (m for help): w
 #保证下次开机自动运行
 [root@vulcan ~]# mdadm --detail --scan --verbose
 [root@vulcan ~]# mdadm --detail --scan --verbose > /dev/mdadm.conf
-#创建物理卷  
+#创建物理卷
 [root@vulcan ~]# pvcreate /dev/md0
 #创建卷组vg1 拿/devmd0 来创建的
 [root@vulcan ~]# vgcreate vg1 /dev/md0
@@ -3497,7 +3490,174 @@ drwx------. 2 shareuser shareuser 62 Jan  9 14:47 shareuser
 [root@vulcan ~]# getfacl /share/shareuser/
 ```
 
-# 
 # 118 结束语
 深入学习 向系统管理方向发展，建议深入学习shell脚本
 通过linux平台开发应用软件：深入理解操作系统的基本原理
+
+# 附：Linux 实战技能常见经典面试题（带答案）
+
+> 从 100 招实战技能中提炼面试最高频的基础操作、权限、用户管理、网络、软件包、进程、Shell、文本处理、服务搭建九大方向。标注必背度：🔴 必背 / 🟡 熟练 / 🟢 了解。
+
+## 一、系统操作与帮助
+
+**1. 🔴 man、help、info 三种帮助命令区别？**
+
+- man：最全的手册（按章节分类）；help：shell 内置命令帮助；info：超文本详细文档。
+- 追问：命令是内置还是外部？——`type 命令名` 判断；内置用 help，外部用 man。
+
+**2. 🟡 忘记 root 密码怎么重置？**
+
+- 重启进 GRUB 编辑，在 linux 行末加 `rd.break`，切根 `chroot /sysroot` 后 `passwd` 重置，重启生效。
+- 或 init=/bin/sh 方式（RHEL7+ 用 rd.break）。
+- 追问：重置密码后要做什么？——如启用 SELinux 需 `touch /.autorelabel`，否则可能无法登录。
+
+**3. 🟡 系统启动流程？**
+
+- BIOS/UEFI → GRUB → 加载内核 → 初始化硬件 → 挂载根文件系统 → 启动 PID 1（systemd）→ 并行启动服务 → 登录。
+- 追问：开机自启服务怎么看？——systemctl list-unit-files | grep enabled。
+
+## 二、文件与权限
+
+**4. 🔴 文件权限 rwx 与数字法？**
+
+- r=4、w=2、x=1；owner/group/other 三段拼接；755/644 常用。
+- 目录权限特殊：x=进入、w=增删文件、r=列目录。
+- 追问：chown 和 chmod 区别？——chown 改属主属组，chmod 改权限位。
+
+**5. 🔴 SUID / SGID / 粘滞位？**
+
+- SUID：以属主身份执行；SGID：目录继承属组；粘滞位：/tmp 防互相删除。
+- 追问：怎么看？——ls -l 的 s/S/t/T；数字法 4/2/1 加最前。
+
+**6. 🟡 硬链接和软链接？**
+
+- 硬链接同一 inode 不可跨文件系统、不可连目录；软链接独立 inode 可跨文件系统、可连目录、源删即失效。
+- 追问：删除源文件后软链接还能用吗？——不能，软链接变悬空（红字）；硬链接不受影响。
+
+**7. 🟡 打包压缩常用命令？**
+
+- tar czf（gzip）、tar cjf（bzip2）、tar cJf（xz）；解压 tar xzf 等。
+- 追问：只打包不压缩？——tar cf；查看内容 tar tf。
+
+## 三、用户与权限管理
+
+**8. 🔴 useradd / passwd / usermod / userdel 流程？**
+
+- useradd 建用户（-g 组、-s shell）；passwd 设密码；usermod 改属性；userdel -r 删用户带家目录。
+- 追问：用户配置文件有哪些？——/etc/passwd（用户信息）、/etc/shadow（密码）、/etc/group（组）。
+
+**9. 🔴 su 和 sudo 区别？安全建议？**
+
+- su 切用户要目标密码；sudo 提权执行单条命令要自己密码 + 授权。
+- 安全建议：禁 root 直登（PermitRootLogin no），运维用 sudo 最小授权 + 审计。
+
+**10. 🟡 umask 作用？**
+
+- 控制新建文件/目录默认权限：文件 666 减 umask、目录 777 减 umask；默认 022。
+- 追问：怎么改永久生效？——写 /etc/profile 或 /etc/profile.d/*.sh，source 生效。
+
+## 四、网络操作
+
+**11. 🔴 网络排障命令顺序？**
+
+- ip addr 看 IP、ping 测连通、ss/netstat 看端口、traceroute 看路由、tcpdump 抓包。
+- 追问：连不通排查思路？——先通不通（ping）→端口（ss/telnet）→防火墙→路由。
+
+**12. 🟡 网络配置文件与静态 IP？**
+
+- /etc/sysconfig/network-scripts/ifcfg-eth0 配置 IP；BOOTPROTO=static + IPADDR/GATEWAY/DNS。
+- 追问：DNS 配置在哪？——ifcfg 里 DNS 或 /etc/resolv.conf；解析顺序 hosts → resolv.conf。
+
+**13. 🟡 防火墙 iptables 四表五链？**
+
+- 四表：filter/nat/mangle/raw；五链：PREROUTING/INPUT/FORWARD/OUTPUT/POSTROUTING。
+- 常用：放行端口 `iptables -A INPUT -p tcp --dport 80 -j ACCEPT`。
+- 追问：firewalld 和 iptables 关系？——firewalld 是上层工具，RHEL8+ 底层 nftables，RHEL7 底层 iptables。
+
+## 五、软件包管理
+
+**14. 🔴 rpm 和 yum 区别？**
+
+- rpm 直接装 .rpm 包，不自动解决依赖；yum/dnf 从仓库安装并自动解决依赖。
+- 追问：yum 常用操作？——yum install/remove/update/list、yum search 找包、yum provides 查命令所属包。
+
+**15. 🟡 源代码编译安装流程？**
+
+- 解压 → ./configure（检查环境生成 Makefile）→ make（编译）→ make install（安装）。
+- 追问：编译安装依赖什么？——gcc、make、依赖库开发包（-devel），装不上先补依赖。
+
+## 六、进程与服务
+
+**16. 🔴 进程查看与杀进程？**
+
+- ps -ef/aux 看进程、top 实时、pstree 父子树；kill -9/-15 杀进程。
+- 追问：父进程死了子进程怎么办？——被 init(1) 收养成为孤儿进程。
+
+**17. 🟡 后台运行命令？**
+
+- `&` 后台、nohup 忽略挂断、setsid 新会话、screen/tmux 会话保持。
+- 生产：`nohup 命令 > 日志 2>&1 &`。
+- 追问：关了终端任务还在吗？——& 和 nohup 主要解决挂断问题，screen/tmux 可随时恢复会话。
+
+**18. 🟡 systemctl 服务管理？**
+
+- systemctl start/stop/restart/status/enable/disable；查看开机自启 list-unit-files。
+- 追问：服务启动失败怎么排查？——systemctl status 服务 看错误、journalctl -u 服务 -xe 看日志。
+
+## 七、Shell 脚本基础
+
+**19. 🔴 变量、位置参数、预定义变量？**
+
+- 自定义变量 name=value（引用 $name）；位置参数 $1-$9；预定义 $#（参数个数）、$?（上条命令退出码）、$0（脚本名）。
+- 追问：$? 有什么用？——判断命令执行成败，0 成功非 0 失败，脚本里做条件判断。
+
+**20. 🔴 if / for / while 语法？**
+
+- if 判断条件 test/[ ]/[[ ]]；for 遍历列表；while 条件循环。
+- 追问：for 和 while 怎么选？——确定次数用 for，条件驱动用 while。
+
+**21. 🟡 函数定义？**
+
+- function 名() { 命令; }；调用 名 参数；return 返回值。
+- 追问：脚本里函数和外部命令优先级？——函数优先，内部变量需 local 声明避免污染。
+
+**22. 🟡 计划任务 crontab？**
+
+- crontab -e 编辑；格式 分 时 日 月 周 命令；crontab -l 查看、-r 删除。
+- 追问：脚本没执行？——看 /var/log/cron、检查 crond 运行、脚本权限（可执行）与路径用绝对路径。
+
+## 八、文本处理
+
+**23. 🔴 grep / sed / awk 三剑客各擅长什么？**
+
+- grep：筛选匹配行；sed：流编辑（替换/删除/增行）；awk：列处理（$1/$2 提取、统计求和）。
+- 追问：grep 常用选项？——-i 忽略大小写、-v 反向、-E 扩展正则、-c 计数。
+
+**24. 🟡 sed 替换语法？**
+
+- sed 's/旧/新/g' 文件；g 全部、数字第几次、sed -i 直接改文件。
+- 追问：sed 删除行？——sed '/关键字/d' 删除匹配行；sed '1,3d' 删除范围。
+
+**25. 🟢 awk 提取列？**
+
+- awk '{print $1}' 取第一列；-F 指定分隔符；NR 行号、NF 列数。
+- 追问：统计每行字段数？——awk '{print NF}'。
+
+## 九、常用服务搭建
+
+**26. 🟡 SSH 服务配置要点？**
+
+- 改端口 Port、禁 root 登录 PermitRootLogin no、密钥认证 PubkeyAuthentication yes、禁密码 PasswordAuthentication no。
+- 追问：改完怎么生效？——systemctl restart sshd；先测试新端口能连再关旧配置，避免锁死。
+
+**27. 🟢 Nginx / LNMP 简述？**
+
+- Nginx：高性能 Web/反向代理/负载均衡；LNMP = Linux + Nginx + MySQL/MariaDB + PHP（php-fpm）。
+- 追问：Nginx 配置文件？——/etc/nginx/nginx.conf 主配置，server{} 虚拟主机，location{} 路径规则。
+
+**28. 🟡 FTP / NFS / Samba 作用？**
+
+- FTP（vsftpd）：文件传输；NFS：Linux 间网络文件系统共享；Samba：Linux 与 Windows 共享。
+- 追问：怎么选？——跨 Linux 大量共享用 NFS，跟 Windows 互通用 Samba，临时传输用 FTP。
+
+> **速记口诀**：忘记密码 rd.break，权限 r4w2x1；网络排障 ping→端口→防火墙；yum 解决依赖，编译 make install；后台 nohup、会话 screen；三剑客 grep 筛 sed 改 awk 算；SSH 禁 root 禁密码。

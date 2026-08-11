@@ -1195,9 +1195,33 @@ https://github.com/containerd/nerdctl#container-management
 
 ## 一、官方标准架构（控制平面 + 工作节点）
 
-Kubernetes 采用**控制平面（Control Plane）+ 工作节点（Worker Node）** 的分布式主从架构，是官方定义的标准拓扑结构Kubernetes。
+Kubernetes 采用**控制平面（Control Plane）+ 工作节点（Worker Node）** 的分布式主从架构，是官方定义的标准拓扑结构。
 
-![img](data:image/svg+xml,%3csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20version=%271.1%27%20width=%27256%27%20height=%27192%27/%3e)![image](./k8s%E6%9E%B6%E6%9E%84%E5%B8%88.assets/7e883a3f9d3bb6cfc68841c255af384ftplv-a9rns2rl98-pc_smart_face_crop-v1512384.png)
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│                      控制平面 Control Plane                        │
+│  ┌──────────────┐   ┌──────────┐   ┌───────────┐  ┌────────────┐  │
+│  │ kube-apiserver│   │  etcd    │   │ scheduler  │  │ controller │  │
+│  │ (集群唯一入口) │◀──│(状态存储)│   │ (Pod 调度) │  │  -manager  │  │
+│  └──────┬───────┘   └────▲─────┘   └─────┬─────┘  └─────┬─────┘  │
+│         │  唯一读写 etcd  │             │               │         │
+│         └────────────────┴─────────────┴───────────────┘         │
+└─────────────────────────────────┬────────────────────────────────┘
+                                   │ kubelet 心跳 / 指令
+            ┌──────────────────────┼──────────────────────┐
+            ▼                      ▼                      ▼
+   ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+   │   Worker Node   │    │   Worker Node   │    │   Worker Node   │
+   │ kubelet         │    │ kubelet         │    │ kubelet         │
+   │ kube-proxy      │    │ kube-proxy      │    │ kube-proxy      │
+   │ 容器运行时      │    │ 容器运行时      │    │ 容器运行时      │
+   │  ┌──Pod──┐      │    │  ┌──Pod──┐      │    │  ┌──Pod──┐      │
+   │  │container│     │    │  │container│     │    │  │container│     │
+   │  └───────┘      │    │  └───────┘      │    │  └───────┘      │
+   └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+> 一张图记住：控制平面（大脑）管决策、存状态；工作节点（手脚）跑 Pod。组件间只通过 apiserver 通信，etcd 是唯一数据源。
 
 #### 1. 控制平面组件（集群大脑，全局决策）
 

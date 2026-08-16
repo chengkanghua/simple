@@ -2294,21 +2294,25 @@ cat > /etc/my.cnf <<'EOF'
 [client]
 port=3306
 socket=/data/mysql/tmp/mysql.sock
+# 客户端↔服务端传输时的编解码（通信用）
 default-character-set=utf8mb4
 [mysqld]
 user=mysql
 basedir=/usr/local/mysql
 datadir=/data/mysql/data
-tmpdir=/data/mysql/tmp
-socket=/data/mysql/tmp/mysql.sock
-pid-file=/data/mysql/tmp/mysqld.pid
+tmpdir=/data/mysql/tmp        # 临时文件目录：磁盘临时表、ORDER BY/GROUP BY 排序溢出、大 JOIN 中间结果等都写这里；生产建议放独立高速磁盘，空间不足会报 "No space left on device"
+socket=/data/mysql/tmp/mysql.sock   # 本地 socket 连接文件，客户端默认连它
+pid-file=/data/mysql/tmp/mysqld.pid # 记录 mysqld 进程号，systemd/停止服务时用
 log-error=/data/mysql/logs/error.log
 port=3306
+# 建库/表/字段的默认字符集（存盘用）
 character-set-server=utf8mb4
 collation-server=utf8mb4_general_ci
 default-storage-engine=INNODB
-innodb_file_per_table=ON
-max_connections=500
+# 每表独立表空间：每张表的数据单独存一个 .ibd 文件（而非共用 ibdata1），便于空间回收/迁移，生产默认开
+innodb_file_per_table=ON  
+# 最大并发连接数：允许同时连入的客户端上限，过小高并发报 "Too many connections"，需按内存和并发量调整
+max_connections=500           
 EOF
 
 # 0.5 初始化数据目录（第2章；5.7 生成临时 root 密码）
@@ -2336,7 +2340,7 @@ systemctl status mysqld                                # 应显示 active (runni
 # 0.7 登录改密码 + 加 PATH（第1.1 章 客户端连接）
 /usr/local/mysql/bin/mysql -uroot -p -S /data/mysql/tmp/mysql.sock   # 输入 <临时密码>
 # 进库执行：
-#   ALTER USER 'root'@'localhost' IDENTIFIED BY 'MyNewPass#2024';
+# ALTER USER 'root'@'localhost' IDENTIFIED BY 'MyNewPass#2024';
 echo 'export PATH=/usr/local/mysql/bin:$PATH' >> /etc/profile
 source /etc/profile
 ```
@@ -2366,16 +2370,20 @@ CREATE TABLE shop.user (
   id INT,
   name VARCHAR(50) CHARSET utf8mb4 COLLATE utf8mb4_bin
 ) DEFAULT CHARSET=utf8mb4;
+SET NAMES utf8mb4;                     -- 防乱码三连; 当前会话的连接编码
 INSERT INTO shop.user VALUES (1, '😀emoji');
-SET NAMES utf8mb4;                                       -- 防乱码三连
 SHOW VARIABLES LIKE 'character_set_%';
-SELECT 'A' = 'a' COLLATE utf8mb4_general_ci;            -- 1（ci 不区分大小写）
+SELECT 'A' = 'a' COLLATE utf8mb4_general_ci;     -- 1（ci 不区分大小写）
 
 -- 第5章 行格式（5.7 实战）：DYNAMIC 默认 + 变长/溢出
+CREATE DATABASE IF NOT EXISTS pract DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci; 
 CREATE TABLE pract.t_row (id INT PRIMARY KEY, a VARCHAR(10), b CHAR(10)) ROW_FORMAT=DYNAMIC;
 SHOW TABLE STATUS FROM pract LIKE 't_row';              -- Row_format=DYNAMIC
 CREATE TABLE pract.t_over (id INT PRIMARY KEY, big TEXT) ROW_FORMAT=DYNAMIC;
 INSERT INTO pract.t_over VALUES (1, REPEAT('a', 16000)); -- 触发行溢出
+
+
+
 ```
 
 ### 阶段 2：索引 / 表空间 / 访问方法（对应第6、7、8、9章）

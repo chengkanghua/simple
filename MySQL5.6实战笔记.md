@@ -589,8 +589,13 @@ select * from mysql.user where user='root'\G;
 [root@db02 mysql-5.7.20]# mysqld_safe --skip-grant-tables --skip-networking
 
 #修改root用户密码
-mysql> update user set password=PASSWORD('oldboy123') where user='root' and host='localhost';
+-- 5.6 使用 PASSWORD() 函数，密码列名为 Password
+UPDATE mysql.user SET Password = PASSWORD('123') WHERE User = 'root' AND Host = 'localhost';
+FLUSH PRIVILEGES;   -- 必须执行，使修改生效
 
+-- 5.7 密码列改名 authentication_string，且默认 plugin 为 mysql_native_password
+UPDATE mysql.user SET authentication_string = PASSWORD('123') WHERE User = 'root' AND Host = 'localhost';
+FLUSH PRIVILEGES;   -- 必须执行
 
 
 ```

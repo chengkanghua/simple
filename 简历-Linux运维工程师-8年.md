@@ -2,47 +2,39 @@
 
 ## 基本信息
 
-- **姓名**：张三（请替换为真实姓名）
+- **姓名**：程康华
 - **求职意向**：Linux 运维工程师 / 高级运维工程师 / 云原生运维工程师
 - **工作年限**：8 年
-- **联系电话**：138-xxxx-xxxx（请替换）
-- **邮箱**：xxx@xxx.com（请替换）
-- **所在城市**：北京（请替换）
+- **联系电话**：18679816495
+- **邮箱**：chengkanghua@foxmail..com
+- **所在城市**：广州/深圳/杭州
 - **期望薪资**：面议
-
----
-
-## 个人简介
-
-8 年 Linux 系统运维与数据库运维经验，主导过 50～1000 台规模服务器集群的规划、部署与运维体系建设。精通 CentOS/RHEL 体系下的系统调优、Shell 自动化、MySQL 高可用与备份恢复、Nginx 反向代理与负载均衡、Keepalived 高可用、Ansible 批量运维、Zabbix/Prometheus 监控告警，以及 Docker/Kubernetes 云原生运维。具备从 0 到 1 搭建标准化运维体系的能力，多次主导线上故障定位与容灾演练，保障核心业务 99.95%+ 可用性。
 
 ---
 
 ## 专业技能
 
-### 系统与基础运维
-- 精通 Linux（CentOS 6/7、RHEL）系统管理：启动流程（BIOS/UEFI、GRUB、systemd）、用户权限（sudo、ACL、SUID/SGID）、文件系统（ext4/xfs、inode/block、软硬链接、LVM、RAID）。
-- 熟练使用三剑客 `grep/sed/awk` 进行日志分析与文本处理；精通 `ps/top/htop/vmstat/iostat/sar/strace/tcpdump` 等性能排查工具。
-- 熟悉磁盘管理（fdisk/parted、mount 开机自动挂载、swap）、进程管理、cron 定时任务、内核参数调优。
-- 具备 PXE + Kickstart / Cobbler 自动化装机的实战经验。
+### 服务器硬件
 
-### 服务器硬件与 IDC 运维
-- 熟悉服务器各核心硬件组成与选型：CPU（Intel/AMD 型号、核数、超线程、NUMA 架构）、内存（ECC/REG ECC、通道数与频率）、硬盘（SATA/SAS/SSD/NVMe 差异与适用场景）、主板（芯片组、PCIe 通道、扩展槽）、电源（冗余电源、功率匹配）、网卡（千兆/万兆、光口/电口）及散热风道设计，能根据业务负载（计算型/存储型/IO 型）选型配置。
-- 具备服务器整机组装与部署能力：从散件（机箱、主板、CPU、内存、硬盘、电源、风扇）独立完成硬件装配、跳线连接、最小化测试（POST）、固件（BIOS/BMC）升级与初始化；熟练配置 BIOS 启动项、开启 VT-x/VT-d、NUMA 与 ACPI 电源策略。
-- 熟练机房上架全流程：机柜 U 位规划与承重评估、导轨/滑道安装、设备固定、强弱电分离布线、网线/光纤标签规范化、PDU 取电与双路供电接入、KVM/IPMI（iDRAC/iLO）带外管理配置与远程 console 接入，支持无显示器情况下的远程装机与排障。
-- 熟悉 RAID 卡基础应用：了解常见阵列卡（HBA/带缓存 RAID 卡、BBU/CacheVault 电池保护）与 RAID 0/1/5/10 级别特点，能在卡层面创建/重建阵列、定位与更换故障硬盘。
-- 具备硬件故障定位与处理能力：通过 BMC/IPMI 日志、SMART、EDAC 等定位内存/硬盘/风扇/电源故障，完成热插拔更换与冗余切换验证，配合机房完成网络设备上下架与割接。
+- 熟悉服务器各核心硬件组成与选型;  具备服务器整机组装与部署能力;
+
+### 系统与基础运维
+
+- 熟练使用CentOS7操作系统，掌握Linux用户权限、文件系统、磁盘管理、进程服务管理
+- 精通系统日常运维：系统安装部署、YUM/DNF软件包管理、服务启停自启、日志排查、系统调优
+- 熟练Shell脚本编写，可实现自动化巡检、备份、日志清理等运维脚本；掌握Python基础运维脚本开发
+- 熟悉Linux网络配置：网卡、路由、防火墙firewalld/iptables、TCP/IP故障排查
+- 熟练使用三剑客 `grep/sed/awk` 进行日志分析与文本处理；精通 `ps/top/htop/vmstat/iostat/sar/strace/tcpdump` 等性能排查工具。
 
 ### 网络与安全
+
 - 理解 TCP/IP 协议栈、HTTP/HTTPS 原理、子网划分、路由基础；熟练排查端口不通、TIME_WAIT 过多、连接泄漏等网络问题。
 - 熟练配置 `iptables`/`firewalld` 防火墙规则、SSH 安全加固（密钥登录、改端口、fail2ban）、SELinux 基础与系统加固。
 
-### Web 与高可用架构
-- 精通 Nginx：虚拟主机、反向代理、负载均衡（轮询/权重/ip_hash）、动静分离、HTTPS、rewrite、日志切割与性能调优。
-- 熟悉 LNMP 架构部署与调优；掌握 Keepalived + LVS（DR/NAT 模式）高可用与负载均衡方案，能处理脑裂等典型问题。
-- 熟悉 Tomcat 多实例部署、JVM 参数与日志分析。
+- 
 
 ### 数据库与缓存运维（MySQL / Redis）
+
 - 精通 MySQL 5.6/5.7 安装部署（二进制/源码）、体系结构、存储引擎（InnoDB）、事务与锁、MVCC、隔离级别。
 - 熟练 MySQL 备份恢复：`mysqldump` + binlog 时间点恢复（PITR）、`XtraBackup` 全量/增量备份与恢复演练。
 - 掌握 MySQL 主从复制、GTID 复制、半同步复制、延时从库、主从延时排查；具备 MHA 高可用故障切换实战经验。
@@ -50,9 +42,16 @@
 - 熟悉 Redis：RDB/AOF 持久化、主从复制、哨兵（Sentinel）、Cluster 集群、缓存穿透/击穿/雪崩应对。
 
 ### 自动化运维
+
 - 精通 Shell 脚本编程，能独立编写系统巡检、数据备份、日志清理、批量建用户、MySQL 分库分表备份、DOS 攻击日志分析等企业级脚本。
 - 熟练 Ansible：常用模块（command/shell/copy/file/yum/service/cron）、playbook、role 封装，实现批量部署与配置管理。
 - 熟悉 Git 版本控制与 GitLab；熟练 Jenkins Pipeline 实现 CI/CD 一键发布与回滚。
+
+### Web 与高可用架构
+
+- 精通 Nginx：虚拟主机、反向代理、负载均衡（轮询/权重/ip_hash）、动静分离、HTTPS、rewrite、日志切割与性能调优。
+- 熟悉 LNMP 架构部署与调优；掌握 Keepalived + LVS（DR/NAT 模式）高可用与负载均衡方案，能处理脑裂等典型问题。
+- 熟悉 Tomcat 多实例部署、JVM 参数与日志分析。
 
 ### 监控与故障排障
 - 熟练 Zabbix：自定义监控项、触发器、告警模板、自动发现/注册、分布式监控。

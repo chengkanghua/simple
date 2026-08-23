@@ -189,6 +189,41 @@ x = "hello"     # x 现在是字符串，完全合法
 print(x)        # 输出: hello
 ```
 
+**Python 基础数据类型全景**（上例只列了最常用的 4 种，下面是全部基础类型）：
+
+| 类型 | 名称 | 示例 | 说明 | 常用度 |
+|------|------|------|------|--------|
+| `int` | 整数 | `100` | 任意大整数 | ★★★ 常用 |
+| `float` | 浮点数 | `19.9` | 小数（双精度） | ★★★ 常用 |
+| `str` | 字符串 | `"hello"` | 文本，不可变 | ★★★ 常用 |
+| `bool` | 布尔 | `True` | 只有 True/False | ★★★ 常用 |
+| `NoneType` | 空值 | `None` | 表示"什么都没有" | ★★★ 常用 |
+| `complex` | 复数 | `1+2j` | 数学复数 | ★ 不常用 |
+| `bytes` | 字节串 | `b"abc"` | 二进制数据，不可变 | ★★ 用（网络/文件） |
+| `bytearray` | 可变字节串 | `bytearray(b"abc")` | 可修改的 bytes | ★ 不常用 |
+
+```python
+# ========== 补充的几种基础类型 ==========
+
+# None：表示"没有值"（类似其他语言的 null）
+result = None
+print(result)            # None
+print(result is None)    # True（判断是否为空）
+
+# complex 复数：a + bj
+z = 3 + 4j
+print(z.real, z.imag)    # 3.0 4.0
+
+# bytes 字节串：b 前缀，用于二进制数据（网络/文件读写）
+data = b"hello"
+print(data[0])           # 104（第一个字节的十进制值）
+
+# bytearray 可变字节串（不常用）
+buf = bytearray(b"abc")
+buf[0] = 120             # 可以原地修改
+print(buf)               # bytearray(b'xbc')
+```
+
 ##### 1.2 条件判断（if / elif / else）
 
 条件判断就像**人生的岔路口**——根据不同的条件，走不同的路。
@@ -672,16 +707,43 @@ valid_ids = {1001, 1002, 1003, 1004, 1005}
 print(1003 in valid_ids)    # True（瞬间完成，不管集合多大）
 ```
 
-##### 四种内置数据结构对比表
+##### 5.5 frozenset（不可变集合）—— 像"密封的袋装弹珠"
 
-| 特性 | list | tuple | dict | set |
-|------|------|-------|------|-----|
-| 有序 | 是 | 是 | Python 3.7+ 保持插入顺序 | 否 |
-| 可变 | 是 | 否 | 是 | 是 |
-| 可重复 | 是 | 是 | 键唯一，值可重复 | 否 |
-| 语法 | `[1,2,3]` | `(1,2,3)` | `{"k":"v"}` | `{1,2,3}` |
-| 查找速度 | O(n) 慢 | O(n) 慢 | O(1) 快 | O(1) 快 |
-| 典型用途 | 有序数据集合 | 不可变数据 | 映射关系 | 去重、快速查找 |
+`frozenset` 和 `set` 几乎一样（无序、不重复、支持集合运算），区别是：**创建后不能修改**（不能 add / remove）。因为不可变，所以**能作为字典的键、能放进另一个集合**（普通 set 不行）。
+
+```python
+# ========== frozenset（不可变集合）==========
+
+# 创建
+frozen = frozenset([1, 2, 3, 3, 3])
+print(frozen)               # frozenset({1, 2, 3})  自动去重
+# frozen.add(4)             # 报错！frozenset 不能修改
+
+# 集合运算照常支持
+a = frozenset([1, 2, 3])
+b = frozenset([2, 3, 4])
+print(a & b)                # frozenset({2, 3})  交集
+print(a | b)                # frozenset({1, 2, 3, 4})  并集
+
+# 最大用途：因为不可变（可哈希），能当字典的键 / 放进集合
+# 比如：把"一组标签"作为整体去重
+tags = frozenset(["linux", "shell"])
+mapping = {tags: "运维技能组"}    # 用 frozenset 当键
+print(mapping[tags])            # 运维技能组
+```
+
+> 常用度：★★ 不常用，但在"需要用集合做键 / 需要不可变去重"时很有用。
+
+##### 四种内置数据结构对比表（附 frozenset）
+
+| 特性 | list | tuple | dict | set | frozenset |
+|------|------|-------|------|-----|-----------|
+| 有序 | 是 | 是 | Python 3.7+ 保持插入顺序 | 否 | 否 |
+| 可变 | 是 | 否 | 是 | 是 | **否** |
+| 可重复 | 是 | 是 | 键唯一，值可重复 | 否 | 否 |
+| 语法 | `[1,2,3]` | `(1,2,3)` | `{"k":"v"}` | `{1,2,3}` | `frozenset([1,2,3])` |
+| 查找速度 | O(n) 慢 | O(n) 慢 | O(1) 快 | O(1) 快 | O(1) 快 |
+| 典型用途 | 有序数据集合 | 不可变数据 | 映射关系 | 去重、快速查找 | 不可变去重、当字典键 |
 
 ---
 
@@ -900,6 +962,96 @@ console.log(typeof isPassed);      // 'boolean'
 let x: number | string = 42;   // x 现在是数字
 x = "hello";                    // x 现在是字符串（声明联合类型后合法）
 console.log(x);                 // 输出: hello
+```
+
+**JavaScript（2026 现状）全部类型清单** —— TS 是 JS 的超集，先认清 JS 自己有哪些类型：
+
+| 分类 | 类型 | 示例 | 说明 | 常用度 |
+|------|------|------|------|--------|
+| 基础（原始类型） | `number` | `100` / `19.9` | 整数和小数都是它（无 int/float 之分） | ★★★ |
+| | `string` | `"hi"` | 文本 | ★★★ |
+| | `boolean` | `true` | 布尔 | ★★★ |
+| | `null` | `null` | 表示"人为的空" | ★★★ |
+| | `undefined` | `undefined` | 表示"未定义"（声明了没赋值） | ★★★ |
+| | `symbol` | `Symbol("id")` | 独一无二的值，常做对象键 | ★★ |
+| | `bigint` | `10n` | 超长整数（>2^53） | ★ 不常用 |
+| 复合（引用类型） | `object` | `{a:1}` | 普通对象（键值对） | ★★★ |
+| | `array` | `[1,2,3]` | 数组 | ★★★ |
+| | `function` | `(x)=>x` | 函数 | ★★★ |
+| | `Date` | `new Date()` | 日期时间 | ★★★ |
+| | `RegExp` | `/a+/` | 正则 | ★★ |
+| | `Map` | `new Map()` | 键值对容器 | ★★★ |
+| | `Set` | `new Set()` | 集合 | ★★★ |
+| | `WeakMap` | `new WeakMap()` | 弱引用 Map，键必须对象 | ★ 不常用 |
+| | `WeakSet` | `new WeakSet()` | 弱引用 Set，只存对象 | ★ 不常用 |
+| | `Promise` | `new Promise(...)` | 异步操作 | ★★★（前端天天用） |
+| | 类型化数组 | `Int8Array` / `Float64Array` / `ArrayBuffer` | 二进制数据 | ★ 不常用 |
+
+```typescript
+// ========== JS 中容易漏掉的几个基础类型 ==========
+
+// null 与 undefined 的区别
+let jNull: null = null;      // 人为设置"空"
+let jUndef: undefined;       // 声明了但没赋值 → undefined
+console.log(jUndef);         // undefined
+
+// symbol：独一无二
+let s1: symbol = Symbol("id");
+let s2: symbol = Symbol("id");
+console.log(s1 === s2);      // false（即使是同样的描述，也不相等）
+
+// bigint：大整数（末尾加 n）——不常用
+const jBig: bigint = 9007199254740993n;
+console.log(jBig);           // 9007199254740993n
+```
+
+**TypeScript 新增（JS 没有）的类型** —— 这才是 TS 的"增值部分"：
+
+| 类型 | 一句话 | 示例 | 常用度 |
+|------|--------|------|--------|
+| `any` | 放弃检查，随便什么类型 | `let x: any = 1` | ★★★ 常用（但慎用） |
+| `unknown` | 未知类型，用前必须收窄 | `let x: unknown` | ★★ |
+| `void` | 函数没有返回值 | `function f(): void {}` | ★★★ |
+| `never` | 永不返回（抛异常/死循环） | `function f(): never { throw 1 }` | ★ 不常用 |
+| `tuple` | 固定长度+固定类型的数组 | `[number, string]` | ★★★ |
+| `enum` | 一组命名常量 | `enum Color {Red, Green}` | ★★ |
+| 联合类型 `A \| B` | 或 | `number \| string` | ★★★ |
+| 交叉类型 `A & B` | 且（两者都要） | `A & B` | ★★ |
+| 字面量类型 | 具体值当类型 | `"up" \| "down"` | ★★ |
+| `interface` | 定义对象形状 | `interface User {name: string}` | ★★★ |
+| `type` 别名 | 给类型起别名 | `type ID = number` | ★★★ |
+| 泛型 `<T>` | 类型参数化 | `function f<T>(x:T):T` | ★★★ |
+| 工具类型 | TS 内置类型操作 | `Partial` / `Pick` / `Omit` / `Readonly` | ★★ |
+
+```typescript
+// ========== TS 特有类型速览 ==========
+
+// any：不检查（能用，但失去 TS 的意义，慎用）
+let anything: any = 1;
+anything = "随便";          // 不报错
+
+// 联合类型：要么这个要么那个
+let tsUnion: number | string = 42;
+tsUnion = "hello";          // 合法
+
+// 字面量类型：只能是这几个值之一
+type Direction = "up" | "down";
+let dir: Direction = "up";  // dir = "left" 会报错
+
+// interface：定义对象的形状
+interface User { name: string; age: number }
+const u: User = { name: "小明", age: 18 };
+
+// 元组：固定长度数组
+const tsTuple: [number, number] = [3, 4];
+
+// 泛型：类型参数化（后面讲数据结构会大量用到）
+function tsIdentity<T>(value: T): T { return value; }
+const n2 = tsIdentity<number>(42);   // number
+const s3 = tsIdentity("hi");         // string（自动推断）
+
+// never（不常用）：表示"这个函数永远不会正常返回"
+function fail(): never { throw new Error("出错"); }
 ```
 
 ##### 1.2 条件判断（if / else if / else）
@@ -1489,6 +1641,69 @@ func main() {
 	fmt.Println(x)              // 输出: hello
 }
 ```
+
+**Go 基础类型全景**（上例只列了最常用的 4 种，Go 的类型比 Python/JS 更多更细）：
+
+| 分类 | 类型 | 说明 | 常用度 |
+|------|------|------|--------|
+| 布尔 | `bool` | true / false | ★★★ |
+| 字符串 | `string` | 文本（UTF-8，不可变） | ★★★ |
+| 整数（有符号） | `int` / `int8` / `int16` / `int32` / `int64` | int 默认跟随系统（64位） | ★★★（int 最常用） |
+| 整数（无符号） | `uint` / `uint8` / `uint16` / `uint32` / `uint64` | 非负数场景 | ★★ |
+| 字节/字符 | `byte`（=uint8）/ `rune`（=int32） | byte 处理二进制；rune 处理 Unicode 字符 | ★★★ |
+| 浮点 | `float32` / `float64` | 小数，默认 float64 | ★★★（float64） |
+| 复数 | `complex64` / `complex128` | 数学复数 | ★ 不常用 |
+| 指针/特殊 | `uintptr` | 指针整数表示（底层） | ★ 不常用 |
+| 空接口 | `interface{}` / `any` | 可存任意类型（Go 1.18+ 可用 any） | ★★★ |
+
+**Go 复合类型**（容器 + 自定义类型）：
+
+| 类型 | 一句话 | 常用度 |
+|------|--------|--------|
+| `array [N]T` | 定长数组（长度固定） | ★★ |
+| `slice []T` | 动态数组（最常用！类似 list） | ★★★ |
+| `map[K]V` | 键值对 | ★★★ |
+| `struct` | 自定义结构体（字段集合） | ★★★ |
+| `pointer *T` | 指针 | ★★★ |
+| `interface` | 方法集合（抽象约定） | ★★★ |
+| `func` | 函数类型（可当变量传） | ★★★ |
+| `channel chan T` | 并发通信管道 | ★★★（并发时） |
+| `type` 定义/别名 | `type MyInt int` 自定义新类型 | ★★ |
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	// byte 与 rune：处理字节/字符
+	var b byte = 'a'          // byte = uint8，存一个字节
+	var r rune = '中'         // rune = int32，存一个 Unicode 字符
+	fmt.Printf("byte=%c rune=%c\n", b, r)
+
+	// struct：自定义结构体（Go 没有 class，用 struct 组合）
+	type User struct {
+		Name string
+		Age  int
+	}
+	u := User{Name: "小明", Age: 18}
+	fmt.Println(u.Name)       // 小明
+
+	// pointer：指针（Go 用 & 取地址，* 解引用）
+	n := 10
+	p := &n
+	*p = 20                   // 通过指针改值
+	fmt.Println(n)            // 20
+
+	// channel：并发管道（后面并发章节详细讲）
+	ch := make(chan int, 1)
+	ch <- 42                  // 放进去
+	v := <-ch                 // 取出来
+	fmt.Println(v)            // 42
+}
+```
+
+> 常用度标注：★★★ 必须掌握；★★ 遇到认识即可；★ 了解存在，用到再查。
 
 ##### 1.2 条件判断（if / else if / else）
 
@@ -2435,7 +2650,7 @@ def count_frequency(arr):
 def create_matrix(n):
     matrix = []
     for i in range(n):
-        row = [0] * n        # 每行n个元素
+        row = [0] * n        # 每行n个元素 //[0] * 3   # 把 [0] 这个列表重复 3 次 → [0, 0, 0]
         matrix.append(row)
     return matrix
 # n行 × n列 = n² 个元素 → O(n²)
@@ -21135,9 +21350,6 @@ print("""
 ```
 
 
-## 第五阶段：中级算法
-
----
 
 ### 主题12 · TS 版实现（TypeScript 对照）
 
@@ -22208,6 +22420,9 @@ func testHeapSort() {
 	fmt.Printf("排序后: %v\n", arr) // [1 2 3 5 6 7 8 10]
 }
 ```
+
+---
+## 第五阶段：中级算法
 
 ---
 

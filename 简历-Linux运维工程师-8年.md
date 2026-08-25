@@ -39,7 +39,7 @@
 - 理解 OSI七层模型/ TCP/IP五层模型;/ IP/TCP/UDP/HTTP/HTTPS/DNS/ARP/VLAN/; 
 
 - linux网络常见排查流程；
-- 熟练配置 `iptables`/`firewalld` 防火墙规则、SSH 安全加固（密钥登录、改端口、fail2ban）、SELinux 基础与系统加固。
+- 熟练配置 `iptables`/`firewalld` 防火墙规则、SSH 安全加固
 
 - 
 

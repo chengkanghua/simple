@@ -964,7 +964,53 @@ ls /lib/modules/$(uname -r)/
 - **网卡收发包、硬中断** → 依赖网卡 `.ko` 驱动模块
 
 
-## 3. Namespace + Cgroup（容器 Docker/K8s 底层）
+## 3. 那些被并入内核的优秀开源软件（从 LVS 说起）
+
+**一句话**：Linux 内核不总是自己造轮子，而是把**经过大规模生产验证的优秀开源方案**吸收成内核原生功能——前提是：**GPL 许可证兼容 + 代码质量达标 + 有人长期维护**。
+
+**最经典的案例就是 LVS**：
+- **LVS**（Linux Virtual Server）1998 年由章文嵩发起，最初是**独立开源项目**；
+- 因为足够优秀，内核直接内置了它的核心 **IPVS（IP Virtual Server）模块**；
+- 现在你用的 `ipvsadm` 命令，底层就是内核模块 `ip_vs`——**"开源软件 → 内核原生功能"的最典型代表**。
+
+```bash
+# 验证：你的机器上 IPVS 就在内核里
+modinfo ip_vs
+lsmod | grep ip_vs
+```
+
+**按运维方向分类，还有这些**（★ = 工作里能直接感知的）：
+
+| 方向 | 软件 | 来历 | 并入后你能感知到 |
+|---|---|---|---|
+| 网络 | **eBPF/XDP** ★ | 本是 tcpdump 的用户态包过滤器（BPF） | 演变成内核可编程平台，Cilium 等云原生网络全靠它 |
+| 网络 | **AF_XDP** | 吸收 DPDK 的高性能收发思路 | 内核原生高性能 socket（4.18+） |
+| 网络 | **WireGuard** ★ | 第三方开源 VPN | 5.6 并入，现代 VPN 首选 |
+| 网络 | **ipset** | iptables 的集合扩展 | 防火墙封 IP 段神器，`ipset` 命令 |
+| 存储 | **XFS** ★ | SGI 商用 Unix 的文件系统 | 2001 年移植进内核，RHEL 默认文件系统 |
+| 存储 | **exFAT** | Samsung 驱动 | 5.7 并入，不用再装 exfat-utils |
+| 存储 | **NTFS3** | Paragon 公司的 NTFS 驱动 | 5.15 并入，Windows 盘直挂 |
+| 存储 | **OverlayFS** ★ | Docker 早期用 AUFS，内核拒绝合并 | 内核自己写了 OverlayFS，Docker/K8s 存储驱动都改用它 |
+| 存储 | **BFQ** | 独立开发的 IO 调度器 | 磁盘 IO 公平调度 |
+| 容器/安全 | **cgroups + namespace** ★ | LXC 先在用户态搞容器，内核为支撑容器生态逐项并入 | **容器是被"倒逼"进内核的** |
+| 容器/安全 | **seccomp-bpf** | Chrome 浏览器沙箱，Google 贡献 | Docker `--security-opt seccomp` |
+| 容器/安全 | **KVM** | Qumranet 技术（后被 Red Hat 收购） | 虚拟化成了内核一等公民 |
+| 容器/安全 | **virtio** | 源自 lguest 项目 | 云主机/OpenStack 半虚拟化标准 |
+| 其他 | **KSM** | Red Hat 贡献 | 虚拟机内存超卖靠它去重 |
+| 其他 | **zstd / lz4** | Facebook 的 Zstandard 压缩 | 内核镜像、Btrfs 压缩 |
+
+**反例：为什么有的优秀软件"进不来"？**
+
+| 软件 | 卡在哪 | 结局 |
+|---|---|---|
+| **ZFS** | 许可证（CDDL）与内核 GPL 不兼容 | 只能 DKMS 外挂；内核吸收它的"思想"（快照、写时复制）而非代码 |
+| **AUFS** | 代码质量 / 维护被内核拒绝 | 内核自己写 OverlayFS 取代 |
+| **DPDK** | 思路就是"绕开内核" | 内核用 XDP / AF_XDP 提供等价能力，但 DPDK 阵营也没被消灭 |
+
+**记忆锚点**：内核吸收外部软件 = **许可证兼容 + 代码质量 + 有维护者 + 有人推动**；吸收不动的就"吸收思想"，绕不开的就"提供原生替代"。
+
+
+## 4. Namespace + Cgroup（容器 Docker/K8s 底层）
 
 这两个是 **Linux 内核原生特性**，**Docker/K8s 容器的底层基石**，没有它们就没有容器！
 

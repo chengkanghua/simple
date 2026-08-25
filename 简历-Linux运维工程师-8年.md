@@ -14,17 +14,49 @@
 
 ## 专业技能
 
-### 服务器硬件
+### Linux系统与基础运维
+- 熟悉服务器各核心硬件组成与选型; 具备服务器整机组装与部署能力;
+- CentOS7操作系统安装部署;系统完整启动流程;SSH;
+- 文件系统和目录结构: 文件类型;文件基础操作;通配符,基础正则符号;/proc与/sys
+- 用户,权限(rwx/特殊权限/ACL/sudo)与安全基础
+- 基础命令(文件查看/查找/压缩打包);管道与重定向;文件处理三剑客(grep/sed/awk)
+- 进程基础;进程管理;后台任务;systemd服务管理;定时任务crontab;
+- 磁盘基础;分区与挂载;文件系统;swap交换分区;LVM逻辑卷;RAID磁盘阵列;
+- 网络原理基础(OSI七层模型/TCP/IP四层模型);网络配置和排查故障;防火墙(netfilter/iptables)
+- RPM包管理/YUM/APT; NTP/Chrony时间同步;DNS;rsync+inotify; NFS文件共享;
+- SHELL脚本编程: 脚本格式,执行方式,变量分类; 特殊变量;运算符;条件判断;循环结构;函数;基础数据类型;复合数据类型;
+- 系统日志(/var/log/message|secure|cron|dmesg|...);日志轮转logrotate; 四维排障方法论;
 
-- 熟悉服务器各核心硬件组成与选型;  具备服务器整机组装与部署能力;
 
-### 系统与基础运维
+### 自动化运维
 
-- 熟练使用CentOS7操作系统，掌握Linux用户权限、文件系统、磁盘管理、进程服务管理
-- 精通系统日常运维：系统安装部署、YUM/DNF软件包管理、服务启停自启、日志排查、系统调优
-- 熟练Shell脚本编写，可实现自动化巡检、备份、日志清理等运维脚本；掌握Python基础运维脚本开发
-- 熟悉Linux网络配置：网卡、路由、防火墙firewalld/iptables、TCP/IP故障排查
-- 熟练使用三剑客 `grep/sed/awk` 进行日志分析与文本处理；精通 `ps/top/htop/vmstat/iostat/sar/strace/tcpdump` 等性能排查工具。
+- 精通 Shell 脚本编程，能独立编写系统巡检、数据备份、日志清理、批量建用户、MySQL 分库分表备份、企业级脚本。
+- 熟练 Ansible：常用模块（command/shell/copy/file/yum/service/cron）、playbook、role 封装，实现批量部署与配置管理。
+- 熟练 Git,GitLab,jenkins; 实现企业 CI/CD一键发布与回滚;
+
+### Web网站架构
+- 熟悉网站业务五层架构;
+- 接入层(负载均衡/反向代理层): Nginx、LVS、Keepalived
+- web应用服务器: Nginx,Tomcat,Node.js,Go
+- 存储服务层: OSS, NFS, ceph
+- 数据缓存层: redis
+- 数据持久层: mysql,MongoDB
+
+### 数据库与缓存运维（MySQL / Redis）
+- 熟练 MySQL 5.6/5.7 安装部署（二进制）、体系结构、存储引擎（InnoDB）、事务与锁、MVCC、隔离级别。
+- 熟练 MySQL 备份恢复：`mysqldump` + binlog 时间点恢复（PITR）、`XtraBackup` 全量/增量备份与恢复演练。
+- 掌握 MySQL 主从复制、GTID 复制、半同步复制、延时从库、主从延时排查；具备 MHA 高可用故障切换实战经验。
+- 熟悉 MySQL 优化：索引设计、`EXPLAIN`、慢查询分析、`Buffer Pool` 调优、生产参数（`innodb_flush_log_at_trx_commit`、`sync_binlog`、`binlog_format=ROW`、独立表空间）。
+- 熟悉 Redis：RDB/AOF 持久化、主从复制、哨兵（Sentinel）、Cluster 集群、缓存穿透/击穿/雪崩应对。
+
+
+### 云计算与云原生
+- 熟练 Docker：镜像构建（Dockerfile 优化、多阶段构建）、容器网络与存储、Harbor 私有仓库。
+- 熟练 Kubernetes：kubeadm 搭建集群、Pod/Deployment/Service/Ingress/ConfigMap/Secret/StatefulSet 等核心资源、弹性伸缩、持久化存储（PV/PVC）、dashboard、集群监控与日志收集。
+- 熟悉阿里云/腾讯云核心产品（ECS、SLB、OSS、RDS、VPC、安全组）；了解 Terraform 基础设施即代码。
+
+
+
 
 ### 底层原理与内核机制（核心优势）
 
@@ -34,44 +66,18 @@
 - 具备 CPU/内存/磁盘 IO/网络 四大资源瓶颈的系统性分析方法论，熟练运用 `perf`/`strace`/`flame graph` 进行深度性能剖析与故障根因定位。
 - 深入理解容器底层本质：**Namespace**（6 种隔离）+ **Cgroup**（资源限制）+ **OverlayFS**，能从内核视角排查 Docker/K8s 的隔离、网络与资源限制问题。
 
-### 网络与安全
 
-- 理解 OSI七层模型/ TCP/IP五层模型;/ IP/TCP/UDP/HTTP/HTTPS/DNS/ARP/VLAN/; 
 
-- linux网络常见排查流程；
-- 熟练配置 `iptables`/`firewalld` 防火墙规则、SSH 安全加固
 
-- 
 
-### 数据库与缓存运维（MySQL / Redis）
 
-- 精通 MySQL 5.6/5.7 安装部署（二进制/源码）、体系结构、存储引擎（InnoDB）、事务与锁、MVCC、隔离级别。
-- 熟练 MySQL 备份恢复：`mysqldump` + binlog 时间点恢复（PITR）、`XtraBackup` 全量/增量备份与恢复演练。
-- 掌握 MySQL 主从复制、GTID 复制、半同步复制、延时从库、主从延时排查；具备 MHA 高可用故障切换实战经验。
-- 熟悉 MySQL 优化：索引设计、`EXPLAIN`、慢查询分析、`Buffer Pool` 调优、生产参数（`innodb_flush_log_at_trx_commit`、`sync_binlog`、`binlog_format=ROW`、独立表空间）。
-- 熟悉 Redis：RDB/AOF 持久化、主从复制、哨兵（Sentinel）、Cluster 集群、缓存穿透/击穿/雪崩应对。
-
-### 自动化运维
-
-- 精通 Shell 脚本编程，能独立编写系统巡检、数据备份、日志清理、批量建用户、MySQL 分库分表备份、DOS 攻击日志分析等企业级脚本。
-- 熟练 Ansible：常用模块（command/shell/copy/file/yum/service/cron）、playbook、role 封装，实现批量部署与配置管理。
-- 熟悉 Git 版本控制与 GitLab；熟练 Jenkins Pipeline 实现 CI/CD 一键发布与回滚。
-
-### Web 与高可用架构
-
-- 精通 Nginx：虚拟主机、反向代理、负载均衡（轮询/权重/ip_hash）、动静分离、HTTPS、rewrite、日志切割与性能调优。
-- 熟悉 LNMP 架构部署与调优；掌握 Keepalived + LVS（DR/NAT 模式）高可用与负载均衡方案，能处理脑裂等典型问题。
-- 熟悉 Tomcat 多实例部署、JVM 参数与日志分析。
 
 ### 监控与故障排障
 - 熟练 Zabbix：自定义监控项、触发器、告警模板、自动发现/注册、分布式监控。
 - 熟悉 Prometheus + Grafana + Alertmanager 云原生监控体系，掌握 exporter 采集与 PromQL。
 - 熟悉 ELK 日志分析栈；建立过 CPU/内存/磁盘 IO/网络四维性能排障体系。
 
-### 云计算与云原生
-- 熟练 Docker：镜像构建（Dockerfile 优化、多阶段构建）、容器网络与存储、Harbor 私有仓库。
-- 熟练 Kubernetes：kubeadm 搭建集群、Pod/Deployment/Service/Ingress/ConfigMap/Secret/StatefulSet 等核心资源、弹性伸缩、持久化存储（PV/PVC）、dashboard、集群监控与日志收集。
-- 熟悉阿里云/腾讯云核心产品（ECS、SLB、OSS、RDS、VPC、安全组）；了解 Terraform 基础设施即代码。
+
 
 ---
 

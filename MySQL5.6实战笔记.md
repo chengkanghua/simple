@@ -162,6 +162,141 @@ mysqladmin -u root -pCkh123.com password '123'
 
 ```
 
+## mysql5.7 生产级 my.cnf 注释版
+
+**一句话理解:my.cnf 就是 MySQL 的"开机自检清单"。生产配置核心只盯 3 件事:① 内存别爆(缓冲池设多大)② 数据别丢(双 1 刷盘 + binlog)③ 并发别堵(连接数、行锁、超时)。**
+
+### 内存给多大?先记一个表
+
+| 物理内存 | innodb_buffer_pool_size | 说明 |
+|---|---|---|
+| 16G | 8G | 缓冲池 = 内存的 50% |
+| 32G | 20G | 64 核以下 60% 左右 |
+| 64G | 40G | 留足 OS 缓存和连接内存 |
+| 128G+ | 70~80G | 极限也就 80%,别全给 |
+
+**记住口诀:缓冲池给 50%~70%,剩下留给连接线程和 OS。**
+
+### 完整配置(/etc/my.cnf)
+
+```ini
+# ============================================================
+# MySQL 5.7 生产级配置(注释版)
+# 适用:单机 32G 内存 / 8 核 / SSD,通用业务
+# 用法:cp 到 /etc/my.cnf,改 datadir/log 路径后重启
+# ============================================================
+
+[client]
+port            = 3306
+socket          = /tmp/mysql.sock
+
+[mysqld]
+# ---------- 基础 ----------
+user            = mysql                      # 运行用户,绝不能用 root
+port            = 3306
+socket          = /tmp/mysql.sock
+basedir         = /usr/local/mysql           # 安装目录,按实际改
+datadir         = /data/mysql/data           # 数据目录,生产放独立磁盘/SSD
+pid-file        = /data/mysql/mysql.pid
+log_error       = /data/mysql/log/error.log  # 错误日志,排查问题先看它
+server_id       = 100                        # ★5.7 开 binlog 必填,主从也靠它区分
+character_set_server = utf8mb4               # 字符集:utf8mb4 支持表情,生产标配
+collation_server     = utf8mb4_general_ci    # 排序规则(不区分大小写,通用)
+explicit_defaults_for_timestamp = ON         # 5.6+ 建议:timestamp 不再自动填默认值
+
+# ---------- 连接管理(防并发打爆) ----------
+max_connections = 2000                       # 最大连接数,默认 151 太小;按业务调
+max_connect_errors = 100000                  # 防恶意/误操作把 IP 拉黑
+skip_name_resolve                           # ★不反解域名,连接更快更稳(代价:只能用 IP 登录)
+back_log         = 300                       # 连接排队上限,突发流量兜底
+wait_timeout     = 3600                      # 空闲连接超时(秒),太长占连接,太短频繁断
+interactive_timeout = 3600                   # 交互式客户端超时,和上面配套改
+thread_cache_size = 64                       # 线程缓存,减少频繁创建线程
+table_open_cache  = 2048                     # 表缓存数,表多可调大(注意 open_files_limit)
+
+# ---------- 查询/排序内存(别贪大,按需给) ----------
+sort_buffer_size     = 2M                    # 排序缓冲,默认 256K 偏小;给 2~8M,别超 16M
+join_buffer_size     = 2M                    # join 缓冲,同理别给大
+tmp_table_size       = 64M                   # 临时表上限,超过会落盘(变慢)
+max_heap_table_size  = 64M                   # 内存临时表上限,和 tmp_table_size 保持一致
+
+# ---------- InnoDB 核心(重头戏) ----------
+default_storage_engine = InnoDB              # 生产统一 InnoDB(不解释)
+innodb_buffer_pool_size = 20G                # ★缓冲池:32G 内存给 20G(见上面表格)
+innodb_buffer_pool_instances = 8             # 拆 8 份,减少并发争抢(>=1G 才建议拆)
+innodb_log_file_size    = 1G                 # redo 日志总大小(5.7 单个文件);1~4G 都行
+innodb_log_buffer_size  = 32M                # redo 缓冲,大事务/高并发可调到 64M
+innodb_flush_log_at_trx_commit = 1           # ★双 1 之一:每次提交都刷盘,最安全(丢 0 数据)
+sync_binlog             = 1                  # ★双 1 之二:binlog 同步落盘,和上面组 CP
+innodb_flush_method     = O_DIRECT           # 跳过 OS 缓存直接写,防双缓存浪费(SSD 必备)
+innodb_file_per_table   = ON                 # ★独立表空间,删表释放磁盘,生产必须 ON(5.7 默认)
+innodb_io_capacity      = 200                # SSD 可以 1000~2000,决定刷脏页速度
+innodb_io_capacity_max  = 2000
+innodb_lock_wait_timeout = 5                 # 行锁等待 5 秒就报错,防止死锁拖死业务
+innodb_max_dirty_pages_pct = 75              # 脏页比例上限,到点强制刷盘
+innodb_autoinc_lock_mode = 2                 # 自增锁优化,提高插入并发(默认 1)
+innodb_buffer_pool_dump_at_shutdown = ON     # 关机把热数据缓存导出
+innodb_buffer_pool_load_at_startup  = ON     # 开机加载,减少"冷启动慢"
+
+# ---------- binlog(5.7 生产必开,主从/恢复全靠它) ----------
+log_bin             = mysql-bin              # 开 binlog,文件前缀 mysql-bin
+binlog_format       = ROW                    # ★ROW 格式:记录行级变更,主从最稳
+binlog_row_image    = FULL                   # 记录完整行,误操作可精确回滚
+max_binlog_size     = 1G                     # 单文件 1G,超了自动换新文件
+binlog_cache_size   = 64K                    # 事务 binlog 缓存,大事务可调 1M+
+sync_binlog         = 1                      # 见上面双 1
+expire_logs_days    = 7                      # ★binlog 保留 7 天(5.7 用这个参数)
+gtid_mode           = ON                     # ★开启 GTID,主从切换/运维神器
+enforce_gtid_consistency = ON                # 配合 GTID 必开
+log_slave_updates   = ON                     # 从库也记 binlog,级联复制/从库再挂从库用
+
+# ---------- 慢查询日志(排查性能先看它) ----------
+slow_query_log      = ON
+slow_query_log_file = /data/mysql/log/slow.log
+long_query_time     = 2                      # 超过 2 秒算慢查询(生产常见 1~3)
+log_queries_not_using_indexes = OFF          # 记录不走索引的 SQL(排查期可开)
+
+# ---------- 安全/其他 ----------
+sql_mode = STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION
+# 上面:严格模式(插错就报错而不是截断),生产标配;可去掉 ONLY_FULL_GROUP_BY 减少 5.7 升级报错
+lower_case_table_names = 0                   # Linux 保持 0(区分大小写);Windows 才改 1
+skip_external_locking                        # 跳过外部锁,避免文件锁冲突
+max_allowed_packet   = 64M                   # 大包上限,导数据/大字段调大
+open_files_limit     = 65535                 # 文件句柄上限,配 table_open_cache 用
+secure_file_priv     = /data/mysql/tmp       # 限制 LOAD_FILE/LOAD DATA 路径,防注入
+```
+
+### 改完必做 3 步
+
+```bash
+# 1. 校验语法(重要!写错直接启动失败)
+mysqld --defaults-file=/etc/my.cnf --validate-config
+
+# 2. 重启
+systemctl restart mysqld
+
+# 3. 验证参数真的生效(很多参数改了不生效说明位置写错)
+mysql -uroot -p -e "show variables like 'innodb_buffer_pool_size';"
+mysql -uroot -p -e "show variables like 'gtid_mode';"
+mysql -uroot -p -e "show variables like 'log_bin';"
+```
+
+### 关键点提醒
+
+- **双 1**(`innodb_flush_log_at_trx_commit=1` + `sync_binlog=1`):牺牲一点性能换"0 丢失",主库必须;从库/非核心库可调 `0/2` 提速
+- **5.7 特有坑**:开 binlog 不写 `server_id` 直接启动失败
+- **GTID**(`gtid_mode=ON`)不是默认开启的,生产建议一开始就开,后期开启麻烦
+- 挂接:binlog 三种格式 ROW/STATEMENT/MIXED 的详细对比见后文【二进制日志】章节
+
+
+
+
+
+
+
+
+
+
 # **第二章· MySQL体系结构管理**
 
 ## 客户端与服务端模型
@@ -184,13 +319,12 @@ mysqladmin -u root -pCkh123.com password '123'
 	
 	   答： 配置文件如果没有指定网络连接参数, 默认是 socket 连接.
 
-
 什么是实例
 	-1 MySQL的后台进程+线程+预分配内存结构
 	-2 mysql启动过程会启动后台守护进程，并生成工作线程，预分配内存结构供mysql处理数据使用。
 	
 
-# mysqld服务器程序构成
+## mysqld服务器程序构成
 
 
 
@@ -347,13 +481,15 @@ SQL 接口（接收 SQL）
 
 
 
-# mysql结构
-逻辑结构
-	1 库
-	2 表: 元数据+真是数据行
-	3 元数据: 列+其他属性 (行数+占用空间大小+权限)
-	4 列: 列名字+数据类型+其他约束(非空,唯一,非负数,自增长,默认值)
-	
+## mysql结构
+
+### mysql逻辑结构
+
+​	1 库
+​	2 表: 元数据+真是数据行
+​	3 元数据: 列+其他属性 (行数+占用空间大小+权限)
+​	4 列: 列名字+数据类型+其他约束(非空,唯一,非负数,自增长,默认值)
+​	
 二维表:
 select user,password,host from mysql.user;
 
@@ -368,7 +504,7 @@ select user,password,host from mysql.user;
 | show tables;             | ls                   |
 | 二维表=元数据+真实数据行 | 文件=文件名+文件属性 |
 
-# mysql 物理结构
+### mysql 物理结构
 
 ```BASH
 #=============================
@@ -425,8 +561,8 @@ old.ibd     # 数据 + 索引 都在这个文件里
 由很多个区组成
 一个表 ≈ 一个段
 类比：一本书 = 很多叠纸组成
+
 终极层级关系（必须背）
-plaintext
 一张表 = 1个段
 1个段 = N 个 区（1MB）
 1个区 = 64 个 页（16K）
@@ -504,6 +640,10 @@ plaintext
 15. MySQL 一台服务器运行时，哪些是物理文件？
 答：.frm .ibd .MYD .MYI ibdata1 ib_logfile binlog 等
 ```
+
+
+
+
 
 
 
@@ -827,6 +967,65 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON testdb.* TO 'user'@'%';
 ```
 
 
+
+### 	mysql体系结构总结
+
+```bash
+一句话本质
+MySQL 体系结构 = "一个服务器进程(mysqld),接待一堆客户端,内部按职能分成几层,一层干一层的事,最底层是真正管数据的存储引擎插件。"
+
+它不是你敲的那个 mysql 命令——那只是遥控器;真正干活的是后台常驻的 mysqld(单进程多线程)。
+
+四层结构(面试标准答案)
+层	干什么	关键点
+① 连接层	握手、鉴权、分配线程	一个客户端连接占一个线程
+② 服务层	SQL 解析 → 优化 → 执行	词法/语法解析、选执行计划、查询缓存(8.0 已删)
+③ 引擎层	真正读写数据	插件式,InnoDB / MyISAM 可换,5.7 默认 InnoDB
+④ 存储层	磁盘上的文件和日志	数据目录、表空间、redo/undo 日志
+
+生活类比:点餐(一条 SQL 的旅程)
+你(客户端) → 前台(连接层:验证身份、安排座位)
+          → 后厨接单(服务层:看懂你的单子、决定怎么做)
+          → 灶台/厨师(引擎层:真正动手做)
+          → 冰箱/仓库(存储层:原料就放在这)
+连接层 = 餐厅前台:认人(鉴权),给座位(连接线程)。
+服务层 = 后厨主管:不懂做饭细节,只负责"看懂菜单、排顺序、下指令"。它不知道你的表是 InnoDB 还是 MyISAM。
+引擎层 = 灶台师傅:真正干活的人。换"师傅"(引擎)不影响菜单(SQL 语法),这就是**"存储引擎可插拔"**的意义——服务层和引擎层是解耦的。
+存储层 = 仓库:数据物理落盘的地方。
+
+
+怎么理解"体系结构"这件事
+记住两个精髓:
+职责分离:上层只管"怎么处理 SQL"(解析/优化),下层只管"数据怎么存"(引擎)。所以你换引擎(比如 MyISAM → InnoDB)时,SQL 一句都不用改。
+一切为这条 SQL 服务:任何面试题问架构,你心里走一遍 连接 → 解析 → 优化 → 执行 → 引擎读写 → 返回结果 就通了。
+
+InnoDB 与 MyISAM 核心差异(生产统一 InnoDB 的原因)
+一句话:InnoDB = 稳重的大管家(事务/行锁/自愈/热备);MyISAM = 轻快的小能手(无事务/表锁/易丢)。
+生产要的是"不丢数据、不怕并发",所以统一 InnoDB。
+
+核心差异表(面试必背)
+维度	    InnoDB(默认)	              MyISAM(遗留)
+事务	    支持 ACID,写一半失败可回滚	 不支持,写一半断电就烂
+锁粒度	    行级锁,并发高					表级锁,写一个锁全表
+外键约束	支持							不支持
+索引方式	聚簇索引(数据和索引在一起)		非聚簇索引(数据索引分开)
+宕机恢复	redo/undo 自动恢复			 易损坏,myisamchk 手工修
+MVCC	  支持(快照读,读写互不阻塞)			无
+物理文件	表名.frm + 表名.ibd(2个)		表名.frm + .MYD + .MYI(3个)
+备份方式	在线热备不锁表	               锁表冷备
+适用场景	业务表、增删改查			  只读历史表、纯报表
+
+生产统一用 InnoDB 的 5 大理由
+1. 不丢数据:事务 ACID,要么全成要么全回滚,写一半宕机不丢
+2. 扛并发:行锁+MVCC 只锁一行,MyISAM 一写锁全表、读全堵
+3. 宕机自愈:redo 重做/undo 回滚自动恢复,MyISAM 损坏只能手工修
+4. 数据一致:外键约束 + 聚簇索引,主键查询数据就在索引里
+5. 运维友好:在线热备不影响业务,MyISAM 只能锁表冷备
+
+一句话类比
+InnoDB = 银行柜台:流程严(事务)、排队细(行锁)、出错能撤(回滚)、晚上不关门(热备)
+MyISAM = 村口小卖部:记流水快(查询快),但一次一个人记账(表锁)、账本烧了没法补(易丢)
+```
 
 
 

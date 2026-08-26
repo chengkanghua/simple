@@ -1027,153 +1027,770 @@ InnoDB = 银行柜台:流程严(事务)、排队细(行锁)、出错能撤(回�
 MyISAM = 村口小卖部:记流水快(查询快),但一次一个人记账(表锁)、账本烧了没法补(易丢)
 ```
 
+# **第三章·MySQL版本区别及管理**
+
+## 一.MySQL5.6与MySQL5.7安装的区别
+
+- 1、cmake的时候加入了boost
+- 2、初始化时 使用mysqld --initialize 替代mysql_install_db，其它参数没有变化：--user= --basedir= --datadir=
+- 3、--initialize会生成一个临时密码
+- 4、还可以用另外一个参数--initialize-insecure
 
 
 
-# mysql连接管理
+### MySQL5.7编译安装
+
+```bash
+# 删除系统自带的mariadb
+rpm -qa |grep mariadb
+yum remove mariadb-libs -y
+
+
+# https://www.boost.org/users/download/
+# https://archives.boost.io/release/
+# wget https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_59_0.tar.gz
+# 上面地址已失效,官网没有了1.59版本的下载
+# wget https://github.com/boostorg/boost/archive/refs/tags/boost-1.59.0.tar.gz
+# tar xf boost_1_59_0.tar.gz -C /usr/local/
+
+#安装编译依赖包
+yum install -y gcc gcc-c++ automake autoconf
+yum install make cmake bison-devel ncurses-devel libaio-devel
+
+# 查看地址 https://downloads.mysql.com/archives/community/
+# wget https://downloads.mysql.com/archives/get/p/23/file/mysql-5.7.20.tar.gz
+
+# 直接下载带boost的版本
+wget https://downloads.mysql.com/archives/get/p/23/file/mysql-boost-5.7.20.tar.gz
+
+
+tar xf mysql-5.7.20.tar.gz
+cd mysql-5.7.20/
+cp -a boost/boost_1_59_0 /usr/local/
+[root@db02 mysql-5.7.20]#
+cmake . -DCMAKE_INSTALL_PREFIX=/application/mysql-5.7.20 \
+-DMYSQL_DATADIR=/application/mysql-5.7.20/data \
+-DMYSQL_UNIX_ADDR=/application/mysql-5.7.20/tmp/mysql.sock \
+-DDOWNLOAD_BOOST=1 \
+-DWITH_BOOST=/usr/local/boost_1_59_0 \
+-DDEFAULT_CHARSET=utf8 \
+-DDEFAULT_COLLATION=utf8_general_ci \
+-DWITH_EXTRA_CHARSETS=all \
+-DWITH_INNOBASE_STORAGE_ENGINE=1 \
+-DWITH_FEDERATED_STORAGE_ENGINE=1 \
+-DWITH_BLACKHOLE_STORAGE_ENGINE=1 \
+-DWITHOUT_EXAMPLE_STORAGE_ENGINE=1 \
+-DWITH_ZLIB=bundled \
+-DWITH_SSL=bundled \
+-DENABLED_LOCAL_INFILE=1 \
+-DWITH_EMBEDDED_SERVER=1 \
+-DENABLE_DOWNLOADS=1 \
+-DWITH_DEBUG=0
+
+
+make -j2
+make install 
+
+# /application 目录会自动创建
+#做软链接
+ln -s /application/mysql-5.7.20/ /application/mysql
+#拷贝配置文件  5.7版本没有这个文件
+# cp /application/mysql-5.7.20/support-files/my*.cnf /etc/my.cnf
+cat > /etc/my.cnf <<EOF
+[mysqld]
+basedir=/application/mysql
+datadir=/application/mysql/data
+port=3306
+socket=/tmp/mysql.sock
+[mysql]
+socket=/tmp/mysql.sock
+prompt=3306 [\d]>
+EOF
+
+#拷贝mysql启动脚本
+cp /application/mysql-5.7.20/support-files/mysql.server /etc/init.d/mysqld
+#进入MySQL初始化脚本目录
+cd /application/mysql/bin/
+
+
+# 创建mysql用户
+groupadd mysql
+useradd mysql -r -g mysql -s /sbin/nologin -M
+#初始化MySQL
+./mysqld --initialize --basedir=/application/mysql --datadir=/application/mysql/data --user=mysql
+#最后一行生成临时密码
+# 2024-09-12T03:45:21.008979Z 1 [Note] A temporary password is generated for root@localhost: s0-_>Mhboub9
+
+#授权
+chown -R mysql.mysql /application/mysql-5.7.20/
+#给启动脚本授权700
+chmod 700 /etc/init.d/mysqld
+#systemd管理mysql启动
+tee /usr/lib/systemd/system/mysqld.service <<EOF
+[Unit]
+Description=MySQL Server
+Documentation=man:mysqld(8)
+Documentation=https://dev.mysql.com/doc/refman/en/using-systemd.html
+After=network.target
+After=syslog.target
+[Install]
+WantedBy=multi-user.target
+[Service]
+User=mysql
+Group=mysql
+ExecStart=/application/mysql/bin/mysqld --defaults-file=/etc/my.cnf
+LimitNOFILE = 5000
+EOF
+
+#设置开机自启动 C6
+chkconfig mysqld on
+#创建tmp目录（mysql-5.7.20版本不会自动创建tmp目录）
+mkdir /application/mysql-5.7.20/tmp
+chown -R mysql.mysql /application/mysql-5.7.20/tmp
+#启动MySQL C6
+/etc/init.d/mysqld start
+/etc/init.d/mysqld stop
+
+
+
+#设置开机自启动 C7
+systemctl daemon-reload
+systemctl enable mysqld
+#启动MySQL C7
+systemctl start mysqld
+
+
+
+
+#添加环境变量
+# echo 'PATH=/application/mysql/bin/:$PATH' >>/etc/profile
+#个人推荐
+echo 'PATH=/application/mysql/bin/:$PATH' >/etc/profile.d/mysql.sh
+source /etc/profile.d/mysql.sh
+
+#登录 密码是上面初始化提示的密码
+msyql -uroot -p's0-_>Mhboub9'
+
+# 登录后修改密码  修改可远程登录
+set password for root@localhost = password('root');
+use mysql;
+update user set user.Host='%' where user.User='root';
+flush privileges;
+quit
+
+#MySQL登陆
+[root@db02 ~]# mysql -uuser -ppassword -Ssocket -hhost
+
+#MySQL基本操作及基本优化
+#查看库
+mysql> show databases;
+#删库
+mysql> drop database test;
+#使用库
+mysql> use mysql
+#查看表
+mysql> show tables;
+#查看当前所在库
+mysql> select database();
+#查看mysql用户
+mysql> select user,host from mysql.user;
+mysql> select user,host,password from mysql.user;
+#删除用户
+mysql> select user,host from user;
+mysql> drop user ''@'db02';
+mysql> drop user root@db02;
+mysql> drop user root@'::1';
+mysql> drop user root@'127.0.0.1';
+```
+
+### Mysql5.7 二进制安装
+
+```bash
+# 删除系统自带的mysql
+rpm -qa|grep mysql
+whereis mysql
+find / -name mysql  #自带的目录全部删除掉
+rpm -qa |grep mariadb
+yum remove mariadb-libs -y
+
+
+ # 安装所需要的依赖包
+# yum -y install cmake bison-devel ncurses-devel libaio-devel gcc gcc-c++ automake autoconf
+
+
+#1.创建安装目录：
+mkdir /application
+
+#2.下载二进制安装包：
+wget https://downloads.mysql.com/archives/get/p/23/file/mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz
+
+#3.解压二进制包：
+tar zxvf mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz
+
+
+#4.移动解压目录
+mv mysql-5.7.20-linux-glibc2.12-x86_64 /application/mysql-5.7.20
+
+#5.做MySQL软连接
+ln -s /application/mysql-5.7.20/ /application/mysql
+
+#6.创建MySQL用户
+groupadd mysql
+useradd mysql -r -g mysql -s /sbin/nologin -M
+# -r 　建立系统帐号。
+# -g<群组> 　指定用户所属的群组。
+# -s<shell>　 　指定用户登入后所使用的shell。
+# -M 　不要自动建立用户的登入目录。
+
+
+#8.配置文件/etc/my.cnf
+cat > /etc/my.cnf <<EOF
+[mysqld]
+basedir=/application/mysql
+datadir=/application/mysql/data
+port=3306
+socket=/tmp/mysql.sock
+[mysql]
+socket=/tmp/mysql.sock
+prompt=3306 [\d]>
+EOF
+
+#9.启动脚本软链接
+ln -s /application/mysql-5.7.20/support-files/mysql.server /etc/init.d/mysqld
+#11.修改MySQL启动脚本及启动程序
+sed -i 's#/usr/local#/application#g' /application/mysql-5.7.20/support-files/mysql.server /application/mysql/bin/mysqld_safe 
+
+
+# 10.初始化MySQL
+cd /application/mysql-5.7.20/bin
+./mysqld --initialize --user=mysql --basedir=/application/mysql --datadir=/application/mysql/data
+#--user 		指定mysql用户
+#--basedir 	指定mysql安装目录
+#--datadir	 指定mysql数据目录
+
+#2024-09-12T11:29:42.152626Z 1 [Note] A temporary password is generated for root@localhost: UMheu<jLM3jC
+#记录临时登录密码
+
+#授权 
+chown -R mysql.mysql /application/mysql-5.7.20/
+
+
+
+#12.启动MySQL
+/etc/init.d/mysqld start
+/etc/init.d/mysqld stop
+#13.添加环境变量
+echo 'export PATH="/application/mysql/bin:$PATH"' > /etc/profile.d/mysql.sh
+#14.加载环境变量
+source /etc/profile
+
+#15.添加systemd启动
+cat > /etc/systemd/system/mysqld.service <<EOF
+[Unit]
+Description=MySQL Server
+Documentation=man:mysqld(8)
+Documentation=https://dev.mysql.com/doc/refman/en/using-systemd.html
+After=network.target
+After=syslog.target
+[Install]
+WantedBy=multi-user.target
+[Service]
+User=mysql
+Group=mysql
+ExecStart=/application/mysql/bin/mysqld --defaults-file=/etc/my.cnf
+LimitNOFILE = 5000
+EOF
+
+#加载配置
+systemctl daemon-reload
+systemctl start mysqld
+systemctl stop mysqld
+
+#MySQL查看报错：
+#tail -100 /application/mysql/data/db01.err
+
+#使用初始化的密码登录
+mysql -u root -p'UMheu<jLM3jC'
+
+# 登录后修改密码  修改可远程登录
+set password for root@localhost = password('root');
+use mysql;
+update user set user.Host='%' where user.User='root';
+flush privileges;
+quit
+
+
+```
+
+### mysql5.7 官方 yum 源安装
+
+```bash
+wget https://dev.mysql.com/get/mysql57-community-release-el7-8.noarch.rpm
+rpm -ivh mysql57-community-release-el7-8.noarch.rpm
+rpm -qa |grep mariadb
+yum remove mariadb-libs -y
+rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022
+yum install mysql-server -y
+
+systemctl start mysqld
+systemctl status mysqld
+systemctl enable mysqld
+ps -ef | grep mysql
+rpm -qa |grep -i mysql
+
+#取出临时密码赋值给pass变量
+pass=`grep 'A temporary password' /var/log/mysqld.log |awk '{print $NF}'`
+
+mysql -uroot -p$pass
+#下面是MySQL登录交互式操作
+set global validate_password_policy=LOW;  -- 设置低密码策略;
+set global validate_password_length=6;    -- 密码长度6位;
+ALTER USER USER() IDENTIFIED BY '123456';
+show variables like '%char%';
+GRANT ALL PRIVILEGES ON *.* TO root@'%' IDENTIFIED BY '123456' WITH GRANT OPTION; -- 远程登录;
+FLUSH PRIVILEGES;
+quit
+
+
+# 字符编码配置
+tee -a /etc/my.cnf <<EOF
+[client]
+# 设置字符编码
+default-character-set=utf8
+[mysqld]
+character-set-server=utf8
+collation-server=utf8_general_ci
+EOF
+
+systemctl restart mysqld
+
+```
+
+## 二.MySQL用户权限管理
+
+### 1. 1.MySQL用户基础操作
+
+```bash
+#创建用户并设置密码
+create user '[新用户名]'@'[作用域]' identified by '[密码]';
+flush privileges;　　-- 创建完要记得刷新权限表;
+
+# 授权加创建用户
+grant [权限] on [数据库名].[表名] to '[用户名]'@'[作用域]' identified by '[密码]';
+flush privileges;　　-- 记得刷新权限表;
+
+# 删除用户 二选一
+drop user '[用户名]'@'[作用域]';　　
+delete from mysql.user where user='[用户名]' and host='[作用域];  
+flush privileges;　　-- 刷新权限表;
+
+# 修改用户密码
+# mysql  # 配置文件添加 跳过授权表skip-grant-tables　　//添加 之后直接mysql无密码登录
+mysql> update user set authentication_string=password('123') where user='root';
+mysql> flush privileges;　　
+
+
+用户管理实战
+刚装完MySQL数据库该做的事情
+● 1、设定初始密码（root@localhost）
+[root@db02 mysql-5.7.20]# mysqladmin -uroot -p password ‘oldboy123’
+● 2、修改密码
+● 3、使用密码登陆
+[root@db02 mysql-5.7.20]# mysql -uroot -p123
+● 4、清理无用的用户
+
+
+
+```
+
+### ***误删除了所有用户***
+
+```bash
+# -- 误删除实验
+select user,host from mysql.user;
+drop user root@"%";
+drop user root@"localhost";
+drop user root@'127.0.0.1';
+quit
+
+#关闭数据库
+[root@db02 mysql-5.7.20]# /etc/init.d/mysqld stop
+#或
+systemctl stop mysqld
+#启动数据库
+[root@db02 mysql-5.7.20]# mysqld_safe --skip-grant-tables --skip-networking &  #如果没加&符号前台运行,ctrl+z;bg
+#或
+vi /etc/my.cnf
+[mysqld] 后面添加
+skip-grant-tables
+skip-networking
+
+mysql #直接登录
+#使用mysql库
+mysql> use mysql
+#错误方法1、创建root用户
+# create user root@’localhost’;
+#错误方法2、创建root用户
+#  insert into user(user,host,password) values('root','10.0.0.55',PASSWORD('123'));
+#正确方法创建root用户- mysql-5.6
+mysql> insert into mysql.user values ('localhost','root',PASSWORD('123'),
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'Y',
+'',
+'',
+'',
+'',0,0,0,0,'mysql_native_password','','N');
+
+
+3306 [(none)]>quit
+pkill mysql
+
+systemctl start mysqld
+[root@db03 ~]# mysql -uroot -p
+3306 [(none)]>show grants for 'root'@'localhost';
+
+
+--------------------------mysql-5.7 推荐下面方法 5.6使用也可以, 效果和上面insert语句一样.
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' IDENTIFIED BY '123' WITH GRANT OPTION;
+flush privileges;
+
+select * from mysql.user where user='root'\G;
+
+```
+
+### ***忘记root密码***
+
+```bash
+#关闭数据库
+[root@db02 mysql-5.7.20]# /etc/init.d/mysqld stop
+#启动数据库
+[root@db02 mysql-5.7.20]# mysqld_safe --skip-grant-tables --skip-networking
+#修改root用户密码
+mysql> update user set password=PASSWORD('oldboy123') where user='root' and host='localhost';
+
+
+-------------------------- 跳过授权表 跳过网络的配置文件启动方式
+[root@db03 bin]# cat /etc/my.cnf
+[mysqld]
+basedir=/application/mysql
+datadir=/application/mysql/data
+port=3306
+socket=/tmp/mysql.sock
+skip-grant-tables
+skip-networking
+[mysql]
+socket=/tmp/mysql.sock
+prompt=3306 [\\d]>
+
+# /application/mysql/bin/mysqld_safe --defaults-file=/etc/my.cnf
+
+```
+
+### 用户管理及权限管理
+
+```bash
+1）创建用户
+mysql> create user oldboy@'10.0.0.%' identified by '123';
+2）查看用户
+mysql>  select user,host from mysql.user;
+3）删除用户
+mysql>  drop user oldboy@‘10.0.0.%’；
+4) 修改密码
+# set password 命令修改密码
+SET PASSWORD FOR 'username'@'host' = PASSWORD('new_password');
+SET PASSWORD FOR 'root'@'localhost' = PASSWORD('root123');
+
+# 推荐alter命令修改用户密码
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'root123';
+alter user 'root'@'%' identified by 'root123';
+
+# mysql-5.6  
+update mysql.user set password=PASSWORD('oldboy123') where user='root' and host='localhost';
+# mysq-5.7 版本修改用户密码
+update mysql.user set authentication_string=PASSWORD('oldboy123') where user='root' and host='localhost';
+
+# 授权命令,用户不存在会创建
+grant all privileges on *.* to oldboy@’10.0.0.%’ identified by ‘123’;
+
+#最后都要刷新授权表
+flush privileges;
+
+5）用户权限介绍
+MySQL的权限定义： 作用对象：库、表
+
+INSERT,SELECT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN,  PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE
+#=============================================
+#           MySQL 权限完整列表（必背）
+#=============================================
+
+#=========================
+# 一、全局权限 ( *.* )
+#=========================
+ALL PRIVILEGES        # 所有权限（万能）
+CREATE                # 创建库/表
+DROP                  # 删除库/表
+DELETE                # 删除数据
+INSERT                # 插入数据
+UPDATE                # 更新数据
+SELECT                # 查询数据
+ALTER                 # 修改表结构
+INDEX                 # 创建/删除索引
+RELOAD                # 刷新权限
+SHUTDOWN              # 关闭MySQL
+PROCESS               # 查看进程
+FILE                  # 读写文件
+GRANT OPTION          # 授权他人
+SUPER                 # 超级权限（杀线程、改配置）
+REPLICATION SLAVE     # 从库复制权限
+REPLICATION CLIENT    # 查看主从状态
+CREATE USER           # 创建用户
+SHOW DATABASES        # 查看所有库
+
+#=========================
+# 二、数据库级别权限 ( db.* )
+#=========================
+CREATE                # 在该库下创建表
+DROP                  # 删除该库/表
+DELETE                # 库内删数据
+INSERT                # 库内插数据
+SELECT                # 库内查询
+UPDATE                # 库内更新
+ALTER                 # 库内改表
+INDEX                 # 库内索引
+CREATE ROUTINE        # 创建存储过程
+ALTER ROUTINE         # 修改存储过程
+EXECUTE               # 执行存储过程
+LOCK TABLES           # 锁表
+
+#=========================
+# 三、表级别权限 ( db.tb )
+#=========================
+SELECT                # 查询表
+INSERT                # 插入表
+DELETE                # 删除表
+UPDATE                # 更新表
+ALTER                 # 修改表
+INDEX                 # 索引
+CREATE                # 创建表
+DROP                  # 删除表
+TRIGGER               # 触发器
+
+#=========================
+# 四、列级别权限（最细）
+#=========================
+SELECT (col1,col2)    # 只查某些列
+INSERT (col1,col2)    # 只插某些列
+UPDATE (col1,col2)    # 只改某些列
+
+#=========================
+# 五、管理类权限（DBA专用）
+#=========================
+CREATE USER           # 用户管理
+SHOW DATABASES        # 查看所有库
+SUPER                 # 核心管理
+PROCESS               # 查看连接
+RELOAD                # flush privileges
+GRANT OPTION          # 可转授权限
+
+#=========================
+# 六、最常用 3 套权限（工作直接用）
+#=========================
+
+# 1. 只读账号（最常用）
+GRANT SELECT ON *.* TO 'user'@'%';
+
+# 2. 普通读写账号（开发）
+GRANT SELECT,INSERT,UPDATE,DELETE ON db.* TO 'user'@'%';
+
+# 3. DBA超级管理员
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+
+# 归属:  每次设定只能有一个属主，没有属组或其他用户的概念
+grant     all privileges    on     *.*    to   oldboy@’10.0.0.%’  identified by    ‘123’;
+                权限               作用对象          归属               密码
+                
+作用对象分解
+*.* [当前MySQL实例中所有库下的所有表]
+wordpress.* [当前MySQL实例中wordpress库中所有表（单库级别）]
+wordpress.user [当前MySQL实例中wordpress库中的user表（单表级别）]     
+
+3.企业中权限的设定
+开发人员说：请给我开一个用户
+沟通：
+1、你需要对哪些库、表进行操作
+2、你从哪里连接过来
+3、用户名有没有要求
+4、密码要求
+5、发邮件
+
+#一般给开发创建用户权限
+grant select,update,delete,insert on *.* to oldboy@’10.0.0.%’ identified by ‘123’;
+
+```
+
+
+
+***实验思考问题：***
+
+```sql
+-- 创建wordpress数据库
+create database wordpress;
+-- 使用wordpress库
+use wordpress;
+-- 创建t1、t2表
+create table t1 (id int);
+create table t2 (id int);
+-- 创建blog库
+create database blog;
+-- 使用blog库
+use blog;
+-- 创建t1表
+create table tb1 (id int);
+
+授权：
+1、grant select on *.* to wordpress@’10.0.0.5%’ identified by ‘123’;
+2、grant insert,delete,update on wordpress.* to wordpress@’10.0.0.5%’ identified by ‘123’;
+3、grant all on wordpress.t1 to wordpress@’10.0.0.5%’ identified by ‘123’;
+
+# 限定mysql数据库表user, host字段可以查,其他不可查
+# grant select(host) on mysql.user to xudao_5@'localhost' identified by '123';
+# grant select(user,host) on mysql.user to xudao_5@'localhost' identified by '123';
+
+问：
+一个客户端程序使用wordpress用户登陆到10.0.0.51的MySQL后，
+● 1、对t1表的管理能力？
+● 2、对t2表的管理能力？
+● 3、对tb1表的管理能力？
+解：
+● 1、同时满足1，2，3，最终权限是1+2+3
+● 2、同时满足了1和2两个授权，最终权限是1+2
+● 3、只满足1授权，所以只能select
+结论：
+● 1、如果在不同级别都包含某个表的管理能力时，权限是相加关系。
+● 2、但是我们不推荐在多级别定义重复权限。
+● 3、最常用的权限设定方式是单库级别授权，即：wordpress.*
+
+
+
+```
+
+
+
+## mysql连接管理
+
 ```BASH
-## 连接工具
-
-	mysql 
-		-u 指定用户 
-		-p 指定密码
-		-h 指定主机
-		-P 指定端口
-		-S 指定sock
-		-e 指定sql
-		--protocol=name：指定连接方式
+## 连接工具  1)MySQL自带的连接工具
+mysql 
+-u 指定用户 
+-p 指定密码
+-h 指定主机
+-P 指定端口
+-S 指定sock
+-e 指定sql
+--protocol=name：指定连接方式
 	
-	第三方连接工具 sqlyog、navicat
+第三方连接工具 sqlyog、navicat
+应用程序连接MySQL; 注意：需要加载对应语言程序的API
 
 ## 连接方式
-
 socket连接
 	mysql -uroot -pold -S /tmp/mysql.sock 
 	msyql -uroot -p 
 tcp/ip 
 	mysql -uroot -p123 -h10.0.0.5 -P3306 
+	
+	
+问题：你怎么判断你的MySQL数据库可以对外提供服务？
 ```
 
 
 
-# mysql启动关闭流程
+## mysql启动关闭流程
+
 ```BASH
-mysql.server 启动     ---> mysql_safe 启动   --> mysqld 
-   ^						   ^
-   |						   |
-service mysqld start    ./bin/mysqld_safe &
+一.启动链路（外层调用关系）
 
-启动
-/etc/init.d/mysqld start ------> mysqld_safe ------> mysqld
+service mysqld start / systemctl start mysqld
+        │
+        ▼
+/etc/init.d/mysqld (mysql.server 脚本)
+        │  检查配置、目录权限
+        ▼
+mysqld_safe (守护壳:负责拉起/重启 mysqld、记录错误日志)
+        │
+        ▼
+mysqld (真正的数据库主进程)
 
-关闭
+二、mysqld 内部启动 7 步（重点）
+读配置 my.cnf → 端口、datadir、内存大小、字符集
+开内存 → 初始化 Buffer Pool、日志缓冲、表缓存
+启线程 → 主线程、IO 线程、Purge 清理线程
+开文件 → 打开 ibdata1、redo log、binlog、各 .ibd 表空间
+崩溃恢复 → 应用 redo log 前滚、用 undo log 回滚未提交事务
+开监听 → 监听 3306 端口、生成 /tmp/mysql.sock
+完成 → 开始对外读写服务
+
+
+
+标准关闭	
+systemctl stop mysqld
 /etc/init.d/mysqld stop 
 mysqladmin -uroot -p**** shutdown
 
+强制关闭	；危险！可能丢数据
 kill -9 pid ?
 killall mysqld ?
 pkill mysqld ?
-出现问题：
-- 1、如果在业务繁忙的情况下，数据库不会释放pid和sock文件
-- 2、号称可以达到和Oracle一样的安全性，但是并不能100%达到
-- 3、在业务繁忙的情况下，丢数据（补救措施，高可用）
 
----------------------------------------------------------------------
-#==================================================
-#              MySQL 启动 → 运行 → 关闭 全流程
-#==================================================
+正常关闭内部步骤：
+1 停新连接(关闭3306端口；关闭socket文件) → 
+2 等事务跑完 （不允许新事务；等待运行中 SQL 结束） → 
+3 刷脏页落盘（将 Buffer Pool 里的修改数据写入 .ibd） → 
+4 引擎做 checkpoint （InnoDB 做 checkpoint；确保数据完全落盘）→ 
+5 退线程、释放内存 （退出所有后台线程 ；释放缓冲池） → 
+6 删 pid 文件退进程。
 
-#=========================
-# 一、MySQL 启动流程（重点）
-#=========================
-1. 读取配置文件
-   - my.cnf / my.ini
-   - 加载端口、数据目录、内存、字符集等
-
-2. 初始化核心内存结构
-   - 缓冲池 (Buffer Pool)
-   - 日志缓冲、表缓存等
-
-3. 启动后台线程
-   - 主线程、IO线程、Purge清理线程、锁线程
-
-4. 打开物理文件
-   - ibdata1、ib_logfile、redo log、binlog
-   - 加载表空间文件 .ibd
-
-5. 恢复阶段（崩溃恢复）
-   - 应用 redo log 前滚
-   - 回滚未提交事务 undo log
-
-6. 启动监听
-   - 打开 3306 端口
-   - 生成 /tmp/mysql.sock
-   - 开始接收客户端连接
-
-7. 启动完成
-   - 可以登录 mysql
-   - 提供读写服务
-
+# 脏页 Dirty Page = 内存里被改过、但还没写回磁盘的数据页。
+英文 dirty 在计算机里 = "not clean（不干净/不一致），needs cleaning（需要清理）"，重点是 needs cleaning（需要被处理），而不是 "garbage（垃圾）"。
+干净页 = 内存里的副本和磁盘上一模一样，不用管它。 脏页 = 副本被改过了，和磁盘不一致了，欠了一笔"待落盘"的账，所以必须被"处理"（刷盘）。
+翻译成"待刷盘页"或"改动未落盘页"都比"脏页"好记。
 
 #=========================
-# 二、MySQL 关闭流程（重点）
-#=========================
-1. 停止接收新连接
-   - 关闭 3306 端口
-   - 关闭 socket 文件
-
-2. 等待活跃事务执行完毕
-   - 不允许新事务
-   - 等待运行中 SQL 结束
-
-3. 刷新脏页到磁盘
-   - 将 Buffer Pool 里的修改数据写入 .ibd
-
-4. 关闭所有存储引擎
-   - InnoDB 做 checkpoint
-   - 确保数据完全落盘
-
-5. 关闭线程、释放内存
-   - 退出所有后台线程
-   - 释放缓冲池
-
-6. 退出进程 mysqld
-   - 删除 pid 文件
-   - 完全关闭
-
-
-#=========================
-# 三、常用启动/关闭命令
-#=========================
-
-# 1. 启动
-systemctl start mysqld
-service mysqld start
-/etc/init.d/mysqld start
-
-# 2. 关闭（推荐安全关闭）
-systemctl stop mysqld
-service mysqld stop
-/etc/init.d/mysqld stop
-
-# 3. 重启
-systemctl restart mysqld
-
-# 4. 强制关闭（不推荐，可能丢数据）
-pkill mysqld
-kill -9 进程号
-
-
-#=========================
-# 四、启动关闭 3 个关键点（面试必考）
+# 启动关闭 3 个关键点（面试必考）
 #=========================
 1. 启动必须做：崩溃恢复（redo + undo）
 2. 关闭必须做：刷脏页、做 checkpoint
 3. kill -9 会丢数据，绝对不能乱用！
 
-
 #=========================
-# 五、一句话总结流程
+# 一句话总结流程
 #=========================
 启动：读配置 → 开内存 → 启线程 → 开文件 → 崩溃恢复 → 监听端口
 关闭：停连接 → 等事务 → 刷数据 → 关引擎 → 退进程
@@ -1181,18 +1798,31 @@ kill -9 进程号
 
 
 
+## mysql实例初始化配置
 
-# mysql实例初始化配置
+**一句话本质：初始化 = 开新店前的"装修铺货"——把空目录变成一套能启动的 MySQL 系统数据（系统库 + 核心文件 + 目录骨架）。**
+
+### 初始化到底干了什么？（核心）
+
+1. **建系统库 `mysql`** → 生成用户表（`user`、`db`、`tables_priv`…）——相当于备好员工花名册
+2. **生成核心文件** → `ibdata1`（系统表空间）、redo log（`ib_logfile*`）——相当于备好保险箱和记账凭证
+3. **铺好数据目录骨架** → 之后 `data` 目录才能被 mysqld 正常读写
+
+> **关键认知：初始化是"一次性"动作。没初始化就启动 = 新店没装修就开张，必报错。**
+> 而"实例" = mysqld 进程跑起来后的一整套活体（进程 + 线程 + 内存 + 数据），一个 MySQL 软件（basedir）可以开很多套实例。
+
+### 三个版本初始化对比（面试常问）
+
+| 版本 | 命令 | 初始密码 |
+|---|---|---|
+| 5.6 | `mysql_install_db --user=mysql --datadir=...` | **无密码**，直接登 |
+| 5.7 | `mysqld --initialize --user=mysql --datadir=...` | **临时密码**，在 error log 里 |
+| 8.0 | 同 5.7 | 同 5.7 |
+
+（具体命令见下方代码块）
 
 
 ```BASH
-优先级结论：
-● 1、命令行   		 #mysqld --port=3307 --datadir=/data/mysql2
-● 2、defaults-file  #mysqld --defaults-file=/etc/my3306.cnf  #指定配置文件 ，其他的配置文件都不读。
-● 3、配置文件   
-● 4、预编译
-
-
 配置文件读取顺序：
 /etc/my.cnf
 /etc/mysql/my.cnf
@@ -1200,7 +1830,11 @@ $MYSQL_HOME/my.cnf（前提是在环境变量中定义了MYSQL_HOME变量）
 defaults-extra-file （类似include） # mysqld --defaults-extra-file=/path/extra.cnf
 ~/my.cnf
 
-
+配置优先级结论：
+● 1、命令行   		 #mysqld --port=3307 --datadir=/data/mysql2
+● 2、defaults-file  #mysqld --defaults-file=/etc/my3306.cnf  #指定配置文件 ，其他的配置文件都不读。
+● 3、配置文件   
+● 4、预编译
 
 1）MySQL 5.7 初始化（最常用）
 mysqld --initialize --user=mysql --datadir=/data/mysql
@@ -1214,19 +1848,27 @@ mysqld --initialize --user=mysql --datadir=/data/mysql
 和 5.7 一样
 ```
 
+**多实例一句话：实例 = 一家分店（独立端口 / socket / 账本 / 经理），一台机器用同一套 MySQL 二进制（basedir）开多家分店。**
 
+| 分店要素 | MySQL 实例对应 |
+|---|---|
+| 门牌号 | 端口 port（3306/3307…） |
+| 独立地址 | socket 文件 |
+| 自家账本 | 独立的数据目录 datadir |
+| 分店经理 | mysqld 后台进程 |
 
-# MySQL多实例配置
-● 1.什么是多实例
-	1）多套后台进程+线程+内存结构
-	2）多个配置文件
-		a.多个端口
-		b.多个socket文件
-		c.多个日志文件
-		d.多个server_id
-	3）多套数据
+每个实例必须完全独立：`port`、`socket`、`datadir`、`log_error`、`log-bin`、`server_id` 全部不同；共用一套 `basedir`。
 
-## 多实例实战
+**实战五步套路**：
+
+1. 建目录 + 写配置 → 每家分店一份 `my.cnf`，用 `--defaults-file` 指定，其他配置文件全不读
+2. 初始化 → `mysql_install_db --defaults-file=...` 逐实例执行
+3. 改属主 → `chown -R mysql.mysql`（不改权限，mysql 用户写不了目录）
+4. 启动 → systemd 每实例一个 service，或 `mysqld_safe --defaults-file=... &`
+5. 验证 + 设密码 → `netstat -lnp|grep 330`、`mysql -S /data/3307/mysql.sock -e "select @@server_id"`、`mysqladmin password '123'` 
+
+### 多实例实战
+
 ```bash
 #创建数据目录
 mkdir -p /data/330{7..9}
@@ -1298,6 +1940,7 @@ systemctl start mysqld3309.service
 
 #验证多实例
 netstat -lnp|grep 330
+# mysql-5.6版本默认没密码可以操作
 mysql -S /data/3307/mysql.sock -e "select @@server_id"
 mysql -S /data/3308/mysql.sock -e "select @@server_id"
 mysql -S /data/3309/mysql.sock -e "select @@server_id"
@@ -1306,32 +1949,58 @@ mysql -S /data/3309/mysql.sock -e "select @@server_id"
 mysqladmin -u root  -S /data/3307/mysql.sock password '123'
 mysqladmin -u root  -S /data/3308/mysql.sock password '123'
 mysqladmin -u root  -S /data/3309/mysql.sock password '123'
+
+
+-------------------------------------------
+# mysql-5.7使用初始化的密码登录 再修改密码
+mysql -S /data/3307/mysql.sock -uroot -p'tovM4anvvj!%'
+alter user 'root'@'localhost' identified by 'root123'; -- 修改密码sql语句 ;
+
+mysql -S /data/3308/mysql.sock -uroot -p'daFi.BVrm06!'
+mysql -S /data/3309/mysql.sock -uroot -p'LuU1;Pu,-1id'
+
+# 最后查看  server_id
+mysql -uroot -proot123 -S /data/3307/mysql.sock -e "select @@server_id"
+mysql -uroot -proot123 -S /data/3308/mysql.sock -e "select @@server_id"
+mysql -uroot -proot123 -S /data/3309/mysql.sock -e "select @@server_id"
 ```
-# mysql客户端工具及sql
-# 客户端命令
 
-```mysql
-mysql 
- - 连接 （略）
+**易错点（面试）**：
+- 两个实例 `port` / `socket` 重复 → 后起的直接失败（门牌号撞了）
+- `server_id` 必须全局唯一 → 主从 / GTID / MGR 全指望它
+- 初始化前目录必须 `chown mysql:mysql`，否则权限报错
+- 一个实例一套 `my.cnf`，用 `--defaults-file` 指定；共用配置文件会互相踩
 
-2） 管理：	
-#MySQL接口自带的命令
-\h 或 help 或？      查看帮助
-\G                  格式化查看数据（key：value）
-\T 或 tee            记录日志
-\c（5.7可以ctrl+c）   结束命令
-\s 或 status         查看状态信息
-\. 或 source         导入SQL数据
-\u或 use             使用数据库
-\q 或 exit 或 quit   退出
 
-3）接收用户的SQL语句
-● 2、将用户的SQL语句发送到服务器
 
-mysqladmin
-● 1、命令行管理工具
-mysqldump
-● 1、备份数据库和表的内容
+# **第四章· MySQL客户端工具及SQL讲解**
+
+
+
+## mysql客户端命令工具
+
+```bash
+# ============================================================
+# MySQL 客户端命令工具 详细介绍使用
+# ============================================================
+
+# 一、mysql 客户端（最常用：进入数据库交互界面 / 直接执行 SQL）
+# 1. 连接参数
+mysql -uroot -p123                         # 本机默认连接（socket）
+mysql -uroot -p123 -h10.0.0.5 -P3306       # 远程 TCP/IP 连接
+mysql -uroot -p123 -S /tmp/mysql.sock      # 指定 socket 文件连接
+mysql -uroot -p123 -e "select 1"           # 不进入界面，直接执行 SQL（脚本神器）
+mysql -uroot -p123 --protocol=socket       # 强制指定连接协议：socket / tcp
+
+# 2. 登录后常用内部命令（mysql> 提示符下用 \ 开头）
+\h | help | ?        # 查看帮助
+\s | status          # 查看服务器状态
+\G                   # 查询结果竖排显示（列多时最好读）
+\t | tee 文件名       # 记录操作日志到文件
+\c                   # 放弃当前输入的命令（5.7 可 Ctrl+C）
+\. 文件 | source 文件 # 批量执行 SQL 脚本（导入数据）
+\u 库名 | use 库名    # 切换数据库
+\q | exit | quit     # 退出
 
 help命令的使用
 mysql> help
@@ -1342,51 +2011,37 @@ mysql> help create user
 mysql> help status
 mysql> help show
 
-source命令的使用
-#在MySQL中处理输入文件：
-#如果这些文件包含SQL语句则称为：
-#1.脚本文件
-#2.批处理文件
-mysql> SOURCE /data/mysql/world.sql
-#或者使用非交互式
-mysql</data/mysql/world.sql
+# 二、mysqladmin（运维管理工具：不进入界面直接管理）
+mysqladmin -uroot -p123 ping               # 探活，返回 mysqld is alive
+mysqladmin -uroot -p123 status             # 运行状态（连接数/慢查询/uptime）
+mysqladmin -uroot -p123 shutdown           # 安全关闭 MySQL
+mysqladmin -uroot -p123 variables          # 查看所有参数（同 show variables）
+mysqladmin -uroot -p123 create testdb      # 创建数据库
+mysqladmin -uroot -p123 drop testdb        # 删除数据库
+mysqladmin -uroot -p123 reload             # 重载授权表（同 flush privileges）
+mysqladmin -uroot -p123 flush-log          # 刷新日志（切换 binlog）
+mysqladmin -uroot -p123 password '新密码'   # 修改密码
+mysqladmin -uroot -p123 processlist        # 查看当前连接线程
+
+# 三、mysqldump（逻辑备份工具：把数据导出成 SQL）
+mysqldump -uroot -p123 --all-databases > /data/all.sql          # 全库备份
+mysqldump -uroot -p123 -B testdb > /data/testdb.sql             # 备份单库（-B 带建库语句）
+mysqldump -uroot -p123 testdb user > /data/user.sql             # 备份单表
+mysqldump -uroot -p123 --single-transaction --master-data=2 -B testdb > /data/t.sql  # InnoDB 热备 + 记录 binlog 位置
+# 恢复：mysql -uroot -p123 < /data/all.sql
+
+# 四、其他常用客户端工具
+mysqlshow -uroot -p123                     # 查看所有数据库（同 show databases）
+mysqlshow -uroot -p123 testdb              # 查看库中所有表
+mysqlbinlog mysql-bin.000001               # 查看二进制日志（闪回/恢复靠它）
+mysqlslap -uroot -p123 --auto-generate-sql # 自带压力测试（模拟并发）
+mysqlcheck -uroot -p123 -A                 # 检查所有表（同 check table）
+mysqlimport -uroot -p123 testdb /data/user.txt  # 批量导入文本数据（load data 命令行版）
 
 
-mysqladmin命令的使用
-01）“强制回应 (Ping)”服务器。
-02）关闭服务器。
-03）创建和删除数据库。
-04）显示服务器和版本信息。
-05）显示或重置服务器状态变量。
-06）设置口令。
-07）重新刷新授权表。
-08）刷新日志文件和高速缓存。
-09）启动和停止复制。
-10）显示客户机信息。
-#查看MySQL存活状态
-mysqladmin -uroot -p123 ping
-#查看MySQL状态信息
-mysqladmin -uroot -p123 status
-#关闭MySQL进程
-mysqladmin -uroot -p123 shutdown
-#查看MySQL参数
-mysqladmin -uroot -p123 variables
-#删除数据库
-mysqladmin -uroot -p123 drop DATABASE
-#创建数据库
-mysqladmin -uroot -p123 create DATABASE
-#重载授权表
-mysqladmin -uroot -p123 reload
-#刷新日志
-mysqladmin -uroot -p123 flush-log
-#刷新缓存主机
-mysqladmin -uroot -p123 reload
-#修改口令
-mysqladmin -uroot -p123 password
 ```
 
-
-# 接收用户的sql语句
+## 接收用户的sql语句
 
 
 ```sql
@@ -1441,9 +2096,180 @@ COMMIT;
 
 ```
 
+```sql
+-- ============================================================
+-- SQL 完整教学（一环扣一环：从头建到尾，全链路跑通）
+-- 场景：一家小网店，从"建库"到"下单查询"，一条线串完所有 SQL
+-- 建议整块复制到 mysql> 逐段执行，前一步的结果后一步直接用
+-- ============================================================
+
+-- ==================== 第一环：DDL 建库建表（先搭房子） ====================
+-- ① 建库（IF NOT EXISTS：存在就不报错，幂等）
+CREATE DATABASE IF NOT EXISTS shop DEFAULT CHARSET utf8mb4;
+USE shop;                            -- 切库！后面所有操作都在 shop 里
+
+-- ② 建用户表（会员档案）——主键/自增/唯一/默认值/注释一次看全
+CREATE TABLE users (
+  id       INT UNSIGNED  NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+  name     VARCHAR(20)   NOT NULL                COMMENT '姓名',
+  age      TINYINT UNSIGNED DEFAULT 18           COMMENT '年龄',
+  gender   ENUM('男','女') DEFAULT '男'           COMMENT '性别',
+  phone    VARCHAR(11)   UNIQUE                  COMMENT '手机号(唯一)',
+  reg_time DATETIME      NOT NULL DEFAULT NOW()  COMMENT '注册时间',
+  PRIMARY KEY (id)
+) ENGINE=InnoDB COMMENT='用户表';
+
+-- ③ 建商品表
+CREATE TABLE goods (
+  id    INT UNSIGNED  NOT NULL AUTO_INCREMENT COMMENT '商品ID',
+  gname VARCHAR(50)   NOT NULL COMMENT '商品名',
+  price DECIMAL(8,2)  NOT NULL COMMENT '价格(整数部分6位,小数2位)',
+  stock INT UNSIGNED  NOT NULL DEFAULT 0 COMMENT '库存',
+  PRIMARY KEY (id)
+) ENGINE=InnoDB COMMENT='商品表';
+
+-- ④ 建订单表——外键挂到 users 和 goods（必须先有父表）
+CREATE TABLE orders (
+  id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  uid      INT UNSIGNED NOT NULL COMMENT '哪个用户买的',
+  gid      INT UNSIGNED NOT NULL COMMENT '买了哪个商品',
+  num      INT UNSIGNED NOT NULL DEFAULT 1 COMMENT '数量',
+  total    DECIMAL(8,2) NOT NULL COMMENT '总价',
+  status   ENUM('待付款','已付款','已发货','已签收') DEFAULT '待付款',
+  create_time DATETIME NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (id),
+  KEY idx_uid (uid),                       -- 常用查询列建索引
+  CONSTRAINT fk_uid FOREIGN KEY (uid) REFERENCES users(id),
+  CONSTRAINT fk_gid FOREIGN KEY (gid) REFERENCES goods(id)
+) ENGINE=InnoDB COMMENT='订单表';
+
+-- ⑤ 表结构改完后悔了？ALTER 三兄弟
+ALTER TABLE users ADD email VARCHAR(50) COMMENT '邮箱';   -- 加列
+ALTER TABLE users MODIFY phone VARCHAR(15);              -- 改列类型
+ALTER TABLE users DROP COLUMN email;                     -- 删列
+ALTER TABLE users RENAME TO user_info;                   -- 改表名
+ALTER TABLE user_info RENAME TO users;                   -- 再改回来
+
+-- ==================== 第二环：DML 写入数据（搬货上架） ====================
+-- ⑥ 批量插入用户（一次插 3 个）
+INSERT INTO users(name, age, gender, phone) VALUES
+('张三', 25, '男', '13800000001'),
+('李四', 30, '女', '13800000002'),
+('王五', 22, '男', '13800000003');
+
+-- ⑦ 批量插入商品
+INSERT INTO goods(gname, price, stock) VALUES
+('华为手机', 4999.00, 100),
+('机械键盘', 399.00, 500),
+('蓝牙耳机', 199.00, 300);
+
+-- ⑧ 插入订单（张三买 1 台手机，李四买 2 个键盘）
+INSERT INTO orders(uid, gid, num, total) VALUES
+(1, 1, 1, 4999.00),
+(2, 2, 2, 798.00);
+
+-- ==================== 第三环：DQL 查询（查账，最常用！） ====================
+-- ⑨ 基础查询五件套
+SELECT * FROM users;                          -- 全表
+SELECT name, phone FROM users;                -- 只查指定列
+SELECT * FROM users WHERE age > 23;           -- 条件过滤
+SELECT * FROM goods ORDER BY price DESC;      -- 按价格降序(ASC升序)
+SELECT * FROM goods LIMIT 2;                  -- 取前2行
+
+-- ⑩ 模糊 / 区间 / 去重 / 别名
+SELECT * FROM goods WHERE gname LIKE '%手机%';           -- 包含"手机"
+SELECT * FROM orders WHERE total BETWEEN 500 AND 5000;   -- 金额区间
+SELECT DISTINCT gender FROM users;                       -- 去重
+SELECT gname AS 商品名, price AS 价格 FROM goods;          -- 列别名
+
+-- ⑪ 分页（面试必考：第 n 页，每页 2 条）LIMIT (n-1)*2, 2
+SELECT * FROM goods ORDER BY id LIMIT 0, 2;   -- 第1页
+SELECT * FROM goods ORDER BY id LIMIT 2, 2;   -- 第2页
+
+-- ⑫ 聚合分组（出报表）
+SELECT COUNT(*) AS 总用户数 FROM users;                  -- 总数
+SELECT SUM(total) AS 总销售额   FROM orders;             -- 求和
+SELECT AVG(price) AS 平均价     FROM goods;              -- 平均
+SELECT uid, COUNT(*) AS 下单次数 FROM orders GROUP BY uid;        -- 每人下几单
+SELECT uid, SUM(total) AS 消费额 FROM orders GROUP BY uid HAVING 消费额 > 1000; -- 消费超1000(HAVING过滤分组结果)
+
+-- ⑬ 多表连接（订单表太冷，连用户和商品一起看！JOIN 面试高频）
+SELECT o.id AS 订单号, u.name AS 买家, g.gname AS 商品, o.num AS 数量, o.total AS 金额, o.status AS 状态
+FROM orders o
+JOIN users u ON o.uid = u.id
+JOIN goods g ON o.gid = g.id;
+
+-- LEFT JOIN：左表全保留，右表没匹配就 NULL（查每个用户买了啥，没买的也显示）
+SELECT u.name, g.gname FROM users u
+LEFT JOIN orders o ON o.uid = u.id
+LEFT JOIN goods g ON o.gid = g.id;
+
+-- ⑭ 子查询（先查再查：查"买过手机的用户"）
+SELECT name FROM users WHERE id IN (SELECT uid FROM orders WHERE gid = 1);
+
+-- ⑮ 函数全家桶（面试常考）
+SELECT IFNULL(NULL, 0) AS 空值兜底;                      -- 空值变0
+SELECT CONCAT('张', '三') AS 拼接;                        -- 字符串拼接
+SELECT NOW() AS 当前时间, DATE_FORMAT(NOW(), '%Y-%m-%d') AS 今天;  -- 时间
+SELECT CASE WHEN total >= 1000 THEN '大单' ELSE '小单' END AS 订单等级 FROM orders;  -- 分支
+SELECT ROUND(3.14159, 2) AS 取整2位;                      -- 保留2位小数
 
 
-# DDL（Data Definition Language）数据定义语言
+
+
+-- ==================== 第四环：DML 更新/删除（改数据，务必带 WHERE！） ====================
+-- ⑯ 更新：卖出一台手机，扣库存 + 改订单状态
+UPDATE goods SET stock = stock - 1 WHERE id = 1;
+UPDATE orders SET status = '已付款' WHERE id = 1;
+
+-- ⑰ 删除（危险！必须带 WHERE）
+DELETE FROM orders WHERE id = 2;    -- 只删这一条
+-- DELETE FROM users;               -- 不带 WHERE = 清空全表！千万别在生产上试
+
+-- ⑱ TRUNCATE vs DELETE（面试高频）
+-- TRUNCATE TABLE users;  -- 清空+重置自增，不可回滚；DELETE 可回滚、保留自增
+
+-- ==================== 第五环：TCL 事务（转账/下单不丢钱的保险） ====================
+-- ⑲ 事务三兄弟：BEGIN → 操作 → COMMIT / ROLLBACK
+BEGIN;   -- ①开启
+UPDATE goods SET stock = stock - 1 WHERE id = 2;              -- ②扣库存
+INSERT INTO orders(uid, gid, num, total) VALUES (3, 2, 1, 399.00);  -- ③生成订单
+COMMIT;  -- ④一起生效（钱货两清）
+-- 中途发现不对：ROLLBACK;  一切撤销，像没发生过
+
+-- ⑳ 事务隔离级别一句记：读未提交 < 读已提交 < 可重复读(默认) < 串行化
+SELECT @@transaction_isolation;   -- 8.0 查看(5.7 用 @@tx_isolation)
+
+-- ==================== 第六环：视图 / 索引 / DCL（进阶，面试常问） ====================
+-- ㉑ 视图：把复杂查询存成"虚拟表"，以后一条 SELECT 搞定
+CREATE VIEW v_user_order AS
+SELECT u.name, g.gname, o.total, o.status FROM orders o
+JOIN users u ON o.uid = u.id
+JOIN goods g ON o.gid = g.id;
+SELECT * FROM v_user_order;          -- 下次直接查视图
+DROP VIEW v_user_order;              -- 删视图（不删原表）
+
+-- ㉒ 索引：给高频查询的字段建"书目录"
+CREATE INDEX idx_gname ON goods(gname);      -- 建普通索引
+EXPLAIN SELECT * FROM goods WHERE gname = '机械键盘';  -- 看 key 列是否用上索引
+DROP INDEX idx_gname ON goods;               -- 删索引
+
+-- ㉓ DCL 权限：开只读账号 / 收回 / 删号
+CREATE USER 'readonly'@'%' IDENTIFIED BY '123';
+GRANT SELECT ON shop.* TO 'readonly'@'%';     -- 只读
+REVOKE SELECT ON shop.* FROM 'readonly'@'%';  -- 收回
+DROP USER 'readonly'@'%';                     -- 删号
+
+-- ==================== 收尾：备份 / 恢复 ====================
+-- ㉔ 在系统 shell 里执行（不是 mysql> 里）：
+-- mysqldump -uroot -p123 shop > /data/shop.sql   # 备份 shop 库
+-- mysql    -uroot -p123 < /data/shop.sql         # 恢复
+
+```
+
+
+
+### DDL（Data Definition Language）数据定义语言
 
 ```SQL
 ## 库对象: 库名字,库属性
@@ -1558,7 +2384,7 @@ ALTER TABLE student CONVERT TO CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 
 
-# DCL（Data Control Language）数据控制语言
+### DCL（Data Control Language）数据控制语言
 
 ```BASH
 ## 授权 grant 
@@ -1586,7 +2412,7 @@ show grants from root@'%'';
 
 
 
-# DML：（Data Manipulation Language）数据操作语言
+### DML：（Data Manipulation Language）数据操作语言
 
 ```sql
 -- 操作表的数据行信息
@@ -1677,7 +2503,7 @@ SHOW TRIGGERS;
 
 
 
-# DQL（Data Query Language）数据查询语言
+### DQL（Data Query Language）数据查询语言
 
 ```sql
 # https://dev.mysql.com/doc/index-other.html
@@ -1785,81 +2611,120 @@ WHERE Population = (SELECT MAX(Population) FROM city);
 
 
 
+## mysql字符集
 
-# 字符集定义
-```bash
-● 1什么是字符集
-计算机是以二进制存储数据,我们再屏幕上看到文字在存储之前被转换成二进制,在显示的时候也要根据二进制找到对应的字符. 可想而知,特定的文字对应着固定的二进制.否则转换会发生混乱.
-文字与二进制的对应关系的一套规范就称为字符集(character set)或者叫字符编码 (character encoding)
-
-● 2.MySQL数据库的字符集
-	1）字符集（CHARACTER）
-	2）校对规则（COLLATION）
-● 3.MySQL中常见的字符集
-	1）UTF8
-	2）LATIN1
-	3）GBK
-● 4.常见校对规则
-	1）ci：大小写不敏感
-	2）cs或bin：大小写敏感
-
-● 5.我们可以使用以下命令查看
-show charset;
-show collation;
-
-字符集   特点	             能不能存中文	能不能存表情 😊	推荐度
-latin1	老编码， 只支持英文	   ❌ 不能	  ❌ 不能	        不推荐
-utf8	MySQL 假 utf8，3 字节	✅ 能	  ❌ 不能	        淘汰
-utf8mb4	真 utf8，4 字节	        ✅ 能	  ✅ 能	         生产必用
-
-
-字符集（CHARSET）：决定 能存什么字     推荐utf8mb4 
-排序规则（COLLATE）：决定 文字怎么排序、比大小  推荐utf8mb4_unicode_ci
-```
-
-
-
-# 字符集设置
 ```sql
--- 操作系统级别
-  source /etc/sysconfig/i18n
-  echo $LANG
-  zh_CN.UTF-8
+-- ============================================================
+-- MySQL 字符集 完整教学（从"为什么乱码"讲到"生产改字符集"）
+-- ============================================================
 
--- mysql实例级别
-  编译时候指定
-  cmake . 
-  -DDEFAULT_CHARSET=utf8mb4 \
-  -DDEFAULT_COLLATION=utf8mb4_unicode_ci \
-  -DWITH_EXTRA_CHARSETS=all \
+-- ============ 一、先搞懂：字符集是什么？乱码怎么来的？ ============
+-- 电脑只认二进制。字符集 = "字 ↔ 二进制"的翻译对照表。
+-- 乱码 = 写入时用 A 表翻译，读取时用 B 表翻译（翻译错乱了）。
+-- 例：用 utf8 写入"中"（3字节），却用 latin1 读 → 显示乱码。
+SELECT '中文测试';   -- 先看当前终端能否正常显示中文
 
-配置文件设置字符集
-[mysqld]
-character-set-server=utf8mb4
+-- ============ 二、MySQL 里字符集分 5 层（重要！） ============
+-- 层级（高到低）：列级 > 表级 > 库级 > 服务器级 > 编译默认
+-- 1) 服务器级：my.cnf 里的 character-set-server
+-- 2) 库级：建库 DEFAULT CHARSET
+-- 3) 表级：建表 DEFAULT CHARSET
+-- 4) 列级：字段单独 CHARSET
+-- 5) 连接级：客户端连上来用的字符集（最容易被忽略、最容易乱码）
 
-建库级别
-create database oldboy charset utf8mb4 default collate=utf8mb4_unicode_ci;
-create database oldboy charset utf8mb4 default collate = utf8mb4_unicode_ci;
-建表级别
-create table test(
-id int(4) not null auto_increment,
-name char(20) not null,
-primary key (id)
-)engine=innodb auto_increment=13 default charset=utf8mb4;
--- auto_increment=13 表示自增数字从13开始，不写默认是从1开始
+-- 查看当前实例所有字符集 / 排序规则
+SHOW VARIABLES LIKE 'character%';
+SHOW VARIABLES LIKE 'collation%';
+SHOW CHARACTER SET;      -- 支持哪些字符集
+SHOW COLLATION;          -- 支持哪些排序规则
 
--- 思考问题：如果在生产环境中，字符集不够用或者字符集不合适该怎么处理？
--- 答： 生产环境更改数据库（含数据）字符集的方法
-alter database oldboy character set utf8mb4 collate utf8mb4_unicode_ci;
-alter table t1 character set utf8mb4;
+-- 关键变量解读（面试常考）：
+-- character_set_server     = utf8mb4  服务器默认字符集
+-- character_set_database   = utf8mb4  当前库字符集
+-- character_set_client     = utf8mb4  客户端发来的 SQL 按什么解码
+-- character_set_connection = utf8mb4  内部转成什么处理
+-- character_set_results    = utf8mb4  结果集按什么返回
+-- character_set_filesystem = binary   （安全设置，别动）
+-- collation_server / collation_database 对应排序规则
 
+-- ============ 三、utf8 vs utf8mb4（面试必考） ============
+-- utf8    = MySQL 的"假 utf8"，最多 3 字节/字符
+--          能存中文，但存不了 emoji(4字节)、生僻字 → 报错或乱码
+-- utf8mb4 = 真 utf8，最多 4 字节/字符，emoji/生僻字全支持
+-- 生产规范：一律 utf8mb4 + utf8mb4_unicode_ci
+SELECT LENGTH('中');            -- utf8mb4 下 = 4(字节)；utf8 下 = 3
+SELECT CHAR_LENGTH('中');       -- = 1(字符数，跟字符集无关)
+-- 注意：VARCHAR(255) 的 255 是"字符数"；utf8mb4 下底层占 255*4=1020 字节
+-- 老库 utf8 已存数据转 utf8mb4：见第六节"生产实战"
 
+-- ============ 四、排序规则 COLLATE（字符比较/排序的规则） ============
+-- 命名规律：utf8mb4_  +  算法  +  后缀
+-- 后缀含义：
+--   ci = case insensitive   不区分大小写   'A'='a'      ✅ 默认
+--   cs = case sensitive     区分大小写     'A'≠'a'
+--   bin = 按二进制字节比    最严格，还区分全角/半角
+-- 常用三选一：
+--   utf8mb4_general_ci   快，够用(默认)   姓名/地址/备注
+--   utf8mb4_unicode_ci   准，多语言       ✅ 推荐生产
+--   utf8mb4_bin          二进制比对        密码/密钥/验证码
+-- 动手验证：
+SELECT 'A' = 'a' COLLATE utf8mb4_unicode_ci;   -- 1 不区分大小写
+SELECT 'A' = 'a' COLLATE utf8mb4_bin;          -- 0 区分大小写
+SELECT 'a' = 'à' COLLATE utf8mb4_unicode_ci;   -- 1 unicode规则重音相等
+SELECT 'a' = 'à' COLLATE utf8mb4_general_ci;   -- 0 general 严格按字节
 
+-- ============ 五、连接级字符集：乱码 90% 出在这一层 ============
+-- 连接三兄弟必须一致，否则必乱码：
+SET NAMES utf8mb4;   -- 一条命令 = client/connection/results 三处全设
+-- 等价于下面三条：
+SET character_set_client = utf8mb4;
+SET character_set_connection = utf8mb4;
+SET character_set_results = utf8mb4;
+
+-- 客户端/终端也要配合：Linux 查 LANG，Windows 看编码，保持 utf8
+-- 乱码排查 3 步：
+--   1) SHOW VARIABLES LIKE 'character%';  看三处是否都是 utf8mb4
+--   2) 建库建表是否 DEFAULT CHARSET=utf8mb4
+--   3) 数据本身是否已被错误编码写坏（坏了只能 CONVERT 或重新导入）
+
+-- ============ 六、生产实战：改字符集 ============
+-- 1) 建库/建表时指定（推荐从一开始就统一）
+CREATE DATABASE IF NOT EXISTS app DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE t_user (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name VARCHAR(50) NOT NULL COMMENT '姓名',
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2) 已有库/表转 utf8mb4（只改元数据，不动数据字节）
+ALTER DATABASE app CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER TABLE t_user CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 3) 已有数据一起转（数据字节也重编码，才是真正"改数据"）
+ALTER TABLE t_user CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- ⚠️ 区别：CHARACTER SET 只改表默认值（新旧数据不转）；
+--    CONVERT TO 会把列定义 + 已有数据全部转。生产先备份再 CONVERT！
+
+-- 4) 验证转换结果
+SHOW CREATE TABLE t_user\G   -- 看 DEFAULT CHARSET 是否已变
+SELECT name, HEX(name) FROM t_user LIMIT 3;   -- 十六进制确认编码
+
+-- ============ 七、面试高频题速答 ============
+-- Q1:utf8 和 utf8mb4 区别?
+--    utf8 3字节存不了 emoji/生僻字；utf8mb4 4字节全支持，8.0 默认 utf8mb4。
+-- Q2:为什么建表用 utf8mb4 后 varchar(255) 还报"行太长/索引超长"?
+--    varchar(255) utf8mb4 = 1020 字节，超过旧版索引 767 字节限制，
+--    改小长度或用前缀索引，或升级 innodb_large_prefix。
+-- Q3:乱码怎么排查?
+--    先看连接三变量(character_set_client/connection/results)是否一致，
+--    再看库表 DEFAULT CHARSET，最后确认数据是否已写坏。
+-- Q4:排序规则 ci/cs/bin 区别?
+--    ci 不区分大小写；cs 区分；bin 按二进制(区分全角/半角)，密码字段用 bin。
 ```
 
 
 
-# select 高级用法
+## select 高级用法（重点章节：多表连接 + 合并查询）
 
 ```sql
 - 多表连接查询
@@ -1946,7 +2811,84 @@ UNION all
 
 
 
-# mysql数据类型
+```sql
+-- ============================================================
+-- ⭐ select 高级用法（连环相扣版）：
+-- 一条主线由浅入深：内连接 → 加过滤 → 三种连接对比
+--                 → LEFT JOIN 的坑 → NATURAL JOIN → UNION
+-- 全程只用 world 库 3 张表：city(城市) / country(国家) / countrylanguage(语言)
+-- 关联关系：city.CountryCode = country.Code = countrylanguage.CountryCode
+-- 建议整块复制到 mysql> 逐段执行，上一步的结果下一步直接续用
+-- ============================================================
+
+-- ==================== 第1环：内连接入门（两表取交集） ====================
+-- 目标：让每个城市"找到"它的国家
+SELECT city.name AS 城市, country.name AS 国家
+FROM city
+INNER JOIN country ON city.CountryCode = country.Code;
+
+-- 传统写法（逗号 + WHERE，效果等同内连接）
+SELECT city.name AS 城市, country.name AS 国家
+FROM city, country
+WHERE city.CountryCode = country.Code;
+
+-- ==================== 第2环：内连接 + 过滤条件（加 WHERE） ====================
+-- 目标：在上一步结果上，只留"人口小于100"的城市
+SELECT city.name AS 城市, country.name AS 国家, city.population AS 人口
+FROM city
+INNER JOIN country ON city.CountryCode = country.Code
+WHERE city.population < 100;   -- 🔴 连接条件放 ON，过滤条件放 WHERE
+
+-- ==================== 第3环：三种连接对比（面试必背） ====================
+-- INNER JOIN  内连接：两边都匹配才显示（取交集）
+-- LEFT JOIN   左连接：左表全显示，右表匹配不上补 NULL
+-- RIGHT JOIN  右连接：右表全显示，左表匹配不上补 NULL
+-- 验证左连接：city 是左表，全部显示；没有对应国家的行，国家列是 NULL
+SELECT city.name AS 城市, country.name AS 国家
+FROM city
+LEFT JOIN country ON city.CountryCode = country.Code
+LIMIT 5;   -- 注意看有没有 NULL 国家
+
+-- ==================== 第4环：LEFT JOIN 经典坑（ON vs WHERE） ====================
+-- ❌ 错：把过滤条件写进 ON —— 左表依然全显示，过滤"没生效"
+SELECT city.name, country.name
+FROM city
+LEFT JOIN country ON city.CountryCode = country.Code AND city.population < 100;
+-- ✅ 对：ON 只放连接条件，过滤条件放 WHERE
+SELECT city.name, country.name, city.population
+FROM city
+LEFT JOIN country ON city.CountryCode = country.Code
+WHERE city.population < 100;
+
+-- ==================== 第5环：NATURAL JOIN（自动匹配同名列） ====================
+-- 本质：内连接的一种，自动用两表"同名同类型"的列做连接，不用写 ON
+-- 前提：两表必须有同名列（这里 CountryCode 两边都有）
+SELECT city.name AS 城市, countrylanguage.language AS 语言, city.population AS 人口
+FROM city
+NATURAL JOIN countrylanguage
+WHERE city.population > 1000000
+ORDER BY city.population DESC;
+
+-- ==================== 第6环：UNION 合并查询（把不同查询拼成一张表） ====================
+-- 前提：两个 SELECT 的列数、顺序、类型必须一致
+-- UNION     ：合并 + 自动去重（慢）
+-- UNION ALL ：合并 + 不去重（快，生产首选）
+-- MySQL 5.6 硬性规定：SELECT 里带 LIMIT 时，必须用括号 () 包住
+SELECT Name, CountryCode, Population FROM city WHERE CountryCode='CHN' LIMIT 2
+UNION ALL
+SELECT Name, CountryCode, Population FROM city WHERE CountryCode='USA' LIMIT 2;
+
+-- UNION 去重效果：两个查询有重复行时，UNION 只留一条
+SELECT Name FROM city WHERE CountryCode='CHN' LIMIT 2
+UNION
+SELECT Name FROM city WHERE CountryCode='USA' LIMIT 2;
+```
+
+
+
+# **第五章· MySQL数据类型**
+
+
 
 数值类型 + 字符串类型 + 日期时间类型
 
@@ -2073,12 +3015,168 @@ utf8mb4_bin：按原始二进制字节对比，不仅区分大小写，还区分
 
 
 
-# 索引管理及执行计划
 
-## 索引底层算法介绍
 
-```SQL
--- 什么是索引
+
+
+
+
+```sql
+-- ============================================================
+-- ⭐ MySQL 数据类型：与生产实战 + 面试题（连环版）
+-- 主线：选型口诀 → 实战建表 → 生产注意点 → 动手验证 → 面试速答
+-- ============================================================
+
+-- ============ 一、生产选型口诀（先背这个，建表不纠结） ============
+-- 整数：能用小的不用大的（TINYINT 别用 INT，省磁盘又提性能）
+-- 小数：金额一律 DECIMAL，禁止 FLOAT/DOUBLE（浮点丢精度！）
+-- 字符串：定长用 CHAR，变长用 VARCHAR，大文本用 TEXT 系列
+-- 日期：新项目统一 DATETIME（TIMESTAMP 有 2038 问题 + 时区坑）
+-- 大文件：只存 URL 路径，不存 BLOB（库体积爆炸）
+
+-- ============ 二、实战建表：一张电商订单表，把类型全用上 ============
+DROP TABLE IF EXISTS t_order;
+CREATE TABLE t_order (
+  id         BIGINT UNSIGNED AUTO_INCREMENT COMMENT '订单ID(海量场景主键用BIGINT)',
+  order_no   CHAR(32)   NOT NULL COMMENT '订单号(定长,索引更快)',
+  user_id    INT UNSIGNED NOT NULL COMMENT '用户ID(普通量级INT够用)',
+  amount     DECIMAL(10,2) NOT NULL COMMENT '订单金额(定点数,必须精确)',
+  status     TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '状态:0待付/1已付/2已发/3完成',
+  pay_type   ENUM('alipay','wechat','card') DEFAULT 'alipay' COMMENT '支付方式(枚举)',
+  remark     VARCHAR(200) DEFAULT NULL COMMENT '备注(变长,省空间)',
+  detail     TEXT COMMENT '订单详情(大文本)',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '下单时间(项目标配DATETIME)',
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_order_no (order_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='电商订单表';
+
+-- ============ 三、每种类型的生产注意点（对照上面建表看） ============
+-- 1) INT 上限 21 亿，主键自增到顶就用 BIGINT：订单/日志/流水表直接 BIGINT
+-- 2) DECIMAL(10,2) = 整数8位+小数2位；金额运算永远 DECIMAL，浮点只用于科学计算
+-- 3) CHAR 定长比 VARCHAR 索引快：订单号/手机号/身份证用 CHAR；姓名地址用 VARCHAR
+-- 4) 状态/性别用 TINYINT(0/1/2)，一个字节搞定，别用 VARCHAR('1') 浪费又难查
+-- 5) 时间戳：DATETIME 不受时区影响、无 2038 限制，新项目首选
+-- 6) 图片/视频/文件：数据库只存 URL，文件放 OSS/对象存储（生产铁律）
+-- 7) ENUM 慎用：改枚举值要 ALTER TABLE 且扩展性差，复杂状态建议 TINYINT+注释
+
+-- ============ 四、动手验证：类型行为实测（防坑） ============
+-- ① 浮点丢精度（生产大坑！）
+SELECT CAST(0.1 AS DOUBLE) + CAST(0.2 AS DOUBLE);             -- 0.30000000000000004 ✗
+SELECT CAST(0.1 AS DECIMAL(10,2)) + CAST(0.2 AS DECIMAL(10,2)); -- 0.30 ✓ 精确
+-- ② CHAR 定长补空格 / VARCHAR 不定长
+SELECT LENGTH('ab');                        -- 2
+SELECT LENGTH(CAST('ab' AS CHAR(5)));       -- 5  CHAR(5) 不足补空格到 5 字符
+-- ③ TINYINT 有符号上限 127，存 128 会报错或溢出
+SELECT CAST(127 AS SIGNED);                 -- 127
+-- ④ 查看建表语句，看每列实际字节与类型
+SHOW CREATE TABLE t_order\G
+
+-- ============ 五、面试题速答（背下来直接加分） ============
+-- Q1:CHAR 和 VARCHAR 区别？
+--    CHAR 定长、自动补空格、检索快、浪费空间；VARCHAR 变长、按实际内容存、省空间。
+-- Q2:为什么金额不用 FLOAT/DOUBLE？
+--    浮点是二进制近似存储，0.1+0.2≠0.3；金额错一分都不行，必须 DECIMAL 精确小数。
+-- Q3:DATETIME 和 TIMESTAMP 选哪个？为什么？
+--    选 DATETIME：TIMESTAMP 范围到 2038 溢出、跟随时区变化易出错；DATETIME 无 2038 限制。
+-- Q4:表里存图片/文件吗？
+--    不存。只存 URL 路径，文件放对象存储；BLOB 会撑爆库、备份慢、查询慢。
+-- Q5:字段怎么选整型？
+--    TINYINT 1字节存状态，SMALLINT 2字节存年龄，INT 4字节普通主键，BIGINT 8字节海量主键。
+-- Q6:VARCHAR(10) 能存 10 个汉字吗？
+--    能。VARCHAR(M) 的 M 是"字符数"不是字节数；utf8mb4 下 10 个汉字占 40 字节。
+-- Q7:为什么不建议 ENUM？
+--    改枚举值必须 ALTER TABLE，业务扩展麻烦；建议 TINYINT + 注释管理状态。
+-- Q8:NULL 和空字符串区别？
+--    NULL 查询要 IS NULL、索引处理复杂；'' 占 0 字节。生产尽量 NOT NULL + DEFAULT。
+```
+
+
+
+# **第六章· MySQL索引管理及执行计划**
+
+```sql
+-- ============================================================
+-- ⭐ 索引：与生产实战 + 面试题（连环版）
+-- 主线：生产怎么建索引 → 实战建表 → 最左前缀 → 慢SQL排错 → 面试速答
+-- ============================================================
+
+-- ============ 一、生产建索引：先记 4 条铁律 ============
+-- 1) 只给高频 WHERE + 区分度高的字段建（性别/状态区分度太低，建了也不走）
+-- 2) 主键必须有；唯一键按业务需要（订单号、手机号防重复）
+-- 3) 单表索引控制在 5 个内（每个索引=空间+写放大，写多读少的表更少）
+-- 4) 宁缺毋滥：索引不是越多越好，是"查询快"和"写入慢"的平衡
+
+-- ============ 二、实战建表：一张订单表，索引怎么设计 ============
+DROP TABLE IF EXISTS t_order;
+CREATE TABLE t_order (
+  id          BIGINT UNSIGNED AUTO_INCREMENT COMMENT '主键',
+  order_no    CHAR(32) NOT NULL COMMENT '订单号',
+  user_id     INT UNSIGNED NOT NULL COMMENT '用户ID',
+  status      TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '状态:0待付/1已付',
+  amount      DECIMAL(10,2) NOT NULL COMMENT '金额',
+  created_at  DATETIME NOT NULL COMMENT '下单时间',
+  PRIMARY KEY (id),                          -- ① 主键索引(聚簇,数据和索引一起)
+  UNIQUE KEY uk_order_no (order_no),         -- ② 唯一索引(订单号防重复)
+  KEY idx_user_created (user_id, created_at) -- ③ 联合索引(查某用户某时间段的订单)
+  -- status 故意不建:只有 0/1 两个值,区分度 50%,优化器多半不用
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='电商订单表';
+
+-- ============ 三、联合索引最左前缀（生产翻车重灾区） ============
+-- 联合索引 (user_id, created_at)：
+SELECT * FROM t_order WHERE user_id = 1 AND created_at > '2026-01-01'; -- ✓ 走索引
+SELECT * FROM t_order WHERE user_id = 1;                               -- ✓ 走索引(只用user_id列)
+SELECT * FROM t_order WHERE created_at > '2026-01-01';                 -- ✗ 失效!没带最左列user_id
+-- 口诀：带头大哥不能死，中间兄弟不能断
+
+-- ============ 四、实战排错：一条慢 SQL 怎么定位 ============
+-- 场景：订单列表页 3 秒才出数据，怀疑索引没走
+EXPLAIN SELECT order_no, amount FROM t_order
+WHERE user_id = 888 AND created_at >= '2026-08-01'\G
+-- 重点看 3 列（type / key / rows）：
+--   type=ALL   → 全表扫描，必须优化（期望 range / ref）
+--   key=NULL   → 索引没走到，查字段类型是否隐式转换
+--   rows 超大  → 要么数据量大，要么索引失效白扫
+
+-- ============ 五、索引失效 7 大坑（生产排错清单，背下来） ============
+-- 1) 索引列做运算/套函数：WHERE amount*2 > 100   ✗（要改写 amount > 50）
+-- 2) 隐式类型转换：字符串字段 WHERE phone = 13812345678(数字) ✗
+-- 3) LIKE 前置 %：'%abc' ✗ / 'abc%' ✓（后缀可走 range）
+-- 4) OR 连接非索引列：user_id=1 OR status=0 ✗
+-- 5) 联合索引带头列丢了：见第三节 ✗
+-- 6) 对索引列用 IS NULL / IS NOT NULL 不一定走
+-- 7) 数据量大时 <> / NOT IN 通常失效（建议拆分 union all）
+
+-- ============ 六、面试题速答（背下来直接加分） ============
+-- Q1:为什么用 B+Tree 不用红黑树？
+--    红黑树是二叉树，千万级数据树高 20+ 层，查一次一层 IO；B+Tree 树高才 3~4 层，
+--    且叶子节点链表串联，范围查询天生支持。磁盘 IO 次数是数据库性能命门。
+-- Q2:回表是什么？怎么避免？
+--    普通索引先查到主键，再拿主键去聚簇索引找整行数据 = 回表。
+--    避免：覆盖索引——查询的列全在索引里，不用回表（EXPLAIN 看 Extra 有 Using index）。
+-- Q3:聚簇索引和非聚簇索引区别？
+--    聚簇：数据和索引在一起（InnoDB 主键），一张表只有一份；
+--    非聚簇：索引和行分离（MyISAM），可有多份。
+-- Q4:主键为什么建议自增 BIGINT，不建议 UUID？
+--    聚簇索引按主键顺序物理存储，自增顺序插入不触发页分裂；
+--    UUID 乱序插入频繁页分裂 + 随机 IO，性能雪崩。
+-- Q5:索引越多越好吗？
+--    不是。每个索引都要额外空间，且每次 INSERT/UPDATE/DELETE 都要同步维护，
+--    索引多了写变慢，单表控制在 5 个内。
+-- Q6:联合索引 (a,b,c)，WHERE b=? 走索引吗？a=? AND c=? 呢？
+--    b=? 不走（缺带头列）；a=? AND c=? 只走 a（跳列，b 断档）。
+-- Q7:EXPLAIN 的 type 从好到差？
+--    system > const > eq_ref > ref > range > index > ALL，看到 ALL 就要优化。
+-- Q8:索引会失效的场景有哪些？
+--    背上面"失效 7 大坑"，面试答出 3 条就及格。
+```
+
+
+
+## 索引介绍
+
+```bash
+1 -- 什么是索引
   1）索引就好比一本书的目录，它能让你更快的找到自己想要的内容。
   2）让获取的数据更有目的性，从而提高数据库检索数据的性能。
 
@@ -2092,7 +3190,7 @@ MySQL 索引最核心、最主流的底层算法只有 2 个
 1. B+ Tree （99% 索引都用它！）
 2. Hash （偶尔用，极少）
 
-B+tree 介绍
+# B+tree 介绍
 一棵 “多路平衡查找树”，专门为磁盘、为数据库设计的超级快查找结构。
 B+ Tree 优点（必须记住）
 查询超级快：几百万数据只需要 3~4 次查找
@@ -2103,21 +3201,14 @@ order by id
 between and
 这些只有 B+ Tree 能做！
 适合磁盘存储：MySQL 就是靠它撑起来的
-哪些索引用 B+ Tree？全部都是！
-主键索引
-唯一索引
-普通索引
-联合索引
+哪些索引用 B+ Tree？全部都是:  主键索引 唯一索引 普通索引 联合索引
 
 B Tree 和 B+ Tree 区别
 1. B Tree 结构
            [10,20]
           /    |    \
    [5,7] [12,15] [22,25]
-特点：
-每个节点存数据
-叶子、非叶子都存数据
-不适合范围查询
+特点：每个节点存数据, 叶子、非叶子都存数据, 不适合范围查询
 
 2. B+ Tree 结构（MySQL 使用）
            [10,20]
@@ -2125,65 +3216,26 @@ B Tree 和 B+ Tree 区别
    [5,7] [12,15] [22,25]
      |     |      |
 [5,7] → [12,15] → [22,25] → 链表
-特点：
-只有叶子节点存真实数据
-叶子节点用链表串起来
-范围查询 / 排序 /like 超快
-磁盘 IO 最少（MySQL 选它的原因）
+特点：只有叶子节点存真实数据; 叶子节点用链表串起来
+范围查询 / 排序 /like 超快 ;磁盘 IO 最少（MySQL 选它的原因）
 总结：
 B Tree：每个节点都存数据，不适合范围查询。
 B+ Tree：只有叶子存数据，自带链表，范围 / 排序超快 → MySQL 唯一选择！
 
 
---  B树/B+树/B*树三者区别、分裂/合并、页(16KB)、树高(通常3~4层)
--- B Tree 与 B+Tree 与 B*Tree
-B Tree 结构
-特点：
-每个节点存数据
-叶子、非叶子都存数据
-不适合范围查询
-
-【B+Tree】
-非叶子：只存键+子页指针
-叶子：主键+整行数据 + 单向链表
-空间利用率：50%
-分裂：随时分裂
-适用：MySQL InnoDB（主流）
-
-【B*Tree】
-非叶子：存键 + 双向链表
-叶子：存数据 + 双向链表
-空间利用率：66.7%
-分裂：更少、更晚
-适用：MyISAM、文件系统、部分数据库
-
-
-
-
--- 聚簇索引（主键索引）VS 普通索引 区别？
-主键索引（聚簇）：叶子存整行数据
-普通索引（二级）：叶子只存主键值，需要回表
-
-
-
-Hash 索引（哈希索引） 它是什么？
+# Hash 索引（哈希索引） 它是什么？
 把字段值算一个哈希值（key），直接定位数据。
-哈希算法
 name → 哈希值 → 指针指向数据
 张三 → 0x123 → 数据行
 李四 → 0x456 → 数据行
-优点
-等值查询 = 极速
-where name='张三'
+优点： 等值查询 = 极速； where name='张三'
 
-FULLTEXT 全文索引（用于：文章、内容搜索）
-专门用来做 文章里搜关键词
-SELECT * FROM article WHERE content LIKE '%数据库%';
+FULLTEXT 全文索引（用于：文章、内容搜索）：专门用来做 文章里搜关键词
 普通索引用不了 % 开头 %，只有全文索引能做。
+SELECT * FROM article WHERE content LIKE '%数据库%';
 
 底层原理（画图）
-文章内容：
-"我在学习MySQL数据库，索引非常重要"
+文章内容： "我在学习MySQL数据库，索引非常重要"
 全文索引会自动分词：
 我 → 文章1
 学习 → 文章1
@@ -2199,16 +3251,10 @@ MySQL → 文章1
 索引       →  1,3,6
 学习       →  2,4,8
 
-3. 优点
-搜文章、搜内容极快
-支持 MATCH AGAINST 语法
-比 LIKE '%关键词%' 快 100 倍
-4. 缺点
-只能用于 TEXT / VARCHAR
-企业一般不用，都用 Elasticsearch（ES）
+3. 优点：搜文章、搜内容极快；支持 MATCH AGAINST 语法；比 LIKE '%关键词%' 快 100 倍
+4. 缺点：只能用于 TEXT / VARCHAR； 企业一般不用，都用 Elasticsearch（ES）
 
--- R-Tree 管二维（坐标、地图、区域） R-Tree 只有地图功能才用
--- RTREE：专门做地理位置查询； 地图、经纬度、地理位置
+
 
 
 
@@ -2226,9 +3272,11 @@ DROP INDEX idx_xxx ON tbl;
 ## 二、底层数据结构（原理面试核心）
 #1 InnoDB默认BTREE(B+Tree)
 # B树/B+树/B*树三者区别、分裂/合并、页(16KB)、树高(通常3~4层)
+
 #2 聚簇&二级索引核心
-- 聚簇索引：叶子=整行数据；二级索引：叶子=主键id、回表
+- 聚簇索引：叶子=整行数据；二级索引：叶子=[索引列,主键id]、回表
 - 覆盖索引：不需要回表，查询字段全部在索引列内
+
 #3 Hash索引(Memory引擎)：等值快、不支持范围/排序/like前缀
 #4 RTree：空间地理POINT/POLYGON；FullText分词索引
 
@@ -2268,6 +3316,45 @@ InnoDB页结构、页分裂/页合并、索引碎片、OPTIMIZE TABLE优化碎�
 2. 单表索引不宜过多(建议≤5个)
 3. 超长varchar使用前缀索引，计算最优前缀长度
 #4 慢SQL排查：慢日志+explain+索引裁剪
+
+
+-- 聚簇索引（主键索引）VS 普通索引 区别？
+主键索引（聚簇）：叶子存整行数据
+普通索引（二级）：叶子只存主键值，需要回表
+
+B+ 树的叶子确实存"数据"，但 InnoDB 里有两套 B+ 树，叶子存的东西不一样。
+1. 两棵树的叶子分别存什么
+索引类型	        叶子节点存的东西						数量
+聚簇索引（主键索引）	完整的一行数据	   						整张表只有 1 棵
+二级索引（普通/唯一/联合索引）；索引列的值 + 主键值（不是整行）	每建一个索引就多 1 棵
+所以你看到的"普通索引叶子只存主键值"，准确说法是：二级索引的叶子存「(索引列, 主键)」这个组合，只有索引字段和主键，没有整行数据。
+
+
+
+--  B树/B+树/B*树三者区别、分裂/合并、页(16KB)、树高(通常3~4层)
+-- B Tree 与 B+Tree 与 B*Tree
+B Tree 结构
+特点：
+每个节点存数据
+叶子、非叶子都存数据
+不适合范围查询
+
+【B+Tree】
+非叶子：只存键+子页指针
+叶子：主键+整行数据 + 单向链表
+空间利用率：50%
+分裂：随时分裂
+适用：MySQL InnoDB（主流）
+
+【B*Tree】
+非叶子：存键 + 双向链表
+叶子：存数据 + 双向链表
+空间利用率：66.7%
+分裂：更少、更晚
+适用：MyISAM、文件系统、部分数据库
+
+-- R-Tree 管二维（坐标、地图、区域） R-Tree 只有地图功能才用
+-- RTREE：专门做地理位置查询； 地图、经纬度、地理位置
 ```
 
 
@@ -2275,10 +3362,9 @@ InnoDB页结构、页分裂/页合并、索引碎片、OPTIMIZE TABLE优化碎�
 ## 索引管理
 
 ```sql
-3.索引管理
-	索引建立在表的列上(字段)的。
-	在where后面的列建立索引才会加快查询速度。
-	pages<---索引（属性）<----查数据。
+索引建立在表的列上(字段)的。
+在where后面的列建立索引才会加快查询速度。
+pages<---索引（属性）<----查数据。
 	
 ● 1、索引分类：
 主键索引
@@ -2384,6 +3470,7 @@ explain select id,username from user where username='liuliu';
 
 # 不用建索引，只是查询现象（逻辑概念，无实体索引）
 覆盖索引：依托上面已建好的任意B+索引，SQL查询字段全落在索引列→触发Using index、免回表
+
 ```
 
 

@@ -29,7 +29,6 @@
 
 
 ### 自动化运维
-
 - 精通 Shell 脚本编程，能独立编写系统巡检、数据备份、日志清理、批量建用户、MySQL 分库分表备份、企业级脚本。
 - 熟练 Ansible：常用模块（command/shell/copy/file/yum/service/cron）、playbook、role 封装，实现批量部署与配置管理。
 - 熟练 Git,GitLab,jenkins; 实现企业 CI/CD一键发布与回滚;
@@ -43,18 +42,20 @@
 - 数据持久层: mysql,MongoDB
 
 ### 数据库与缓存运维（MySQL / Redis）
-- 熟练 MySQL 5.6/5.7 安装部署（二进制）、体系结构、存储引擎（InnoDB）、事务与锁、MVCC、隔离级别。
-- 熟练 MySQL 备份恢复：`mysqldump` + binlog 时间点恢复（PITR）、`XtraBackup` 全量/增量备份与恢复演练。
-- 掌握 MySQL 主从复制、GTID 复制、半同步复制、延时从库、主从延时排查；具备 MHA 高可用故障切换实战经验。
-- 熟悉 MySQL 优化：索引设计、`EXPLAIN`、慢查询分析、`Buffer Pool` 调优、生产参数（`innodb_flush_log_at_trx_commit`、`sync_binlog`、`binlog_format=ROW`、独立表空间）。
+- 熟悉 MySQL5.6/5.7安装部署、体系结构,单机多实例;
+- 熟悉 MySQL用户权限管理,MySQL日志管理;
+- 熟练 MySQL 备份恢复：mysqldump + binlog 时间点恢复、XtraBackup 全量/增量备份与恢复演练。
+- 掌握 MySQL 主从复制、GTID 复制、半同步复制、延时从库、Atla,具备 MHA 高可用故障切换实战经验。
+- 熟悉 MySQL 优化：索引设计、`EXPLAIN`、慢查询分析、`Buffer Pool` 、生产调优参数。
 - 熟悉 Redis：RDB/AOF 持久化、主从复制、哨兵（Sentinel）、Cluster 集群、缓存穿透/击穿/雪崩应对。
 
 
 ### 云计算与云原生
-- 熟练 Docker：镜像构建（Dockerfile 优化、多阶段构建）、容器网络与存储、Harbor 私有仓库。
-- 熟练 Kubernetes：kubeadm 搭建集群、Pod/Deployment/Service/Ingress/ConfigMap/Secret/StatefulSet 等核心资源、弹性伸缩、持久化存储（PV/PVC）、dashboard、集群监控与日志收集。
-- 熟悉阿里云/腾讯云核心产品（ECS、SLB、OSS、RDS、VPC、安全组）；了解 Terraform 基础设施即代码。
-
+- 熟练 Docker：镜像构建（Dockerfile优化、多阶段构建）、容器网络与存储、Harbor 私有仓库。
+- 熟悉 Docker整体架构,Docker实现原理,Docker4种网络模式;
+- 熟悉 Kubernetes架构,Pod常见状态;
+- 熟练 Kubernetes搭建集群、Pod/Deployment/StatefulSet/DaemonSet/Service/Endpoint/Ingress/ConfigMap/Secret/等核心资源、弹性伸缩、持久化存储（PV/PVC）、dashboard、集群监控与日志收集。
+- 熟悉阿里云核心产品（ECS、SLB、OSS、RDS、VPC、安全组）；
 
 
 
@@ -68,96 +69,75 @@
 
 
 
+### 了解前后端编程知识
 
+前端: html,css,javascript,es6,vue3,node.js
+后端: python基础(变量,数据类型,复合容器类型),虚拟环境venv,函数,类,模块,文件操作,socket网络编程,并发编程;
+     框架: django,drf, REST API , jwt,rbac.
 
-
-
-### 监控与故障排障
-- 熟练 Zabbix：自定义监控项、触发器、告警模板、自动发现/注册、分布式监控。
-- 熟悉 Prometheus + Grafana + Alertmanager 云原生监控体系，掌握 exporter 采集与 PromQL。
-- 熟悉 ELK 日志分析栈；建立过 CPU/内存/磁盘 IO/网络四维性能排障体系。
-
-
+个人笔记: https://github.com/chengkanghua/simple | https://docs.chengkanghua.top/ 
 
 ---
 
 ## 工作经历
 
-### 2019.06 — 至今　XX 科技有限公司　高级 Linux 运维工程师
-*（互联网/电商行业，服务器规模 500+ 台）*
+### 2020.06 — 至今　云栈科技有限公司　高级 Linux 运维工程师
+*（软件行业，服务器规模 20+ 台）*
 
-- 负责公司核心业务系统 500+ 台服务器的运维保障，制定标准化运维规范，业务可用性从 99.5% 提升至 99.97%。
-- 主导 MySQL 高可用架构改造：基于 GTID + 半同步复制 + MHA 实现主库故障自动切换（RTO < 30s），并通过 XtraBackup 全量+增量备份 + binlog PITR 建立容灾体系，每季度执行恢复演练。
-- 基于 Ansible 重构批量运维体系，将日常 200+ 台服务器的配置下发、补丁更新、巡检从人工 4 小时缩短至 15 分钟。
-- 搭建 Prometheus + Grafana 监控大盘与 Alertmanager 告警，覆盖系统、MySQL、Redis、Nginx 等核心组件，故障平均发现时间（MTTD）从 20 分钟降至 3 分钟。
-- 推动核心业务容器化：使用 Kubernetes 管理 80+ 微服务，配合 Jenkins 实现 GitOps 持续交付，发布频次从每周 1 次提升至每日多次且零停机。
-- 主导一次大促前的容量压测与全链路调优，定位并解决 Redis 热点 key 与 MySQL 慢查询导致的接口超时，保障大促零事故。
+公司产品为容器管理平台, gitlab jenins ,开发到到运维到运维线上自动化；
+负责系统产品的的环境搭建以及安装测试;
+负责推动系统产品的实施与交付;
+负责面向客户的技术支持与培训;
+日常技术文档的总结并形成标准化文档;
 
-### 2016.03 — 2019.05　XX 网络科技有限公司　Linux 运维工程师
-*（政企/软件行业，服务器规模 50～200 台）*
 
-- 参与 50 台规模集群从 0 到 1 的架构规划与部署，涵盖 Rsync 备份、NFS 存储、inotify/sersync 实时同步、Nginx 反向代理、Keepalived 高可用等标准组件。
-- 负责 LNMP 架构的日常运维与调优，独立完成 MySQL 主从复制搭建与延时排查，保障数据一致性。
-- 编写 30+ 个 Shell 运维脚本（系统巡检、日志切割、MySQL 分库备份、网站 URL 存活监控），显著提升运维效率。
-- 使用 Zabbix 搭建全网监控，自定义监控项覆盖用户访问七层模型，建立告警与故障处理 SOP。
-- 实施 iptables 防火墙策略与 SSH 安全加固，通过等保二级合规检查。
+### 2016.03 — 2019.05　金河景集团有限公司　Linux 运维工程师
+*（电商 ，服务器规模 10 台）*
 
-### 2014.07 — 2016.02　XX 信息技术有限公司　运维工程师（初级）
-*（IDC/运维外包）*
+负责内部系统的 web 集群环境搭建测试以及故障处理;
+负责公司 Zabbix 监控系统的部署, 监控脚本的编写,调优与后期的维护; 
+负责电脑硬件与软件的安装与维护;
+日常技术文档的总结并形成标准化文件;
 
-- 负责机房服务器上架、系统安装（PXE/Kickstart）、基础环境初始化与日常工单处理。
-- 处理磁盘故障、RAID 重建、网络连通性等基础运维问题，积累扎实的硬件与系统排障能力。
-- 维护 NTP/Chrony 时间同步、DHCP、DNS 等基础网络服务。
-
----
 
 ## 项目经验
 
-### 项目一：MySQL 高可用与容灾体系建设（2021）
-- **背景**：原单库架构存在单点故障，无有效备份恢复机制。
-- **职责**：设计 GTID + 半同步复制一主两从架构；部署 MHA 实现自动故障切换；制定 XtraBackup 全量+增量备份策略（crontab 调度）+ binlog 归档实现 PITR；编写恢复演练脚本并季度执行。
-- **成果**：RPO 接近 0，RTO < 30s；通过 3 次真实恢复演练验证方案可靠，通过等保三级数据安全检查。
+### 项目一：基于K8S平台DevOps实践
+项目背景: 传统软件开发中，开发与运维团队独立运作，面临开发运维割裂、交付周期长、软件质量低等挑战。
+完成项目: 基于K8S平台DevOps实践.
+主要工具: gitlab,jenkins,robotFramework,sonarqube,maven,java,Kubernetes.Dpcler.
+实现效果: 开发提交代码-->jenkins自动构建项目-->下载代码-->mvn构建-->sonarque代码检测-->build-image-->push-images-->deploy-->验收测试-->构建结果发送到工作群.
 
-### 项目二：基于 Ansible 的批量运维平台（2020）
-- **背景**：服务器规模扩大后，手工逐台操作效率低、易出错。
-- **职责**：编写 Ansible playbook 与 role，覆盖系统初始化、软件部署、配置下发、安全基线检查；封装常用运维任务为标准化作业。
-- **成果**：配置一致性 100%，批量操作效率提升 90%，误操作事故归零。
+note: https://github.com/chengkanghua/ansible_linux_cluster
 
-### 项目三：Kubernetes 容器化改造与 CI/CD（2022—2023）
-- **背景**：传统虚拟机部署发布慢、资源利用率低。
-- **职责**：使用 kubeadm 搭建多节点 K8s 集群；将 80+ 微服务容器化并迁移；基于 Helm 管理应用；打通 GitLab + Jenkins + Harbor + K8s 的 GitOps 流水线。
-- **成果**：资源利用率提升 40%，发布耗时从 1 小时降至 5 分钟，实现灰度发布与一键回滚。
+### 项目二：测试环境搭建
+批量上线测试节点
+项目背景:新产品功能测试需要上线 1000 台计算节点，纯手工上线是重复性工作而且费时间，所有制作模版批量 上线
+模版制作要求: 需要每台节点主机名不一样。只要开机就能上线。
+解决过程:
+1 编写一个脚本自动修改主机名为 agent-ip 地址的后两位(如:agent-32.45)
+添加执行权限 ，写一个 service 文件设置开机自动启动。
+主机的 ip 地址是自动获取的，这样每台克隆的机器 ip 都不一样，解决了主机名问题。 
+2 agent 程序的上线配置 authkey，删除缓存的 authkey uuid 文件。
+3 转换模版 克隆出的机器开机即可上线
 
-### 项目四：全链路监控告警体系（2021）
-- **背景**：故障靠用户投诉发现，定位慢。
-- **职责**：搭建 Prometheus + Grafana + Alertmanager，开发 MySQL/Redis/Nginx 自定义 exporter；制定分级告警与值班机制。
-- **成果**：MTTD 从 20 分钟降至 3 分钟，重大故障同比下降 60%。
+### 项目三：Ansible 自动化部署集群架构
+项目背景: 传统方法所有服务器需要一台一台安装配置,还有需要查看所有节点状态时候,这样做的效率不高,当机器量特别多的时候并不好管理,Ansible Playbook 能在十几分钟内完成部署集群里所有服务.
+完成列表: 
+      - 系统的基础优化
+      - Rsync全网备份
+      - Yum仓库搭建
+      - Mysql数据库环境搭建
+      - Nginx + Php动态web环境搭建
+      - Nginx + Tomcat 动态web环境搭建
 
----
-
-## 教育背景
-
-- **毕业院校**：XX 大学（请替换）
-- **专业**：计算机科学与技术 / 网络工程（请替换）
-- **学历**：本科
-- **时间**：2010.09 — 2014.06
-
----
-
-## 证书与加分项
-
-- 红帽认证系统管理员 RHCSA / RHCE（如持有请填写，否则删除此行）
-- 熟悉 Python，能编写运维工具与调用云 API（运维开发方向加分）
-- 了解信创生态（统信 UOS、银河麒麟、欧拉）与国产数据库（政企岗位加分）
-- 技术博客 / GitHub 首页（如有请填写链接）
+常见模块: Copy File Yum Crond Mount Service User Group 
+note: https://github.com/chengkanghua/ansible_linux_cluster
 
 ---
 
----
-
-## 技术体系与学习思路（附加说明）
-
-- 始终秉持**"底层原理优先"**的学习理念：把 Linux 内核机制、计算机网络、存储与 IO、性能可观测性、虚拟化隔离等底层技术作为根基，上层应用（Nginx、Docker、K8s、数据库等）则视为对底层能力的封装，可快速通过文档上手并深入排障。
-- 完整的底层技术学习框架涵盖七大方向：① 操作系统内核层（进程/内存/文件系统/系统调用）；② 计算机网络与 IO 模型；③ 存储与磁盘 IO；④ 性能与可观测性；⑤ 并发与系统编程（C/Go）；⑥ 安全与权限基座（SSH/iptables/CAP）；⑦ 虚拟化与资源隔离（Namespace/Cgroup）。详见工作区《计算机底层技术.md》。
-
-> **说明**：本简历根据工作区内《云计算运维7阶段》《MySQL-DBA必备理论和学习路线》《k8s高频面试题》《ansible》《Linux性能优化实战》《就业指南》等学习资料整理，技能点均对应你已学习掌握的运维体系。请将括号内 `（请替换）` 的占位信息替换为你的真实信息，并按实际工作项目调整数据。 
+个人评价
+• 狂热技术爱好者，喜欢探究技术本质；
+• 工作环境适应能力强,为人乐观积极, 抗压能力强,有很强的学习能力;
+• 良好的沟通和交流能力,严谨耐心, 擅长沟通和表达;
+• 团队意思很强, 服从上级主管;

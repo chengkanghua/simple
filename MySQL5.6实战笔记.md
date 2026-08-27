@@ -622,320 +622,11 @@ old.ibd     # 数据 + 索引 都在这个文件里
 答：.frm .ibd .MYD .MYI ibdata1 ib_logfile binlog 等
 ```
 
-# mysql用户权限管理
-
-```BASH
-#创建用户并设置密码
-create user '[新用户名]'@'[作用域]' identified by '[密码]';
-flush privileges;　　//创建完要记得刷新权限表
-create user oldboy@'10.0.0.%' identified by '123';
-
-#查看用户
-select user,host from mysql.user;
-
-#授权加创建用户
-grant [权限] on [数据库名].[表名] to '[用户名]'@'[作用域]' identified by '[密码]';
-flush privileges;　　//记得刷新权限表
-
-#删除用户 二选一
-drop user '[用户名]'@'[作用域]';　　
-delete from mysql.user where user='[用户名]' and host='[作用域];  
-flush privileges;　　//刷新权限表
-drop user oldboy@‘10.0.0.%’；
 
 
-#修改用户密码
+## mysql体系结构总结
 
-用户的定义: username@'主机域' 
-# set password 命令修改密码
-SET PASSWORD FOR 'username'@'host' = PASSWORD('new_password');
-SET PASSWORD FOR 'root'@'localhost' = PASSWORD('root123');
-
-# 推荐alter命令修改用户密码
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'root123';
-alter user 'root'@'%' identified by 'root123';
-
-# mysql-5.6  
-update mysql.user set password=PASSWORD('oldboy123') where user='root' and host='localhost';
-# mysq-5.7 版本修改用户密码
-update mysql.user set authentication_string=PASSWORD('oldboy123') where user='root' and host='localhost';
-
-# 授权命令,用户不存在会创建
-grant all privileges on *.* to oldboy@’10.0.0.%’ identified by ‘123’;
-
-#最后都要刷新授权表
-flush privileges;
-
-
-#刚装完mysql初始化密码
-mysqladmin -uroot -p password ‘Ckh123.com’
-
-
-#误删除所有用户
-
-#关闭数据库
-[root@db02 mysql-5.7.20]# /etc/init.d/mysqld stop
-
-#启动数据库
-[root@db02 mysql-5.7.20]# mysqld_safe --skip-grant-tables --skip-networking &  #如果没加&符号前台运行,ctrl+z;bg
-#或
-vi /etc/my.cnf
-[mysqld] 后面添加
-skip-grant-tables
-skip-networking
-
-mysql #直接登录
-#使用mysql库
-mysql> use mysql
-#错误方法1、创建root用户
-mysql> create user root@’localhost’;
-
-#错误方法2、创建root用户
-mysql> insert into user(user,host,password) values('root','10.0.0.55',PASSWORD('123'));
-
-#正确方法创建root用户
-mysql> insert into mysql.user values ('localhost','root',PASSWORD('123'),
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'Y',
-'',
-'',
-'',
-'',0,0,0,0,'mysql_native_password','','N');
-
-3306 [(none)]>quit
-pkill mysql
-systemctl start mysqld
-[root@db03 ~]# mysql -uroot -p
-3306 [(none)]>show grants for 'root'@'localhost';
-
-
---------------------------mysql-5.7 推荐下面方法 5.6使用也可以, 效果和上面insert语句一样.
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' IDENTIFIED BY '123' WITH GRANT OPTION;
-flush privileges;
-
-select * from mysql.user where user='root'\G;
-
-#忘记root密码
-
-#关闭数据库
-[root@db02 mysql-5.7.20]# /etc/init.d/mysqld stop
-
-#启动数据库
-[root@db02 mysql-5.7.20]# mysqld_safe --skip-grant-tables --skip-networking
-
-#修改root用户密码
--- 5.6 使用 PASSWORD() 函数，密码列名为 Password
-UPDATE mysql.user SET Password = PASSWORD('123') WHERE User = 'root' AND Host = 'localhost';
-FLUSH PRIVILEGES;   -- 必须执行，使修改生效
-
--- 5.7 密码列改名 authentication_string，且默认 plugin 为 mysql_native_password
-UPDATE mysql.user SET authentication_string = PASSWORD('123') WHERE User = 'root' AND Host = 'localhost';
-FLUSH PRIVILEGES;   -- 必须执行
 ```
-
-mysql权限大全
-
-```BASH
-#=============================================
-#           MySQL 权限完整列表（必背）
-#=============================================
-
-#=========================
-# 一、全局权限 ( *.* )
-#=========================
-ALL PRIVILEGES        # 所有权限（万能）
-CREATE                # 创建库/表
-DROP                  # 删除库/表
-DELETE                # 删除数据
-INSERT                # 插入数据
-UPDATE                # 更新数据
-SELECT                # 查询数据
-ALTER                 # 修改表结构
-INDEX                 # 创建/删除索引
-RELOAD                # 刷新权限
-SHUTDOWN              # 关闭MySQL
-PROCESS               # 查看进程
-FILE                  # 读写文件
-GRANT OPTION          # 授权他人
-SUPER                 # 超级权限（杀线程、改配置）
-REPLICATION SLAVE     # 从库复制权限
-REPLICATION CLIENT    # 查看主从状态
-CREATE USER           # 创建用户
-SHOW DATABASES        # 查看所有库
-
-#=========================
-# 二、数据库级别权限 ( db.* )
-#=========================
-CREATE                # 在该库下创建表
-DROP                  # 删除该库/表
-DELETE                # 库内删数据
-INSERT                # 库内插数据
-SELECT                # 库内查询
-UPDATE                # 库内更新
-ALTER                 # 库内改表
-INDEX                 # 库内索引
-CREATE ROUTINE        # 创建存储过程
-ALTER ROUTINE         # 修改存储过程
-EXECUTE               # 执行存储过程
-LOCK TABLES           # 锁表
-
-#=========================
-# 三、表级别权限 ( db.tb )
-#=========================
-SELECT                # 查询表
-INSERT                # 插入表
-DELETE                # 删除表
-UPDATE                # 更新表
-ALTER                 # 修改表
-INDEX                 # 索引
-CREATE                # 创建表
-DROP                  # 删除表
-TRIGGER               # 触发器
-
-#=========================
-# 四、列级别权限（最细）
-#=========================
-SELECT (col1,col2)    # 只查某些列
-INSERT (col1,col2)    # 只插某些列
-UPDATE (col1,col2)    # 只改某些列
-
-#=========================
-# 五、管理类权限（DBA专用）
-#=========================
-CREATE USER           # 用户管理
-SHOW DATABASES        # 查看所有库
-SUPER                 # 核心管理
-PROCESS               # 查看连接
-RELOAD                # flush privileges
-GRANT OPTION          # 可转授权限
-
-#=========================
-# 六、最常用 3 套权限（工作直接用）
-#=========================
-
-# 1. 只读账号（最常用）
-GRANT SELECT ON *.* TO 'user'@'%';
-
-# 2. 普通读写账号（开发）
-GRANT SELECT,INSERT,UPDATE,DELETE ON db.* TO 'user'@'%';
-
-# 3. DBA超级管理员
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
-
-
-#一般给开发创建用户权限
-grant select,update,delete,insert on db.* to user@’10.0.0.%’ identified by ‘123’;
-```
-
-mysql权限高频面试题
-
-```BASH
-#==================================================
-#           MySQL 权限 面试必考题（含答案）
-#==================================================
-
-#--------------------------
-# 1. 基础概念类（必考）
-#--------------------------
-1. MySQL 权限分为哪几个级别（从大到小）？
-答：全局权限(*.*) → 库权限(db.*) → 表权限(db.tb) → 列权限。
-
-2. MySQL 权限存在哪几个系统表里？
-答：
-mysql.user       # 全局权限
-mysql.db         # 库权限
-mysql.tables_priv# 表权限
-mysql.columns_priv# 列权限
-
-3. % 代表什么意思？
-答：代表任何IP地址都可以连接。
-
-4. localhost 代表什么？
-答：代表只能本机连接。
-
-#--------------------------
-# 2. 常用权限类
-#--------------------------
-5. 给一个用户创建只读权限，命令是什么？
-答：
-GRANT SELECT ON *.* TO 'user'@'%';
-
-6. 给一个用户分配某一个库的读写权限，命令是什么？
-答：
-GRANT SELECT,INSERT,UPDATE,DELETE ON testdb.* TO 'user'@'%';
-
-7. SUPER 权限是干嘛的？
-答：超级权限，可以杀线程、修改全局变量、主从复制管理。
-
-8. REPLICATION SLAVE 是干嘛的？
-答：从库连接主库的复制权限。
-
-9. GRANT OPTION 作用？
-答：允许把自己的权限再授权给别人。
-
-#--------------------------
-# 3. 操作命令类
-#--------------------------
-10. 查看当前用户权限的命令？
-答：show grants;
-
-11. 查看指定用户权限？
-答：show grants for 'user'@'%';
-
-12. 回收权限用什么命令？
-答：revoke。
-例：revoke delete on *.* from 'user'@'%';
-
-13. 授权后必须执行什么命令？
-答：flush privileges; 刷新权限。
-
-#--------------------------
-# 4. 综合面试题
-#--------------------------
-14. root 远程连接不上一般是什么原因？
-答：
-1) root 只允许 localhost 登录
-2) 没有给 root@'%' 授权
-3) 防火墙没开 3306
-4) 绑定地址 bind-address 限制
-
-15. 生产环境为什么不能给普通账号 SUPER、ALL PRIVILEGES？
-答：
-1) 权限过大，危险
-2) 可删库、可删数据、可杀连接
-3) 不符合最小权限原则
-```
-
-### mysql体系结构总结
-
-```bash
 一句话本质
 MySQL 体系结构 = "一个服务器进程(mysqld),接待一堆客户端,内部按职能分成几层,一层干一层的事,最底层是真正管数据的存储引擎插件。"
 
@@ -991,6 +682,10 @@ MVCC      支持(快照读,读写互不阻塞)            无
 InnoDB = 银行柜台:流程严(事务)、排队细(行锁)、出错能撤(回滚)、晚上不关门(热备)
 MyISAM = 村口小卖部:记流水快(查询快),但一次一个人记账(表锁)、账本烧了没法补(易丢)
 ```
+
+
+
+
 
 # 第三章·MySQL版本区别及管理
 
@@ -1328,12 +1023,16 @@ systemctl restart mysqld
 
 ## 二.MySQL用户权限管理
 
-### 1. 1.MySQL用户基础操作
+### MySQL用户基础操作
 
 ```bash
 #创建用户并设置密码
 create user '[新用户名]'@'[作用域]' identified by '[密码]';
 flush privileges;　　-- 创建完要记得刷新权限表;
+create user oldboy@'10.0.0.%' identified by '123';
+
+#查看用户
+select user,host from mysql.user;
 
 # 授权加创建用户
 grant [权限] on [数据库名].[表名] to '[用户名]'@'[作用域]' identified by '[密码]';
@@ -1341,23 +1040,37 @@ flush privileges;　　-- 记得刷新权限表;
 
 # 删除用户 二选一
 drop user '[用户名]'@'[作用域]';　　
-delete from mysql.user where user='[用户名]' and host='[作用域];  
+delete from mysql.user where user='[用户名]' and host='[作用域];
 flush privileges;　　-- 刷新权限表;
+drop user oldboy@‘10.0.0.%’;
 
 # 修改用户密码
-# mysql  # 配置文件添加 跳过授权表skip-grant-tables　　//添加 之后直接mysql无密码登录
-mysql> update user set authentication_string=password('123') where user='root';
-mysql> flush privileges;　　
+用户的定义: username@'主机域' 
+# set password 命令修改密码
+SET PASSWORD FOR 'username'@'host' = PASSWORD('new_password');
+SET PASSWORD FOR 'root'@'localhost' = PASSWORD('root123');
 
+# 推荐alter命令修改用户密码
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'root123';
+alter user 'root'@'%' identified by 'root123';
 
-用户管理实战
-刚装完MySQL数据库该做的事情
-● 1、设定初始密码（root@localhost）
-[root@db02 mysql-5.7.20]# mysqladmin -uroot -p password ‘oldboy123’
-● 2、修改密码
-● 3、使用密码登陆
-[root@db02 mysql-5.7.20]# mysql -uroot -p123
-● 4、清理无用的用户
+# mysql-5.6  
+update mysql.user set password=PASSWORD('oldboy123') where user='root' and host='localhost';
+# mysq-5.7 版本修改用户密码
+update mysql.user set authentication_string=PASSWORD('oldboy123') where user='root' and host='localhost';
+
+# 授权命令,用户不存在会创建
+grant all privileges on *.* to oldboy@’10.0.0.%’ identified by ‘123’;
+
+#最后都要刷新授权表
+flush privileges;
+
+#刚装完mysql初始化密码
+mysqladmin -uroot -p password ‘Ckh123.com’
+#使用密码登陆
+[root@db02 mysql-5.7.20]# mysql -uroot -p
+#清理无用的用户
+
 ```
 
 ### 误删除了所有用户
@@ -1428,8 +1141,8 @@ mysql> insert into mysql.user values ('localhost','root',PASSWORD('123'),
 
 3306 [(none)]>quit
 pkill mysql
-
 systemctl start mysqld
+
 [root@db03 ~]# mysql -uroot -p
 3306 [(none)]>show grants for 'root'@'localhost';
 
@@ -1451,8 +1164,16 @@ select * from mysql.user where user='root'\G;
 #修改root用户密码
 mysql> update user set password=PASSWORD('oldboy123') where user='root' and host='localhost';
 
+#修改root用户密码
+-- 5.6 使用 PASSWORD() 函数，密码列名为 Password
+UPDATE mysql.user SET Password = PASSWORD('123') WHERE User = 'root' AND Host = 'localhost';
+FLUSH PRIVILEGES;   -- 必须执行，使修改生效
 
--------------------------- 跳过授权表 跳过网络的配置文件启动方式
+-- 5.7 密码列改名 authentication_string，且默认 plugin 为 mysql_native_password
+UPDATE mysql.user SET authentication_string = PASSWORD('123') WHERE User = 'root' AND Host = 'localhost';
+FLUSH PRIVILEGES;   -- 必须执行
+
+---------- 跳过授权表 跳过网络的 配置文件启动方式
 [root@db03 bin]# cat /etc/my.cnf
 [mysqld]
 basedir=/application/mysql
@@ -1466,7 +1187,10 @@ socket=/tmp/mysql.sock
 prompt=3306 [\\d]>
 
 # /application/mysql/bin/mysqld_safe --defaults-file=/etc/my.cnf
+
 ```
+
+
 
 ### 用户管理及权限管理
 
@@ -1587,6 +1311,9 @@ GRANT SELECT,INSERT,UPDATE,DELETE ON db.* TO 'user'@'%';
 # 3. DBA超级管理员
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
 
+#一般给开发创建用户权限
+grant select,update,delete,insert on db.* to user@’10.0.0.%’ identified by ‘123’;
+
 # 归属:  每次设定只能有一个属主，没有属组或其他用户的概念
 grant     all privileges    on     *.*    to   oldboy@’10.0.0.%’  identified by    ‘123’;
                 权限               作用对象          归属               密码
@@ -1649,6 +1376,89 @@ create table tb1 (id int);
 ● 2、但是我们不推荐在多级别定义重复权限。
 ● 3、最常用的权限设定方式是单库级别授权，即：wordpress.*
 ```
+
+### mysql权限高频面试题
+
+```
+#==================================================
+#           MySQL 权限 面试必考题（含答案）
+#==================================================
+
+#--------------------------
+# 1. 基础概念类（必考）
+#--------------------------
+1. MySQL 权限分为哪几个级别（从大到小）？
+答：全局权限(*.*) → 库权限(db.*) → 表权限(db.tb) → 列权限。
+
+2. MySQL 权限存在哪几个系统表里？
+答：
+mysql.user       # 全局权限
+mysql.db         # 库权限
+mysql.tables_priv# 表权限
+mysql.columns_priv# 列权限
+
+3. % 代表什么意思？
+答：代表任何IP地址都可以连接。
+
+4. localhost 代表什么？
+答：代表只能本机连接。
+
+#--------------------------
+# 2. 常用权限类
+#--------------------------
+5. 给一个用户创建只读权限，命令是什么？
+答：
+GRANT SELECT ON *.* TO 'user'@'%';
+
+6. 给一个用户分配某一个库的读写权限，命令是什么？
+答：
+GRANT SELECT,INSERT,UPDATE,DELETE ON testdb.* TO 'user'@'%';
+
+7. SUPER 权限是干嘛的？
+答：超级权限，可以杀线程、修改全局变量、主从复制管理。
+
+8. REPLICATION SLAVE 是干嘛的？
+答：从库连接主库的复制权限。
+
+9. GRANT OPTION 作用？
+答：允许把自己的权限再授权给别人。
+
+#--------------------------
+# 3. 操作命令类
+#--------------------------
+10. 查看当前用户权限的命令？
+答：show grants;
+
+11. 查看指定用户权限？
+答：show grants for 'user'@'%';
+
+12. 回收权限用什么命令？
+答：revoke。
+例：revoke delete on *.* from 'user'@'%';
+
+13. 授权后必须执行什么命令？
+答：flush privileges; 刷新权限。
+
+#--------------------------
+# 4. 综合面试题
+#--------------------------
+14. root 远程连接不上一般是什么原因？
+答：
+1) root 只允许 localhost 登录
+2) 没有给 root@'%' 授权
+3) 防火墙没开 3306
+4) 绑定地址 bind-address 限制
+
+15. 生产环境为什么不能给普通账号 SUPER、ALL PRIVILEGES？
+答：
+1) 权限过大，危险
+2) 可删库、可删数据、可杀连接
+3) 不符合最小权限原则
+```
+
+
+
+
 
 ## mysql连接管理
 
@@ -1913,6 +1723,10 @@ mysql -uroot -proot123 -S /data/3309/mysql.sock -e "select @@server_id"
 - `server_id` 必须全局唯一 → 主从 / GTID / MGR 全指望它
 - 初始化前目录必须 `chown mysql:mysql`，否则权限报错
 - 一个实例一套 `my.cnf`，用 `--defaults-file` 指定；共用配置文件会互相踩
+
+
+
+
 
 # 第四章· MySQL客户端工具及SQL讲解
 

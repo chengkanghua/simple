@@ -88,6 +88,10 @@ Daemon 依赖 Linux 内核实现容器轻量化隔离：
 2. Cgroups：限制 CPU、内存、磁盘 IO，防止容器资源耗尽宿主机
 3. Union FS：镜像分层只读存储，镜像复用、快速构建
 
+Union FS（联合文件系统）是一类文件系统的统称，核心能力只有一句话：把多个目录（层）"挂载"叠加成一个统一的目录视图，上层覆盖下层、下层只读复用。
+它定义的是"分层合并"这个能力，不规定怎么实现。属于这类的有：aufs、overlay、overlay2、devicemapper、btrfs、zfs 等。
+
+
 ### 完整调用流程举例（docker run nginx）
 
 1. 客户端执行命令 → 请求发送给 dockerd

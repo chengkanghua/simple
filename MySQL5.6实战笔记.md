@@ -1,4 +1,4 @@
-# **第一章·MySQL介绍及安装**
+# 第一章·MySQL介绍及安装
 
 ## MySQL 介绍
 
@@ -48,7 +48,7 @@
 - 动手装上它 → 看下文【MySQL二进制安装】
 - 装好后它内部怎么接待客户端、怎么处理 SQL → 看后文【mysql体系结构】
 
-## MySQL二进制安装：
+## MySQL二进制安装
 
 ```bash
 #安装所需要的依赖包
@@ -287,7 +287,7 @@ mysql -uroot -p -e "show variables like 'log_bin';"
 - **GTID**(`gtid_mode=ON`)不是默认开启的,生产建议一开始就开,后期开启麻烦
 - 挂接:binlog 三种格式 ROW/STATEMENT/MIXED 的详细对比见后文【二进制日志】章节
 
-# **第二章· MySQL体系结构管理**
+# 第二章· MySQL体系结构管理
 
 ## 客户端与服务端模型
 
@@ -300,15 +300,15 @@ mysql -uroot -p -e "show variables like 'log_bin';"
 
 - mysqld一个二进制程序，后台的守护进程
   ○   单进程
-  ○   多线程    
+  ○   多线程
 
 - 应用程序连接mysql方式
   
   - tcp/ip   mysql -uroot -pxxx -h10.0.0.5
   
   - 套接字   mysql -uroot -S /tmp/mysql.sock  ， # 这个是  本地套接字（Socket / Unix Domain Socket）连接
-    思考：mysql -uroot -pCkh123.com是使用了哪个连接方式？？？ socket 
-    
+    思考：mysql -uroot -pCkh123.com是使用了哪个连接方式？？？ socket
+
      答： 配置文件如果没有指定网络连接参数, 默认是 socket 连接.
 
 什么是实例
@@ -472,7 +472,7 @@ SQL 接口（接收 SQL）
 ​    2 表: 元数据+真是数据行
 ​    3 元数据: 列+其他属性 (行数+占用空间大小+权限)
 ​    4 列: 列名字+数据类型+其他约束(非空,唯一,非负数,自增长,默认值)
-​    
+​
 二维表:
 select user,password,host from mysql.user;
 
@@ -622,7 +622,7 @@ old.ibd     # 数据 + 索引 都在这个文件里
 答：.frm .ibd .MYD .MYI ibdata1 ib_logfile binlog 等
 ```
 
-#mysql用户权限管理
+# mysql用户权限管理
 
 ```BASH
 #创建用户并设置密码
@@ -992,7 +992,7 @@ InnoDB = 银行柜台:流程严(事务)、排队细(行锁)、出错能撤(回�
 MyISAM = 村口小卖部:记流水快(查询快),但一次一个人记账(表锁)、账本烧了没法补(易丢)
 ```
 
-# **第三章·MySQL版本区别及管理**
+# 第三章·MySQL版本区别及管理
 
 ## 一.MySQL5.6与MySQL5.7安装的区别
 
@@ -1360,7 +1360,7 @@ mysql> flush privileges;　　
 ● 4、清理无用的用户
 ```
 
-### ***误删除了所有用户***
+### 误删除了所有用户
 
 ```bash
 # -- 误删除实验
@@ -1441,7 +1441,7 @@ flush privileges;
 select * from mysql.user where user='root'\G;
 ```
 
-### ***忘记root密码***
+### 忘记root密码
 
 ```bash
 #关闭数据库
@@ -1807,7 +1807,7 @@ mysqld --initialize --user=mysql --datadir=/data/mysql
 2. 初始化 → `mysql_install_db --defaults-file=...` 逐实例执行
 3. 改属主 → `chown -R mysql.mysql`（不改权限，mysql 用户写不了目录）
 4. 启动 → systemd 每实例一个 service，或 `mysqld_safe --defaults-file=... &`
-5. 验证 + 设密码 → `netstat -lnp|grep 330`、`mysql -S /data/3307/mysql.sock -e "select @@server_id"`、`mysqladmin password '123'` 
+5. 验证 + 设密码 → `netstat -lnp|grep 330`、`mysql -S /data/3307/mysql.sock -e "select @@server_id"`、`mysqladmin password '123'`
 
 ### 多实例实战
 
@@ -1914,7 +1914,7 @@ mysql -uroot -proot123 -S /data/3309/mysql.sock -e "select @@server_id"
 - 初始化前目录必须 `chown mysql:mysql`，否则权限报错
 - 一个实例一套 `my.cnf`，用 `--defaults-file` 指定；共用配置文件会互相踩
 
-# **第四章· MySQL客户端工具及SQL讲解**
+# 第四章· MySQL客户端工具及SQL讲解
 
 ## mysql客户端命令工具
 
@@ -1978,7 +1978,7 @@ mysqlcheck -uroot -p123 -A                 # 检查所有表（同 check table�
 mysqlimport -uroot -p123 testdb /data/user.txt  # 批量导入文本数据（load data 命令行版）
 ```
 
-## 接收用户的sql语句
+## 接收用户的SQL语句
 
 ```sql
 -- SQL 全称：Structured Query Language
@@ -2792,7 +2792,7 @@ UNION
 SELECT Name FROM city WHERE CountryCode='USA' LIMIT 2;
 ```
 
-# **第五章· MySQL数据类型**
+# 第五章· MySQL数据类型
 
 数值类型 + 字符串类型 + 日期时间类型
 
@@ -2867,7 +2867,7 @@ SELECT Name FROM city WHERE CountryCode='USA' LIMIT 2;
 1. **BLOB 不推荐存大图 / 大文件**：生产环境一般只存文件路径，文件放服务器 / 对象存储，数据库只存 URL，减少库体积、提升查询性能；
 2. BINARY/VARBINARY 和 CHAR/VARCHAR 本质区别：前者**按二进制字节比对**，后者按字符集编码比对，不受字符集排序规则影响。
 
-## **列属性介绍**
+## 列属性介绍
 
 | 属性             | 简要说明         | 示例                                          | 使用场景     | 适用类型 |
 | -------------- | ------------ | ------------------------------------------- | -------- | ---- |
@@ -3560,7 +3560,7 @@ IN 常量列表 5.0+ 就转 range 走索引；OR 在 5.0+ 可走 index_merge
  数据量极小或统计过期时成本判断选全表；ANALYZE TABLE 可修正
 ```
 
- 
+
 
 ## EXPLAIN 生产实操（慢SQL排查实战）
 
@@ -4352,7 +4352,7 @@ mysql -S /data/3307/mysql.sock
 
 ### 1. 什么是事务
 
-- 事务（Transaction）是一组 SQL 操作的集合，是数据库的**最小工作单元**
+- 事务（Transaction）是一组 SQL**主要针对DML语句（update，delete，insert）** 操作的集合，是数据库的**最小工作单元**
 - 核心特点：**要么全部成功（commit），要么全部失败（rollback）**，绝不会"做一半"
 - 典型场景：转账、下单扣库存、批量发工资
 
@@ -4366,12 +4366,12 @@ mysql -S /data/3307/mysql.sock
 
 ### 3. 事务ACID特性
 
-| 特性  | 中文  | 通俗解释             | 靠什么实现      |
-| --- | --- | ---------------- | ---------- |
-| A   | 原子性 | 最小单元，全成或全败，不能半截  | undo 日志    |
-| C   | 一致性 | 事务前后数据都合法，符合业务规则 | A+I+D 共同保证 |
-| I   | 隔离性 | 多个事务并发互不干扰       | 锁 + MVCC   |
-| D   | 持久性 | 提交后永久生效，宕机不丢     | redo 日志    |
+| 特性            | 中文   | 通俗解释                         | 靠什么实现     |
+| --------------- | ------ | -------------------------------- | -------------- |
+| A（Atomic）     | 原子性 | 最小单元，全成或全败，不能半截   | undo 日志      |
+| C（Consistent） | 一致性 | 事务前后数据都合法，符合业务规则 | A+I+D 共同保证 |
+| I（Isolated）   | 隔离性 | 多个事务并发互不干扰             | 锁 + MVCC      |
+| D（Durable）    | 持久性 | 提交后永久生效，宕机不丢         | redo 日志      |
 
 > 记忆：A 靠 undo 兜底，D 靠 redo 兜底，I 靠锁，C 是最终目标
 
@@ -4423,6 +4423,40 @@ unlock tables;         -- 同样会提交
 # ④ load data infile 批量导入（autocommit=1 时导入完自动提交）
 
 # ⑤ select ... for update 当前读会开启隐式事务，需手动 commit
+
+示例： 	
+SET autocommit = 1;
+CREATE TABLE t(id INT PRIMARY KEY,money INT);
+INSERT INTO t VALUES(1,1000),(2,2000);
+
+-- 1，SELECT ... FOR UPDATE
+# 会话1
+SET autocommit=1;
+SELECT * FROM t WHERE id=1 FOR UPDATE; -- 锁住id=1，事务未提交
+# 会话2
+UPDATE t SET money=999 WHERE id=1; -- 阻塞等待
+# 会话1执行提交，锁释放
+COMMIT;
+
+-- 2、LOCK TABLES 会强制提交正在运行的事务
+SET autocommit=1;
+START TRANSACTION;
+UPDATE t SET money=111 WHERE id=1; -- 修改未提交
+
+LOCK TABLES t WRITE; -- 触发隐式COMMIT，上面update直接落地，事务结束
+# 现在t被加独占表锁，其他会话无法读写
+
+UNLOCK TABLES; -- 释放表锁
+规则：LOCK TABLES 是 DDL 类锁定语法，强制关闭现有事务
+
+-- 3、LOAD DATA INFILE
+-- 方式1：自动提交
+SET autocommit=1;
+LOAD DATA INFILE '/tmp/t.txt' INTO TABLE t; -- 导入完自动commit
+-- 方式2：包裹事务可回滚
+START TRANSACTION;
+LOAD DATA INFILE '/tmp/t.txt' INTO TABLE t;
+ROLLBACK; -- 导入数据全部撤销
 ```
 
 > 生产教训：事务里别混入 DDL，否则事务被"偷摸提交"，rollback 就失效了
@@ -4431,6 +4465,7 @@ unlock tables;         -- 同样会提交
 
 ```bash
 redo = 重做日志（Redo Log），核心作用：保证事务的【持久性 D】
+REDO：记录的是，内存数据页的变化过程
 
 # 特性：WAL（Write Ahead Log）日志优先写：先写日志，再写数据
 # 规则：redo 落盘成功 = 事务提交成功
@@ -4486,6 +4521,17 @@ undo = 回滚日志（Undo Log），核心作用：保证事务的【原子性 A
 ### 10. 事务日志 redo 和 undo 结合修复数据
 
 ```bash
+# redo和undo的存储位置
+#redo位置
+[root@db01 data]# ll /application/mysql/data/
+-rw-rw---- 1 mysql mysql 50331648 Aug 15 06:34 ib_logfile0
+-rw-rw---- 1 mysql mysql 50331648 Mar  6  2017 ib_logfile1
+#undo位置
+[root@db01 data]# ll /application/mysql/data/
+-rw-rw---- 1 mysql mysql 79691776 Aug 15 06:34 ibdata1
+-rw-rw---- 1 mysql mysql 79691776 Aug 15 06:34 ibdata2
+在MySQL5.6版本中undo是在ibdata文件中，在MySQL5.7版本会独立出来。
+
 # MySQL 宕机重启后，InnoDB 恢复三步曲：
 # ① 读 redo：把【已提交但脏页没刷盘】的操作重做一遍 → 提交不丢（D）
 # ② 扫 undo：找出【未提交/异常中断】的事务，用 undo 回滚撤销 → 不留脏数据（A）
@@ -4495,7 +4541,27 @@ undo = 回滚日志（Undo Log），核心作用：保证事务的【原子性 A
 #   redo = 记账本，帮"已提交"的重做（保数据）
 #   undo = 后悔药，帮"未提交"的撤销（保干净）
 # 记忆：commit 前断电 → undo 回滚；commit 后断电 → redo 重做
+
 ```
+
+**redo 与 undo 区别表格（InnoDB 日志核心）**
+
+| 对比项       | Redo Log（重做日志）                                         | Undo Log（回滚日志）                                         |
+| ------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| **英文全称** | Re-do Log                                                    | Un-do Log                                                    |
+| **核心作用** | **崩溃恢复、保证持久性 D**宕机后把已提交事务数据刷磁盘       | **事务回滚 + MVCC 多版本**1.rollback 撤销未提交修改2. 生成历史快照实现快照读 |
+| **记录内容** | **物理修改：磁盘页改动（哪个页、改了什么字节）**例：163 号 page，offset20 位置值从 100 改成 200 | **逻辑 SQL 反向数据**改 update 就存修改前原值；insert 存删除标记；delete 存插入数据 |
+| **写入时机** | **修改内存 Buffer Pool 前先写 redo（先写日志）**事务提交不立刻刷数据页，redo 落盘即可 | 数据修改 Buffer Pool 时同步生成 undo，写入 undo 段           |
+| **生命周期** | 事务提交后不马上删，**脏页刷完磁盘才被覆盖复用**             | 事务提交后 undo 不立即删除，MVCC 快照还在引用就保留，无用后 purge 线程清理 |
+| **故障表现** | 宕机→靠 redo 重做，**已提交数据不丢失**                      | 宕机未提交事务→靠 undo 回滚撤销改动                          |
+| **存放位置** | ib_logfile0、ib_logfile1（固定大小循环文件）                 | 5.7 前在 ibdata1；8.0 独立 undo_xx 表空间 ibd 文件           |
+
+ **一句话速记**
+
+1. **Redo：存改后数据，用来 “出事了重做、保提交不丢”**
+2. **Undo：存改前老数据，用来 “回滚撤销 + 多版本读”**
+
+
 
 ### 11. 事务中的锁
 
@@ -4525,6 +4591,47 @@ undo = 回滚日志（Undo Log），核心作用：保证事务的【原子性 A
 #    乐观锁示例：
 #    update goods set stock=stock-1, version=version+1
 #      where id=1 and version=0;   -- 影响行数=0 说明数据被改过，需重试
+
+
+
+############## 悲观锁和乐观锁实战 #################
+
+一、悲观锁（基于排他行锁）
+
+# 核心：提前加锁，阻塞并发修改，强数据一致
+# 前提：关闭自动提交，查询字段带索引
+CREATE TABLE goods(id INT PRIMARY KEY,stock INT);
+INSERT goods VALUES(1,10);
+
+-- 会话1 加锁执行业务
+SET autocommit=0;
+START TRANSACTION;
+SELECT * FROM goods WHERE id=1 FOR UPDATE; -- 加排他行锁
+UPDATE goods SET stock=stock-1 WHERE id=1;
+COMMIT; -- 提交释放锁
+
+-- 会话2 操作同行会阻塞，直至锁释放
+特点：并发低，易产生锁等待。
+
+
+二、乐观锁（版本号实现，主流）
+# 核心：全程无锁，更新时校验版本判断数据是否被篡改
+CREATE TABLE goods(id INT PRIMARY KEY,stock INT,version INT DEFAULT 0);
+INSERT goods VALUES(1,10,0);
+
+SELECT stock,version FROM goods WHERE id=1; -- 查询获取版本号
+-- 版本匹配则更新，版本号自增；行数为0代表数据已被修改（冲突）
+UPDATE goods SET stock=stock-1,version=version+1 WHERE id=1 AND version=0;
+
+时间戳替代方案
+ALTER TABLE goods ADD update_time DATETIME;
+UPDATE goods SET stock=stock-1,update_time=NOW() WHERE id=1 AND update_time='旧时间';
+特点：无锁高并发，冲突需业务层重试。
+
+极简总结
+# 悲观锁：加锁阻塞，适合写多、要求强一致场景
+# 乐观锁：字段校验，无锁高并发，适合读多写少场景
+
 ```
 
 ### 12. 多版本并发控制（MVCC）
@@ -4587,320 +4694,6 @@ transaction_isolation=read-committed   # 生产高并发常用 RC
 # 选型建议
 # 金融/对账强一致 → 保持 RR 默认
 # 高并发、锁等待多 → 可考虑 RC（锁更少、并发更高）
-```
-
----
-
-> 说明：以下是原笔记中关于事务的零散内容（与新内容部分重复），可对照复习，不影响使用。
-
-ACID 四大特性
-
-| 特性                | 说明                                                                       |
-| ----------------- | ------------------------------------------------------------------------ |
-| **原子 Atomic**     | 事务是最小单元，**要么全成功 commit，要么全失败 rollback**，不能半截提交。例：转账 A 扣钱、B 加钱，任意出错两边全部回滚 |
-| **一致 Consistent** | 事务执行前后，数据约束合法（主键唯一、外键、字段非空），不会出现脏数据                                      |
-| **隔离 Isolate**    | 多个事务并发互不干扰，由**4 种隔离级别**控制脏读 / 不可重复读 / 幻读                                 |
-| **持久 Durable**    | `commit`提交后，数据永久落盘，宕机断电不丢失，依靠 redo 日志保障                                  |
-
-```SQL
-ACID 四者关系（重点，解开误区）
-原子性 (A)：保证操作要么全成、全败，解决业务逻辑一致性（靠 undo 回滚实现）
-隔离性 (I)：并发环境下，避免多个事务互相篡改，破坏一致性（锁 + MVCC）
-持久性 (D)：提交成功的数据永久保存，宕机不会莫名丢失，保证一致性不被硬件故障破坏（redo）
-一致性 (C)：最终结果要求，前面三者全部服务于 C
-一致性就是：事务提交完毕，表数据既要符合字段、主键、外键等数据库规则，又符合业务算数 / 业务规则，不存在畸形、错乱、不合逻辑的数据。
-
-
-- 事务自动提交
-3306 [world]>show variables like 'autocommit';
-+---------------+-------+
-| Variable_name | Value |
-+---------------+-------+
-| autocommit    | ON    |
-+---------------+-------+
-
-set autocommit=0; #临时关闭
-#永久关闭
-vim /etc/my.cnf 
-[mysqld]
-autocommit=0
-
--- 事务演示
--- 成功提交
-create database demo charset utf8mb4;
-use demo
-create table stu(id int,name varchar(10),sex enum('f','m'),money int);
-begin;
-insert into stu(id,name,sex,money) values(1,'zhang3','m',100), (2,'zhang4','m',110);
-commit;
--- 事务回滚
-begin;
-update stu set name='zhang3';
-delete from stu;
-rollback; 
-select * from stu;
-
-● 事务隐式提交情况
-1）现在版本在开启事务时，不需要手工begin，只要你输入的是DML语句，就会自动开启事务。
-2）有些情况下事务会被隐式提交
-例如:
-在事务运行期间，手工执行begin的时候会自动提交上个事务
-在事务运行期间，加入DDL、DCL操作会自动提交上个事务
-在事务运行期间，执行锁定语句（lock tables、unlock tables）
-前提： autocommit=1（默认自动提交，单条 SQL 默认执行完立刻 commit）
-3 类特殊 SQL：
-LOCK TABLES / UNLOCK TABLES：隐式结束当前事务
-LOAD DATA INFILE：DML 批量导入，受事务控制
-SELECT ... FOR UPDATE：当前读、加行锁、开启隐式事务，不会自动提交
-
-示例：     
-SET autocommit = 1;
-CREATE TABLE t(id INT PRIMARY KEY,money INT);
-INSERT INTO t VALUES(1,1000),(2,2000);
-
--- 1，SELECT ... FOR UPDATE
-# 会话1
-SET autocommit=1;
-SELECT * FROM t WHERE id=1 FOR UPDATE; -- 锁住id=1，事务未提交
-# 会话2
-UPDATE t SET money=999 WHERE id=1; -- 阻塞等待
-# 会话1执行提交，锁释放
-COMMIT;
-
--- 2、LOCK TABLES 会强制提交正在运行的事务
-SET autocommit=1;
-START TRANSACTION;
-UPDATE t SET money=111 WHERE id=1; -- 修改未提交
-
-LOCK TABLES t WRITE; -- 触发隐式COMMIT，上面update直接落地，事务结束
-# 现在t被加独占表锁，其他会话无法读写
-
-UNLOCK TABLES; -- 释放表锁
-规则：LOCK TABLES 是 DDL 类锁定语法，强制关闭现有事务
-
--- 3、LOAD DATA INFILE
--- 方式1：自动提交
-SET autocommit=1;
-LOAD DATA INFILE '/tmp/t.txt' INTO TABLE t; -- 导入完自动commit
--- 方式2：包裹事务可回滚
-START TRANSACTION;
-LOAD DATA INFILE '/tmp/t.txt' INTO TABLE t;
-ROLLBACK; -- 导入数据全部撤销
-```
-
-## 事务日志redo基本功能
-
-```BASH
-1）Redo是什么？
-    redo,顾名思义“重做日志”，是事务日志的一种。
-2）作用是什么？
-    在事务ACID过程中，实现的是“D”持久化的作用。
-特性:WAL(Write Ahead Log)日志优先写
-REDO：记录的是，内存数据页的变化过程
-
-3）# Redo简化流程(WAL预写日志)
-# update t1 set num=2 where num=1;
-#1 数据页载入BufferPool内存
-#2 内存修改页面：1→2，生成redo写入redo_buffer
-#3 页面标记脏页，不立刻落地磁盘
-# commit;
-#1 redo_buffer数据刷入磁盘ib_logfile
-#2 日志落盘成功，事务提交OK（数据页仍在内存）
-
-# 后台
-# checkpoint慢慢把脏页刷入ibd；日志文件循环覆盖
-
-### redo数据实例恢复过程
-如果此时服务器断电:
-1)启动MySQL的过程中，读取redo log。(MySQL启动的很慢)
-2)首先将数据页中的原数据1  加载到内存中。
-3)将redolog中的修改过程，加载到内存中。
-4)在内存中将数据修改(1改成2)。
-5)写入磁盘。
-
-
-[root@db world]# ll /application/mysql/data
-total 176152
--rw-rw---- 1 mysql mysql       56 Jun  4 16:36 auto.cnf
--rw-rw---- 1 mysql mysql     5421 Jun  4 16:36 db.err
--rw-rw---- 1 mysql mysql        5 Jun  5 05:48 db.pid
-drwx------ 2 mysql mysql       52 Jun  5 10:58 home
--rw-rw---- 1 mysql mysql 79691776 Jun  5 10:58 ibdata1
--rw-rw---- 1 mysql mysql 50331648 Jun  5 10:58 ib_logfile0  # redo.log 文件
--rw-rw---- 1 mysql mysql 50331648 Jun  4 16:36 ib_logfile1 
-。。。。
-
-
-3306 [world]>show variables like '%innodb_log%';
-+-----------------------------+----------+
-| Variable_name               | Value    |
-+-----------------------------+----------+
-| innodb_log_buffer_size      | 8388608  |
-| innodb_log_compressed_pages | ON       |
-| innodb_log_file_size        | 50331648 |
-| innodb_log_files_in_group   | 2        |
-| innodb_log_group_home_dir   | ./       |
-+-----------------------------+----------+
-
-# 1.innodb_log_buffer_size=8388608(8M)
-# redo内存缓冲区,DML产生的redo先写到「log buffer 内存」;commit/缓冲区满/定时触发刷盘到磁盘redo文件
-# 大写入业务调大 (32M/64M)，减少磁盘频繁刷写。
-
-# 2.innodb_log_compressed_pages=ON
-# 压缩表的数据变更写入redo，保障压缩表崩溃可恢复，默认不动
-# 3.innodb_log_file_size=50331648(48M)
-# 单个redo磁盘文件大小，太小频繁checkpoint、太大宕机恢复慢
-# 单个文件上限：5.6/5.7 推荐 1G 以内；超大导入场景可设 512M~1G
-
-# 4.innodb_log_files_in_group=2
-# redo日志文件个数2个:ib_logfile0、ib_logfile1，循环覆写
-# 不能设为 1，生产一般保持 2~4 个。
-
-# 5.innodb_log_group_home_dir=./
-# redo文件存放路径，./代表mysql数据目录
-```
-
-## 事务日志undo
-
-```BASH
-1）undo是什么？
-undo,顾名思义“回滚日志”，是事务日志的一种。
-2）作用是什么？
-在事务ACID过程中，实现的是“A”原子性的作用。当然CI的特性也和undo有关
-
-redo和undo的存储位置
-#redo位置
-[root@db01 data]# ll /application/mysql/data/
--rw-rw---- 1 mysql mysql 50331648 Aug 15 06:34 ib_logfile0
--rw-rw---- 1 mysql mysql 50331648 Mar  6  2017 ib_logfile1
-
-#undo位置
-[root@db01 data]# ll /application/mysql/data/
--rw-rw---- 1 mysql mysql 79691776 Aug 15 06:34 ibdata1
--rw-rw---- 1 mysql mysql 79691776 Aug 15 06:34 ibdata2
-
-在MySQL5.6版本中undo是在ibdata文件中，在MySQL5.7版本会独立出来。
-
-
-#=====================
-# 一、Undo 日常工作流程
-#=====================
-#1.DML更新数据前，记录修改前原始数据生成undo
-#2.undo写入独立undo表空间文件
-#3.事务未提交：rollback通过undo还原旧数据，实现原子回滚
-#4.事务已提交：undo不立刻删除，供MVCC快照读；无事务引用后，Purge线程异步清理undo空间
-
-
-#=====================
-# 二、MySQL宕机重启：Redo+Undo协同故障恢复流程
-#=====================
-#步骤1：加载redo日志，重做【已提交但脏页没刷磁盘】的数据，把数据落盘(依靠redo持久性)
-#步骤2：扫描undo日志，找出所有【未提交/异常中断事务】，利用undo回滚撤销脏修改
-#步骤3：事务状态全部规整完毕，InnoDB引擎正常启动对外提供服务
-```
-
-## redo 与 undo 区别表格（InnoDB 日志核心）
-
-| 对比项      | Redo Log（重做日志）                                                  | Undo Log（回滚日志）                                            |
-| -------- | --------------------------------------------------------------- | --------------------------------------------------------- |
-| **英文全称** | Re-do Log                                                       | Un-do Log                                                 |
-| **核心作用** | **崩溃恢复、保证持久性 D**宕机后把已提交事务数据刷磁盘                                  | **事务回滚 + MVCC 多版本**1.rollback 撤销未提交修改2. 生成历史快照实现快照读       |
-| **记录内容** | **物理修改：磁盘页改动（哪个页、改了什么字节）**例：163 号 page，offset20 位置值从 100 改成 200 | **逻辑 SQL 反向数据**改 update 就存修改前原值；insert 存删除标记；delete 存插入数据 |
-| **写入时机** | **修改内存 Buffer Pool 前先写 redo（先写日志）**事务提交不立刻刷数据页，redo 落盘即可        | 数据修改 Buffer Pool 时同步生成 undo，写入 undo 段                     |
-| **生命周期** | 事务提交后不马上删，**脏页刷完磁盘才被覆盖复用**                                      | 事务提交后 undo 不立即删除，MVCC 快照还在引用就保留，无用后 purge 线程清理            |
-| **故障表现** | 宕机→靠 redo 重做，**已提交数据不丢失**                                       | 宕机未提交事务→靠 undo 回滚撤销改动                                     |
-| **存放位置** | ib_logfile0、ib_logfile1（固定大小循环文件）                               | 5.7 前在 ibdata1；8.0 独立 undo_xx 表空间 ibd 文件                  |
-
- **一句话速记**
-
-1. **Redo：存改后数据，用来 “出事了重做、保提交不丢”**
-2. **Undo：存改前老数据，用来 “回滚撤销 + 多版本读”**
-
-补充实战示例
-
-```bash
-UPDATE user SET money=900 WHERE id=1; --原1000
-- redo：记录对应数据页被修改成900（物理页变更）
-- undo：记录原值1000，rollback时写回1000；别的事务快照读读取1000
-
-额外区分
-redo 保证 D 持久性
-undo 支撑 A 原子性 + I 隔离性 (MVCC)
-```
-
-### 事务中的锁
-
-1）什么是“锁”？
-“锁”顾名思义就是锁定的意思。
-2）“锁”的作用是什么？
-在事务ACID特性过程中，“锁”和“隔离级别”一起来实现“I”隔离性的作用。
-
-排他锁：保证在多事务操作时，数据的一致性。
-共享锁：保证在多事务工作期间，数据查询时不会被阻塞。
-
-```bash
-#=====================
-# InnoDB 事务锁：共享锁(S)、排他锁(X)
-#=====================
-# 1. 共享锁 S (Shared Lock)
-#  作用：多事务可同时加S锁读取数据，读操作互不阻塞
-#  限制：持有S锁期间，其他事务无法加排他锁修改数据
-#  手动加锁：SELECT ... LOCK IN SHARE MODE
-
-# 2. 排他锁 X (Exclusive Lock)
-#  作用：独占数据，防止并发篡改，保障修改后数据一致
-#  限制：持有X锁时，其他事务既不能读、也不能改，全部阻塞
-#  触发场景：UPDATE/DELETE、SELECT ... FOR UPDATE（自动/手动加X锁）
-
-#=====================
-# 锁兼容规则（核心）
-#=====================
-# S + S：兼容，可共存
-# S + X：互斥，阻塞
-# X + 任意锁：互斥，阻塞
-
-#=====================
-# 补充要点
-#=====================
-# 1. 普通SELECT 是MVCC快照读，**不加锁**，读写互不影响
-# 2. 锁生命周期：事务内加锁，commit/rollback 才释放
-# 3. 有索引走行锁；无索引，行锁降级为全表锁
-
-
-# ======================
-# 二、锁粒度（从细到粗）
-# ======================
-# 1. 行锁(默认)：只锁定命中数据行，并发最高，InnoDB主力锁
-#    触发：DML、for update 走有效索引时生效
-# 2. 表锁：锁定整张表，并发极低
-#    触发：LOCK TABLES、索引失效/无索引(行锁降级)
-# 3. 意向锁(IS/IX)：表级辅助锁，标记表内存在行锁，避免全表扫描判断锁
-
-# ======================
-# 三、MVCC 多版本并发控制    Multi-Version Concurrency Control
-# ======================
-# 1. 适用：RC、RR隔离级别，**快照读(普通SELECT)不加锁**
-# 2. 依赖：undo日志 + 行隐藏事务字段，生成数据历史快照
-# 3. 作用：读写不阻塞，大幅提升并发；配合隔离级别解决读异常
-# 4. 区分：
-#    快照读：普通SELECT，走MVCC无锁
-#    当前读：UPDATE/DELETE/FOR UPDATE，走行锁
-
-
-# ======================
-# 二、悲观锁 & 乐观锁（两种并发控制思想）
-# ======================
-# 悲观锁
-# 含义：默认并发一定会产生数据冲突，**提前加锁**阻止别人操作
-# 实现：依赖上面的共享锁、排他锁、行锁、表锁
-# 场景：写操作频繁、并发冲突高的业务
-# 排他锁、共享锁 = 悲观锁的具体实现
-
-
-# 乐观锁 
-# 含义：默认冲突概率很低，**全程不加锁**，更新时再校验数据是否被改动
-# 实现：依赖版本号/时间戳字段做校验
-# 场景：读多写少、冲突少，追求高并发性能 谁先提交谁为准
 
 # ======================
 # 三、三大并发读异常（隔离级别要解决的问题）
@@ -4923,72 +4716,11 @@ undo 支撑 A 原子性 + I 隔离性 (MVCC)
 # 出现场景：可重复读(RR)仍会存在，InnoDB靠间隙锁缓解，串行化彻底解决
 ```
 
-### 事务的隔离级别
+---
 
-```sql
-事务隔离级别（由低→高）
-READ UNCOMMITTED（独立提交）  允许事务查看其他事务所进行的未提交更改
-READ COMMITTED (读提交 RC)      允许事务查看其他事务所进行的已提交更改
-REPEATABLE READ(重复读 RR)      确保每个事务的 SELECT 输出一致 # InnoDB 的默认级别
-SERIALIZABLE   (串行)        将一个事务的结果与其他事务完全隔离
 
-#查看隔离级别
-3306 [(none)]>show variables like 'tx_isolation';
-+---------------+-----------------+
-| Variable_name | Value           |
-+---------------+-----------------+
-| tx_isolation  | REPEATABLE-READ |
-+---------------+-----------------+
-#修改隔离级别为RU
-[mysqld]
-transaction_isolation=read-uncommit
-mysql> use oldboy
-mysql> select * from stu;
-mysql> insert into stu(id,name,sex,money) values(2,'li4','f',123);
-#修改隔离级别为RC
-[mysqld]
-transaction_isolation=read-commit
-```
 
-乐观锁  悲观锁 实战
-
-```BASH
-一、悲观锁（基于排他行锁）
-
-# 核心：提前加锁，阻塞并发修改，强数据一致
-# 前提：关闭自动提交，查询字段带索引
-CREATE TABLE goods(id INT PRIMARY KEY,stock INT);
-INSERT goods VALUES(1,10);
-
--- 会话1 加锁执行业务
-SET autocommit=0;
-START TRANSACTION;
-SELECT * FROM goods WHERE id=1 FOR UPDATE; -- 加排他行锁
-UPDATE goods SET stock=stock-1 WHERE id=1;
-COMMIT; -- 提交释放锁
-
--- 会话2 操作同行会阻塞，直至锁释放
-特点：并发低，易产生锁等待。
-二、乐观锁（版本号实现，主流）
-# 核心：全程无锁，更新时校验版本判断数据是否被篡改
-CREATE TABLE goods(id INT PRIMARY KEY,stock INT,version INT DEFAULT 0);
-INSERT goods VALUES(1,10,0);
-
-SELECT stock,version FROM goods WHERE id=1; -- 查询获取版本号
--- 版本匹配则更新，版本号自增；行数为0代表数据已被修改（冲突）
-UPDATE goods SET stock=stock-1,version=version+1 WHERE id=1 AND version=0;
-
-时间戳替代方案
-ALTER TABLE goods ADD update_time DATETIME;
-UPDATE goods SET stock=stock-1,update_time=NOW() WHERE id=1 AND update_time='旧时间';
-特点：无锁高并发，冲突需业务层重试。
-
-极简总结
-# 悲观锁：加锁阻塞，适合写多、要求强一致场景
-# 乐观锁：字段校验，无锁高并发，适合读多写少场景
-```
-
-# mysql日志
+# 第八章· MySQL日志管理
 
 | 日志文件              | 相关选项                                  | 文件名 / 表名称                             | 常用程序            |
 | ----------------- | ------------------------------------- | ------------------------------------- | --------------- |
@@ -5006,10 +4738,32 @@ UPDATE goods SET stock=stock-1,update_time=NOW() WHERE id=1 AND update_time='旧
 # 审计日志：--audit_log，合规审计用，按需开启
 ```
 
+## 生产日志开关建议（总表，直接照着配）
+
+| 日志           | 生产建议                   | 一句话理由                                       |
+| -------------- | -------------------------- | ------------------------------------------------ |
+| **错误日志**   | ✅ 必开（安装默认就开）    | 排错第一入口，出问题先看它                       |
+| **慢查询日志** | ✅ 必开                    | 性能优化唯一抓手                                 |
+| **Binlog**     | ✅ 必开                    | 主从复制 + 数据恢复，不开等于裸奔                 |
+| **一般查询日志** | ❌ 默认关，临时开几分钟    | 全量记录所有 SQL，性能开销大                     |
+| **审计日志**   | 🔶 按需开（合规/高危库才开）| 用性能换安全，是"投资"不是标配                   |
+| **redo / undo** | 🔶 不用开关，但要调参      | InnoDB 内置机制，调大小/刷盘策略（见 my.cnf 双1） |
+
+**核心认知：三类"必开" vs 两类"按需"**
+- ✅ 生产铁三角（无条件开）：错误日志 → 出事了看它；慢查询日志 → 变慢了看它；binlog → 数据没了靠它恢复
+- 🔶 按需开：审计日志（等保/金融/有敏感数据才开，普通业务库靠 binlog+监控+权限兜底）；一般查询日志（查"谁在发垃圾 SQL"时开 3 分钟抓现场，看完立刻关）
+
+**三个实战提醒（比"开不开"更重要）**
+1. 所有日志都在增长：binlog 设 `expire_logs_days=7` 保留 7 天；审计日志增长最快，必须配 logrotate 按天切割归档
+2. 审计日志开了要"只读保护"：普通账号无权看/删，否则内鬼先把自己抹掉
+3. 别用一般查询日志代替审计日志：临时抓现场可以，长期合规审计它不合格（没用户/没主机/没结果）
+
 ## 错误日志
 
-```sql
+```bash
+记录mysql数据库的一般状态信息及报错信息
 默认位置: $MYSQL_HOME/data/ 
+
 开启方式 (安装完默认开启 )
 vim /etc/my.cnf 
 [mysqld]
@@ -5022,10 +4776,11 @@ show variables like 'log_error';
 
 ## 一般查询日志
 
-```sql
+```bash
 作用：
 记录mysql所有执行成功的SQL语句信息，可以做审计用，但是我们很少开启。
 默认位置：$MYSQL_HOME/data/
+
 开启方式:（MySQL安装完之后默认不开启）
 #编辑配置文件
 [root@db01 ~]# vim /etc/my.cnf
@@ -5035,6 +4790,111 @@ general_log_file=/application/mysql/data/$hostnamel.log  #$hostname 改成主机
 #查看方式
 mysql> show variables like '%gen%';
 ```
+
+## 审计日志
+
+```bash
+# ============================================================
+# 审计日志：数据库的"监控摄像头"（与生产结合 + 面试）
+# 主线：是什么 → 作用 → 什么情况用 → 怎么开启 → 日志长什么样 → 落地建议
+# ============================================================
+
+# ======================
+# 一、审计日志是什么？（先讲人话）
+# ======================
+# 审计日志 = 数据库的"监控摄像头"，把【谁、什么时间、从哪台机器、执行了什么SQL、
+# 成功还是失败】全程留痕。就像银行柜台的全天监控：谁进来、办了什么业务，一查一个准。
+
+# ======================
+# 二、作用是什么？（为什么要有它）
+# ======================
+# 1. 安全合规：等保三级/金融/政务项目硬性要求——"谁操作过数据"必须有留痕
+# 2. 事故追责：线上数据被删/被改，审计日志一秒锁定：哪个账号、哪台机器、几点干的
+# 3. 防内鬼：DBA/高权限账号操作全程记录，想做坏事先掂量
+# 4. 攻击溯源：被 SQL 注入/脱库后，审计日志能还原攻击者到底干了什么
+
+# ======================
+# 三、什么情况用？（别乱开，有代价）
+# ======================
+# ✅ 必须开：等保合规项目、金融/政务/医疗、对外提供数据服务的公司
+# ✅ 建议开：生产核心库、有 DBA 团队的公司、被黑过/丢过数据的库
+# ❌ 别乱开：开发测试库、低配服务器（每执行一条 SQL 都要写日志，IO 开销大）
+# 注意：审计日志是"按需开启"，不像 binlog 生产必开，它是用性能换安全
+
+# ======================
+# 四、开启方式（社区版没有自带插件，3 种方案）
+# ======================
+# 方案1：MySQL 企业版自带 audit_log 插件（要买企业版授权，一般公司用不上）
+#   mysql> INSTALL PLUGIN audit_log SONAME 'audit_log.so';
+#   mysql> SHOW VARIABLES LIKE 'audit_log%';      -- 看到一堆 audit_log_ 参数=加载成功
+#   配置文件：
+#   [mysqld]
+#   plugin-load=audit_log.so
+#   audit_log_file=/data/mysql/log/audit.log
+#   audit_log_format=JSON                          -- 日志用 JSON 格式，方便程序解析
+
+# 方案2：Percona Audit Log Plugin（开源免费，生产最常用）
+#   下载编译好的 audit_log.so 放到插件目录，然后：
+#   mysql> INSTALL PLUGIN audit_log SONAME 'audit_log.so';
+#   mysql> SHOW VARIABLES LIKE '%audit%';
+#   动态开启（ALL=全部记录 / QUERIES=只记语句 / LOGINS=只记登录 / NONE=关闭）：
+#   mysql> SET GLOBAL audit_log_policy = ALL;
+#   写入配置开机自启：
+#   [mysqld]
+#   plugin-load=audit_log.so
+#   audit_log_policy=ALL
+#   audit_log_file=/data/mysql/log/audit.log
+
+# 方案3：最轻量的替代——用 general_log 临时审计（不装插件，应急用）
+#   mysql> SET GLOBAL general_log=ON;             -- 开通用日志
+#   mysql> SET GLOBAL log_output='TABLE';         -- 写到 mysql.general_log 表，方便查
+#   代价：全量记录所有 SQL，性能开销大，只适合临时排查，用完就关
+
+# ======================
+# 五、打开看日志长什么样？
+# ======================
+# ① Percona 审计日志（JSON 格式，一眼看懂）：
+# {"timestamp":"2026-08-26 10:23:45","thread_id":123,"user":"app_user",
+#  "host":"192.168.1.50","query":"DELETE FROM t_order WHERE id=100",
+#  "status":"0","db":"mydb"}
+# 字段含义：
+#   timestamp  执行时间
+#   user       哪个数据库账号干的（app_user）
+#   host       从哪台机器连的（192.168.1.50）——抓内鬼靠它
+#   query      执行的 SQL（删数据/改数据的铁证）
+#   status     执行结果，0=成功
+
+# ② 用 general_log 表临时审计（方案3的查看方式）：
+# mysql> SELECT * FROM mysql.general_log WHERE command_type='Query'
+#        ORDER BY event_time DESC LIMIT 5\G
+# *************************** 1. row ***************************
+#   event_time: 2026-08-26 10:23:45.123456
+#    user_host: app_user[app_user] @ [192.168.1.50]   ← 哪个账号哪台机器
+#    thread_id: 123
+#    server_id: 1
+#  command_type: Query
+#     argument: DELETE FROM t_order WHERE id=100      ← 干坏事的那条 SQL 就在这
+# 1 row in set (0.00 sec)
+
+# ③ 查完记得关（一直开着会拖垮性能）：
+# mysql> SET GLOBAL general_log=OFF;
+# mysql> TRUNCATE TABLE mysql.general_log;   -- 清空临时审计记录
+
+# ======================
+# 六、生产落地建议 + 面试题
+# ======================
+# 落地建议：
+# 1. 合规项目直接上 Percona 审计插件，日志落文件并配合 logrotate 按天切割归档
+# 2. 审计日志"只增不改"：普通账号无权查看/删除，查看权限单独收口
+# 3. 日志文件定期备份+清理，防止撑爆磁盘（audit 日志增长很快）
+
+# 面试题：general_log 和 审计日志的区别？
+#   general_log：只记 SQL 语句，不带用户/主机/执行结果，全量记录性能开销大，临时排查用；
+#   审计日志：记录完整上下文（谁/哪台机器/什么SQL/成功失败），可配置过滤策略，
+#   是专业的安全审计方案，合规项目必上。
+```
+
+
 
 ## 二进制日志
 
@@ -5327,9 +5187,9 @@ purge binary logs to 'mysql-bin.000002';
 mysql> reset master;
 ```
 
-# 慢查询日志
+## 慢查询日志
 
-```sql
+```bash
 作用： 记录慢SQL语句的日志,定位低效SQL语句的工具日志
 默认位置： $MYSQL_HOME/data/$hostname-slow.log
 开启方式（默认没有开启）：
@@ -5562,9 +5422,14 @@ insert into t1 select * from t1\G
 # 最终问题SQL
 insert into t1 select * from t1\G
 # 风险说明：自复制插入数据，表数据会不断膨胀，且全表扫描导致行数巨大，持续拖慢性能
+
 ```
 
-# MySQL的备份和恢复
+
+
+
+
+# 第九章· MySQL的备份和恢复
 
 ```bash
 ## 备份原因
@@ -5584,36 +5449,51 @@ insert into t1 select * from t1\G
 
 ## 备份方式
 
-- 逻辑备份   #基于sql语句的备份
-    1)binlog  
-    2)into outfile  
-    3)mysqldump 
-    4)replication
+```bash
+- 逻辑备份   #基于SQL语句的备份
+  1)binlog  
+  2)into outfile  
+  3)mysqldump
+  4)replication
 - 物理备份   #基于数据文件的备份
-  1) Xtrabackup (percona公司)    
+  1) Xtrabackup (percona公司)
+  
+# into outfile    
+vim /etc/my.cnf
+[mysqld]
+secure_file_priv = /tmp/
+
+# /etc/init.d/mysqld restart
+# 纯数据  ,不是sql 没有表结构, --鸡肋
+mysql> select * from world.city into outfile '/tmp/world_city.data'; 
+  
+```
+
+
 
 ## 备份策略
 
-- 全量备份 full 
+- 全量备份 full
 - 增量备份 increamental
 
 ## 备份工具
 
-- mysqldump (逻辑)
+```
+1）mysqldump（逻辑）
+mysql原生自带很好用的逻辑备份工具
 
-- mysqlbinlog (逻辑)
+2）mysqlbinlog（逻辑）
+实现binlog备份的原生态命令
 
-- xtrabackup (物理)
-  
-  ```
-  
-  ```
+3）xtrabackup（物理）
+precona公司开发的性能很高的物理备份工具
+```
 
-# 备份工具使用
+## 备份工具使用
 
-## mysqldump 使用
+### mysqldump 使用
 
-​```bash
+```bash
 参数
     -u  #用户名
     -p  #密码
@@ -5635,17 +5515,13 @@ mysqldump -uroot -p123 -B db1 > /backup/db1.sql
 mysqldump -uroot -p123 -B db1 db2 /backup/db1_db2.sql
 
 # -F : flush logs 在备份的时候刷新binlog #不常用
-
 mysqldump -uroot -p123 -A -R --triggers -F > /backup/full_2.sql
 
 #--master-data=2：备份时加入change master语句 0没有 1不注释 2注释
-
 # 显示 bin_log 文件 position  方便后面的操作使用binlog日志恢复做参考
-
 mysqldump -uroot -p123 --master-data=2 >/backup/full.sql
 
 # 1不注释恢复就会执行 change master语句, 方便后面扩展从库
-
 mysqldump -uroot -p123 --master-data=1 >/backup/full.sql
 
 --------------------------------------------------说明
@@ -5666,14 +5542,12 @@ MASTER_LOG_POS=15620;
 # -t 仅数据  （不常用）
 
 备份额外扩展
-
 # -R,--routines: 备份存储过程和函数数据
-
 # --triggers:  备份触发器数据
 
 mysqldump -uroot -p123 -A -R --triggers > /backup/full_2.sql
 
-----------------------------------------------------------#温备份: 备份过程不可写数据进去,可读
+---#温备份: 备份过程不可写数据进去,可读
 mysqldump -uroot -p -A --master-data=2 -R --triggers > /backup/full.sql  #常用备份语句  
 
 mysqldump特殊参数
@@ -5681,9 +5555,7 @@ mysqldump特殊参数
 --single-transaction    快照备份
 
 # 快照备份是 热备份  #备份过程不会锁表
-
 # --single-transaction 要配合 --master-data=2 去使用才是热备份
-
 mysqldump -uroot -p123 -A -R --triggers --master-data=2 --single-transaction > /backup/full.sql
 
 #gzip 压缩备份
@@ -5696,26 +5568,29 @@ zcat full_xxx.sql.gz > /tmp/full.sql
 mysql -uroot -p123 < /tmp/full.sql
 
 # 一条命令备份恢复
-
 zcat full_xxx.sql.gz | mysql -uroot -p123
 
 ```
-mysqldump 恢复
 
-```sql
-#临时关闭二进制日志
-set sql_log_bin=0;
-#库内恢复
-source /backup/full.sql
+**mysqldump 恢复**
+
+```bash
+# 临时关闭二进制日志
+set SQL_log_bin=0;
+# 库内恢复
+source /backup/full.SQL
 
 # linux命令行恢复
-mysql -uroot -p123 < /backup/full.sql
-```
+mysql -uroot -p123 < /backup/full.SQL
+
 
 注意：
     1）mysqldump在备份和恢复时都需要MySQL实例启动为前提
     2）一般数据量级100G以内，大约15-30分钟可以恢复（PB、EB就需要考虑别的方式）
     3）mysqldump是以覆盖的形式恢复数据的
+```
+
+
 
 总结:
 
@@ -5775,6 +5650,7 @@ mysqldump 完整参数大全
 # --master-data=1 ：生成可执行 CHANGE MASTER 语句（搭建主从用）
 # --master-data=2 ：语句加注释，仅记录位点（日常备份/故障恢复用，推荐）
 --master-data[=1/2]
+
 # 在【从库】上备份，追溯主库 binlog 位点（从库异地搭建新从库）
 --dump-slave[=1/2]
 # 备份时刷新 binlog（切割日志，增量恢复分界点）
@@ -5884,7 +5760,7 @@ mysqldump -uroot -p \
 -R -E \
 db_name > /data/backup/myisam_db_$(date +%Y%m%d).sql
 
-----------------------------------------------完整可定时 Bash 备份脚本（生产上线版）
+---------------------完整可定时 Bash 备份脚本（生产上线版）
 # cat /data/backup/mysql_backup.sh
 #!/bin/bash
 # MySQL 自动备份脚本
@@ -5954,7 +5830,165 @@ chmod 600 /root/.my.cnf
 chown root:root /root/.my.cnf
 ```
 
-## xtrabackup
+### 企业故障恢复案例
+
+*背景：*
+
+正在运行的网站系统，MySQL数据库，数据量25G，日业务增量10-15M。
+
+*备份策略：*
+
+每天23：00，计划任务调用mysqldump执行全备脚本
+
+*故障时间点：*
+
+上午10点开发人员误删除一个核心业务表，如何恢复？
+
+*思路：*
+
+1）停业务避免数据的二次伤害
+
+2）找一个临时的库，恢复前一天的全备
+
+3）截取前一天23：00到第二天10点误删除之间的binlog，恢复到临时库
+
+4）测试可用性和完整性
+
+5）开启业务前的两种方式
+
+a.直接使用临时库顶替原生产库，前端应用割接到新库
+
+b.将误删除的表单独导出，然后导入到原生产环境
+
+6）开启业务
+
+
+
+**故障模拟演练：**
+
+```bash
+---准备数据
+# mysql -uroot -p123
+-- #刷新binlog使内容更清晰
+flush logs;
+-- #查看当前使用的binlog
+show master status;
+-- #创建backup库
+create database backup;
+-- #进入backup库
+use backup
+-- #创建full表
+create table full select * from world.city;
+-- #创建full_1表
+create table full_1 select * from world.city;
+-- #查看表
+show tables;
+
+quit
+
+--全备：
+mysqldump -uroot -p123 -A -R --triggers --master-data=2 --single-transaction|gzip > /backup/full_$(date +%F).sql.gz
+
+
+--模拟数据变化：
+# mysql -uroot -p123
+#进入backup库
+use backup
+#创建new表
+create table new select * from mysql.user;
+#创建new_1表
+create table new_1 select * from world.country;
+#查看表
+mysql> show tables;
+#查看full表中所有数据
+mysql> select * from full;
+#把full表中所有的countrycode都改成CHN
+mysql> update full set countrycode='CHN' where 1=1;
+#提交
+mysql> commit;
+#删除id大于200的数据
+mysql> delete from full where id>200;
+#提交
+mysql> commit;
+
+-- 模拟故障：
+#删除new表
+mysql> drop table new;
+#查看表
+mysql> show tables;
+
+
+--恢复过程：
+1）准备临时数据库
+[root@db02 ~]# mysqld_safe --defaults-file=/data/3307/my.cnf &
+
+2）拷贝数据到新库上
+[root@db02 ~]# scp /backup/full_2018-08-16.sql.gz root@10.0.0.52:/tmp
+
+3）解压全备数据文件
+#进入tmp目录
+[root@db02 ~]# cd /tmp/
+#解压全备数据文件
+[root@db02 tmp]# gzip -d full_2018-08-16.sql.gz
+截取二进制
+
+#查看全备的位置点（起始位置点）
+[root@db02 tmp]# head -50 full_2018-08-16.sql |grep -i 'change master to'
+-- CHANGE MASTER TO MASTER_LOG_FILE='mysql-bin.0000004', MASTER_LOG_POS=269848;
+
+#找到drop语句执行的位置点（结束位置点）675367
+mysql> show binlog events in 'mysql-bin.000004';
+#上面方式查看不清
+mysqlbinlog --base64-output=decode-rows -vvv /application/mysql/data/mysql-bin.000004
+
+#截取二进制
+mysqlbinlog -uroot -p123 --start-position=269848 --stop-position=675367 /application/mysql/data/mysql-bin.000004 > /tmp/inc.sql
+
+#发送增量数据到新库
+[root@db01 tmp]# scp /tmp/inc.sql root@10.0.0.52:/tmp
+在新库内恢复数据
+#不记录二进制日志
+mysql> set sql_log_bin=0;
+#恢复全备数据
+mysql> source /tmp/full_2018-08-16.sql
+#进入backup库
+mysql> use backup
+# 查看表
+mysql> show tables;
+#恢复增量数据
+mysql> source /tmp/inc.sql
+#查看表
+mysql> show tables;
+
+
+4）将故障表导出并恢复到生产
+#导出new表
+[root@db02 ~]# mysqldump -uroot -p123 -S /data/3307/mysql.sock backup new > /tmp/new.sql
+#发送到生产库
+[root@db02 ~]# scp /tmp/new.sql root@10.0.0.51:/tmp/
+
+#进入backup库
+mysql -uroot -p123
+mysql> use backup
+#在生产库恢复数据
+mysql> source /tmp/new.sql
+#查看表
+mysql> show tables;
+
+
+```
+
+
+
+
+
+
+
+
+
+### 物理备份（Xtrabackup）
+
+*Xtrabackup安装*
 
 ```bash
 #下载epel源
@@ -5971,6 +6005,8 @@ yum install -y percona-xtrabackup-24
 1）对于非innodb表（比如myisam）是直接锁表cp数据文件，属于一种温备。
 2）对于innodb的表（支持事务），不锁表，cp数据页最终以数据文件方式保存下来，并且把redo和undo一并备走，属于热备方式。
 3）备份时读取配置文件/etc/my.cnf
+
+
 ```
 
 **全量备份**
@@ -6004,6 +6040,7 @@ innobackupex --user=root --password=123 --no-timestamp -S /tmp/mysql.sock /backu
 #准备备份
 #将redo进行重做，已提交的写到数据文件，未提交的使用undo回滚，模拟CSR的过程
 innobackupex --user=root --password=123 --apply-log /backup/full
+
 
 #恢复备份
 #前提1：被恢复的目录是空的
@@ -6090,9 +6127,12 @@ innobackupex --copy-back /backup/full/
 chown -R mysql.mysql /application/mysql/data/
 #/etc/init.d/mysqld start
 systemctl start mysqld
+
 ```
 
 金融公司: 每小时增备,每天全备
+
+
 
 **思考:**
 
@@ -6116,21 +6156,46 @@ xtrabackup，每周六0:00进行全备，周一到周五及周日00:00进行增�
 先用全备加增备恢复到周二的时间, 周三0点到下午2点的数据通过binlog 恢复
 
 binglog的位置起点   在最后一次增备份的  文件里查看
-# cat xtrabackup_binlog_info  #这个文件里有 binlog文件位置信息
+#cat xtrabackup_binlog_info  #这个文件里有 binlog文件位置信息
+
 ```
 
-# mysql主从复制介绍
 
-```css
-1. 主库的修改操作会记录二进制日志
-2. 从库会请求主库的二进制日志并在本地应用其内容.
-    IO: 请求主库,获取上一次执行过的新的事件,并存放到reaylog
-    sql: 从reaylog中将sql语句翻译给从库执行.
+
+
+
+
+
+
+
+
+
+# **第十章· MySQL的主从复制**
+
+## 主从复制 · 简介
+
+主从复制 = 让一台"主库"的每一次数据变更，自动同步到一台或多台"从库"上。
+
+解决了什么问题（为什么要有它）
+
+| 痛点              | 主从复制怎么解决                   |
+| ----------------- | ---------------------------------- |
+| 主库挂了业务停摆  | 从库随时顶上（高可用）             |
+| 读写都压在一台库  | 写走主库、读走从库（读写分离）     |
+| 怕数据误删        | 从库是天然的第二份数据（变相备份） |
+| 报表/统计拖垮业务 | 大查询丢给从库跑，不干扰主库       |
 
 主从复制核心功能:
     辅助备份,处理物理损坏                   
     扩展新型的架构:高可用,高性能,分布式架构,分担负载,等
-```
+
+常见架构（面试常画）
+一主一从：入门标配，高可用保底
+一主多从：读写分离，一个主库挂 3~5 个从库分摊读压力
+级联复制：主 → 从1 → 从2（从1 也开 binlog 再传），主库压力更小，但链路长延迟更高
+双主互备：两个主库互相同步，配合 keepalived 做高可用
+
+
 
 ## 主从复制原理
 
@@ -6176,51 +6241,72 @@ relay-log.info, 记录sql线程当前执行到relay-log的位置
 7）将TCP/IP缓存中的内容存到relay-log中
 8）SQL线程读取relay-log.info，读取到上次已经执行过的relay-log位置点，继续执行后续的relay-log日志，执行完成后，更新relay-log.info
 
-
-# 整体架构图（字符画拓扑）
-
-【主库 Master】                网络传输                【从库 Slave】
-┌───────────────┐                                 ┌───────────────┐
-│ 客户端写操作    │                                 │ 只读对外提供查询 │
-│ INSERT/UPDATE/DELETE │                           │                │
-└───────┬───────┘                                 └───────┬───────┘
-        │ 1. 写入数据
-        ▼
-┌───────────────┐
-│ 执行SQL语句    │
-└───────┬───────┘
-        │ 2. 事务提交后，记录变更到二进制日志 binlog
-        ▼
-┌───────────────┐
-│ binlog 文件    │◄─── 记录所有 DDL/DML 数据变更
-└───────┬───────┘
-        │ 3. 从库 IO 线程 主动连接主库，拉取 binlog 日志
-        ▼  （网络同步日志内容）
-┌───────────────┐
-│ 从库 IO 线程   │
-└───────┬───────┘
-        │ 4. 把拉取到的 binlog 写入本地中继日志 relay-log
-        ▼
-┌───────────────┐
-│ relay-log 中继日志 │
-└───────┬───────┘
-        │ 5. 从库 SQL 线程 读取 relay-log
-        ▼
-┌───────────────┐
-│ 从库 SQL 线程  │
-└───────┬───────┘
-        │ 6. 重放日志中的SQL，在从库执行变更
-        ▼
-┌───────────────┐
-│ 从库数据最终与主库一致 │
-└───────────────┘
 ```
+
+## 主从复制核心原理
+
+```bash
+┌──────────────────────────────┐                 ┌─────────────────────────────────────┐
+│           【主库】           │    ①②③         │           【从库】                  │
+│                              │   网络 TCP       │                                     │
+│   ┌──────────────────────┐  │  3306 端口        │   ┌─────────────────────────────┐   │
+│   │ 业务写入 SQL(DML/DDL) │  │◀─────────────────│   │         IO 线程              │   │
+│   └──────────┬───────────┘  │   ①连接+拉取请求  │   │ ① 携带账号密码连主库          │   │
+│              ▼              │                   │   │ ② 请求:有没有比               │   │
+│   ┌──────────────────────┐  │                   │   │    mysql-bin.000002:520      │   │
+│   │   Binlog 二进制日志   │  │                   │   │    更新的数据?                │   │
+│   │ mysql-bin.000002     │──┼──────────────────▶│   └─────────────┬───────────────┘   │
+│   │ pos 520             │  │   ③推送 binlog    │                 ▼                   │
+│   └──────────▲───────────┘  │      事件          │   ┌─────────────────────────────┐   │
+│              │              │                   │   │        TCP/IP 缓存           │   │
+│  dump 线程    │              │                   │   └─────────────┬───────────────┘   │
+│  (主库侧)     │              │                   │                 ▼                   │
+│  每个从库     │              │                   │   ┌─────────────────────────────┐   │
+│  开一个       │              │                   │   │     Relay Log 中继日志      │   │
+└──────────────┼──────────────┘                   │   └─────────────┬───────────────┘   │
+               │                                  │                 ▼                   │
+               └─────────────────────────────────▶│   ┌─────────────────────────────┐   │
+                                                  │   │         SQL 线程             │   │
+                                                  │   │   读取 relay log 重放执行   │   │
+                                                  │   └─────────────┬───────────────┘   │
+                                                  │                 ▼                   │
+                                                  │           从库数据落库               │
+                                                  │                                     │
+                                                  │   状态文件:                         │
+                                                  │   master.info    ← 主库连接+binlog  │
+                                                  │   relay-log.info ← SQL线程执行进度  │
+                                                  └─────────────────────────────────────┘
+
+
+① 主库 binlog：主库把每次增删改写成 binlog（这是复制的"原料"） 
+② 从库 IO 线程：启动连接start slave; 告诉主库上次复制到binlog的位置; 有比这个新的数据;主库通过dump线程持续推送给从库(IO线程)保存到从库自己的 relay log（中转站）
+③ 从库 SQL 线程：把 relay log 里的变更重放执行到从库本地 → 从库数据就和主库一致了
+
+
+
+那官方说的"拉取（pull）"到底指什么？ 只指"建连那一下"：
+① 拉 = 从库主动发起连接。 从库 I/O 线程自己拨号过去，主动告诉主库"我要复制，从 pos 324 开始"（发 COM_BINLOG_DUMP 命令）。主库从不会主动联系从库——它甚至不知道从库的存在。这一步是从库"拉"。
+
+② 推 = 连接建立后，主库持续发。 请求发出后，主库的 binlog dump 线程就从那个位置开始源源不断地把事件推给从库，一有新数据立刻推，没新数据发心跳保活。从库全程不再开口，只管收。这一步是主库"推"。
+
+③ 什么时候再"拉"？ 只有断线重连、或从库重启、或你手动重新 START SLAVE 时，从库才再次拨号、再次报位置。只要连接不断，"拉"就只发生那一次。
+
+
+TCP/IPC 缓存 内核过程理解
+网卡 ring buffer（内核）→ 内核 TCP/IP 协议栈处理 → socket 接收缓冲区（内核）→ recv() 系统调用，拷到 MySQL 进程的用户态内存 → IO 线程把数据组织好 → write() 系统调用，再从用户态拷回内核的 page cache → 由内核刷盘写入 relay log 文件
+
+
+```
+
+
 
 ## 面试精简版回答
 
 ```txt
+
 一、超精简版（10 秒快速作答，适合开场简答）
-MySQL 主从复制依靠二进制日志 binlog实现：主库数据变更提交后写入 binlog，从库拉取日志并在本地回放，最终实现主从数据一致，默认是异步复制，多用于读写分离和数据备份。
+MySQL 主从复制依靠二进制日志 binlog实现：主库数据变更提交后写入 binlog，
+从库拉取日志并在本地回放，最终实现主从数据一致，默认是异步复制，多用于读写分离和数据备份。
 
 二、标准面试版（主流回答，30~60 秒，推荐首选）
 MySQL 主从复制核心是同步主库 binlog，一共涉及三个线程、两大日志：
@@ -6236,13 +6322,16 @@ MySQL 主从复制核心是同步主库 binlog，一共涉及三个线程、两�
 关键文件
 主库：binlog，记录所有数据变更；
 从库：relay-log（中继日志）、master.info（记录主库地址、同步位点）、relay-log.info（记录回放位点），依靠位点实现断点续传。
+
 模式与特点
 默认异步复制：主从有延迟，性能高；
 还有半同步、组复制等模式，可保证数据可靠性；
 典型应用：读写分离、故障切换、数据热备。
+
+
 ```
 
-## **主从复制搭建实战**
+## 主从复制搭建实战
 
 ```bash
 systemctl start mysqld3307.service #主库
@@ -6270,6 +6359,7 @@ mysql -uroot -S /data/3307/mysql.sock -p123 -e "grant replication slave on *.* t
 #创建一点数据
 # mysql -uroot -p123 -S /data/3307/mysql.sock < world.sql
 # mysqldump -uroot -p -S /data/3307/mysql.sock -A --master-data=2 --single-transaction -R --triggers > /backup/full.sql
+
 mysqldump -uroot -p -S /data/3307/mysql.sock \
 --default-character-set=utf8mb4 \
 --single-transaction \
@@ -6314,7 +6404,8 @@ mysql -uroot -S /data/3308/mysql.sock -p < /backup/all_db_$(date +%Y%m%d).sql
 | mysql-bin.000001 |      120 |              |                  |                   |
 +------------------+----------+--------------+------------------+----
 
-# 告知从库的复制信息 ip port user  password  binlog position 
+# 告知从库的复制信息 ip port user  password  binlog position
+
 [root@db04 ~]# mysql -uroot -p123 -S /data/3308/mysql.sock
 mysql> help change master to
 CHANGE MASTER TO
@@ -6342,18 +6433,23 @@ mysql> show slave status\G
              Slave_IO_Running: Yes
             Slave_SQL_Running: Yes
 
--------------------------------------------------------------
 
-主从复制基本故障处理
-IO线程
+```
+
+## 主动复制基本故障处理
+
+```bash
+
+#IO线程
 连接主库
 1）user password ip port
 2）网络：不通，延时高，防火墙
+
 请求binlog
 1）binlog不存在或者损坏
 更新relay-log和master.info
 
-SQL线程
+#SQL线程
 1）relay-log出现问题
 2）从库做写入了
 ● 操作对象已存在（create）
@@ -6406,16 +6502,20 @@ read_only=1 添加
 mysql> show variables like 'read_only%';
 ```
 
+
+
+
+
 ## 延时从库
 
-```sql
-为什么要有延时从库
-    数据库故障?
-    物理损坏
-    主从复制非常擅长解决物理损坏.
-    逻辑损坏
-    普通主从复制没办法解决逻辑损坏
+```bash
+延时从库（Delayed Replica）是什么
+一句话本质：故意让 SQL 线程晚 N 秒执行 relay log，给复制装一个"时光机"。
 
+普通主从复制是准实时的：主库写一条，从库几乎立刻同步一条。延时从库就是反着来——IO 线程照常拉 binlog、照常写 relay log（网络和 IO 环节一点不慢），但 SQL 线程执行时故意等 N 秒再动手（通过 CHANGE MASTER TO MASTER_DELAY = N 配置）。等多久你说了算，比如 1 小时、1 天。
+
+什么场景用？ A：防误删、防病毒篡改、防上线 bug 污染数据、留审计窗口。核心是给不可逆操作留"后悔药"时间。
+    
 企业中一般会延时3-6小时
 
 
@@ -6435,11 +6535,14 @@ mysql> stop slave;
 mysql> CHANGE MASTER TO MASTER_DELAY = 0;
 #开启主从
 mysql> start slave;
+
+
 ```
 
 **延时从库恢复数据案例**
 
 ```bash
+
 思考问题：
 总数据量级500G，正常备份去恢复需要1.5-2小时
 1）配置延时3600秒
@@ -6459,73 +6562,6 @@ mysql> stop slave sql_thread;
 2）截取relaylog到误删除之前点
 ● relay-log.info 获取到上次运行到的位置点，作为恢复起点
 ● 分析relay-log的文件内容，获取到误删除之前position
-
-------------------------------------------------------------------------1）关闭延时
-mysql -S /data/3308/mysql.sock -p123
-mysql> stop slave;
-mysql> CHANGE MASTER TO MASTER_DELAY = 0;
-mysql> start slave;
-
-2）模拟数据
-mysql -S /data/3307/mysql.sock -p123
-source  /root/world.sql
-use world;
-create table c1 select * from city;
-create table c2 select * from city;
-
-3）开启从库延时5分钟
-mysql -S /data/3308/mysql.sock
-show slave status \G
-mysql>stop slave;
-mysql>CHANGE MASTER TO MASTER_DELAY = 300;
-mysql>start slave;
-
-mysql -S /data/3307/mysql.sock
-use world;
-create table c3 select * from city;
-create table c4 select * from city;
-
-4）破坏，模拟删库故障。(以下步骤在5分钟内操作完成。)
-mysql -S /data/3307/mysql.sock
-drop database world;
-
-5）从库，关闭SQL线程
-# drop database 已经在从库的 relay-log 里了
-# 但 SQL 线程已停止，永远不会执行删除命令，数据保住了！
-mysql -S /data/3308/mysql.sock
-stop slave sql_thread;
-
-6）截取relay-log
-起点：
-cd /data/3308/data/
-cat relay-log.info
-./db01-relay-bin.000002
-283
-
-终点：
-mysql -S /data/3308/mysql.sock -p123
-show relaylog events in 'db01-relay-bin.000002'
-  db01-relay-bin.000002 | 268047 
-#也可以在命令行查看 #查看drop database world;前一个pos点  393
-mysqlbinlog db01-relay-bin.000002
-
-mysqlbinlog --start-position=283  --stop-position=268047 /data/3308/data/db01-relay-bin.000002 >/tmp/relay.sql
-
-在从库恢复relay.sql
-1）取消从库身份
-mysql -S /data/3308/mysql.sock -p123
-mysql> stop slave;
-mysql> reset slave all;
-2）恢复数据
-mysql> set sql_log_bin=0;  -- 当前会话关闭二进制日志记录
-mysql> source /tmp/relay.sql
-mysql> use world
-mysql> show tables;
-
-# 收尾（可选）
-从库 3308 数据已完整恢复
-可以将 3308 切换为新主库，对外提供服务
-主库 3307 废弃或重新搭建从库
 
 
 
@@ -6667,6 +6703,7 @@ SET GLOBAL rpl_semi_sync_slave_enabled = 1;
 -- 主库超时时间（单位：毫秒，默认 1000ms=1秒）
 -- 超过这个时间没收到ACK，降级为异步
 SET GLOBAL rpl_semi_sync_master_timeout = 1000;
+
 ```
 
 ### 4. 优缺点总结
@@ -6712,28 +6749,29 @@ MySQL 5.7 推出 **Lossless Semi-Sync（无损半同步）**，进一步优化�
 ### 五、面试连环提问速答（直接背）
 
 1. **问：半同步等待什么？**
-   
+
    答：等待从库 IO 线程将 binlog 写入中继日志后返回的 ACK，不等待 SQL 线程执行。
 
 2. **问：需要几个从库确认？**
-   
+
    答：默认至少 **1 台** 从库返回 ACK 即可。
 
 3. **问：超时后会怎样？**
-   
+
    答：自动降级为普通异步复制，保证业务不阻塞。
 
 4. **问：半同步是内核功能吗？**
-   
+
    答：不是，是**插件形式**，主从库都需要手动加载并开启。
 
 5. **问：和延时从库能一起用吗？**
-   
+
    答：可以，两者功能不冲突：半同步保障数据传输安全，延时从库用于防误删 / 误改。
 
 ### 半同步复制开启方法
 
 ```sql
+
 1）安装（主库）
 # mysql -uroot -S /data/3307/mysql.sock -p123
 #查看是否有动态支持
@@ -6744,6 +6782,7 @@ INSTALL PLUGIN rpl_semi_sync_master SONAME 'semisync_master.so';
 SET GLOBAL rpl_semi_sync_master_enabled = 1;
 #设置超时  1000毫秒（ms）=1秒
 SET GLOBAL rpl_semi_sync_master_timeout = 1000;
+
 #修改配置文件
 # vi /data/3307/my.cnf
 #在[mysqld]标签下添加如下内容（不用重启库）
@@ -6761,9 +6800,11 @@ mysql> show global status like 'rpl_semi%';
 INSTALL PLUGIN rpl_semi_sync_slave SONAME 'semisync_slave.so';
 #启动插件
 SET GLOBAL rpl_semi_sync_slave_enabled = 1;
+
 #重启io线程使其生效
 stop slave io_thread;
 start slave io_thread;
+
 #编辑配置文件（不需要重启数据库）
 # vim /data/3308/my.cnf
 #在[mysqld]标签下添加如下内容
@@ -6787,6 +6828,8 @@ rpl_semi_sync_master_wait_no_slave            从库不足时是否继续等待 
 官方行为描述（Oracle MySQL 5.7 文档）
 当 rpl_semi_sync_master_wait_no_slave=ON 时，允许在超时期间内从库数量降至小于 rpl_semi_sync_master_wait_for_slave_count。只要在超时前有足够从库确认事务，主库就保持半同步；否则降级为异步。
 当 rpl_semi_sync_master_wait_no_slave=OFF 时，若从库数量在任何时候降至小于等待阈值，主库立即恢复为异步复制。
+
+
 ```
 
 测试半同步复制
@@ -6795,6 +6838,7 @@ rpl_semi_sync_master_wait_no_slave            从库不足时是否继续等待 
 #创建两个数据库，test1和test2  主库操作
 create database test1;
 create database test2;
+
 
 #查看复制状态
 mysql> show global status like 'rpl_semi%';
@@ -6881,11 +6925,13 @@ mysql> show global status like 'rpl_semi%';
 +--------------------------------------------+-------+
 14 rows in set (0.00 sec)
 注:不难发现，在查询半同步状态是，开启半同步，查询会有延迟时间，关闭之后则没有
+
 ```
 
 ## 过滤复制
 
 ```bash
+
 主库：
 binlog-do-db      #白名单:只记录白名单中列出的库的二进制日志
 binlog-ignore-db  #黑名单：不记录黑名单列出的库的二进制日志
@@ -6895,12 +6941,13 @@ binlog-ignore-db  #黑名单：不记录黑名单列出的库的二进制日志
 replicate-do-db=test
 replicate-do-table=test.t1
 replicate-wild-do-table=test.t2
+
 黑名单：不执行黑名单中列出的库或者表的中继日志
 replicate-ignore-db
 replicate-ignore-table
 replicate-wild-ignore-table
 
----------------------------------------------------------------
+--------------------------------
 
 replicate-wild-do-table和replicate-do-table 参数区别?
 结论：对于binlog_format=statement或mixed，
@@ -6908,11 +6955,13 @@ replicate-wild-do-table和replicate-do-table 参数区别?
               replicate-wild-ignore-table=world.%
     此时可以避免跨库更新问题。
 binlog_format=row 直接忽略replicate-wild-do-table replicate-wild-ignore-table参数即可
+
 ```
 
 **复制过滤 test**
 
 ```sql
+
 # 从库配置
 # vim /data/3308/my.cnf 
 #在[mysqld]标签下添加
@@ -6944,6 +6993,7 @@ mysql> create table tb1(id int);
 # mysql -uroot -p123 -S /data/3308/mysql.sock 
 mysql> use test
 mysql> show tables;
+
 ```
 
 ## 主从复制新特性——GTID复制
@@ -6995,7 +7045,7 @@ GTID 全称全局事务 ID，MySQL 5.6 及以上支持，用来替代传统文�
 3. 遇到已执行过的事务会自动跳过，避免数据重复；
 
 4. 优势是运维简单、故障切换方便，是现在生产环境主流方案。
-   
+
    同时必须开启 gtid_mode和 enforce_gtid_consistency 两个核心参数。
 
 ### 3. 深挖考点版（应对连环追问）
@@ -7009,6 +7059,40 @@ GTID 全称全局事务 ID，MySQL 5.6 及以上支持，用来替代传统文�
    - `gtid_purged`：已被清理（`purge`）的 binlog 对应的 GTID；
 4. **限制**：开启一致性校验后，不支持 `CREATE TABLE ... SELECT`、临时表、事务混合非事务引擎等语句；
 5. **适用场景**：一主多从、主从故障切换、MGR 组复制底层也依赖 GTID。
+
+```bash
+[root@db01 tools]# cat /application/mysql/data/auto.cnf  #mysql每个实例都有一个uuid
+[auto]
+server-uuid=11fe9dc0-7456-11ef-b976-000c29f43d84
+TID: 事务提交编号
+
+
+传统的主从复制：
+  主库上：开启binlog
+    server-id
+    master_log_file: mysql-bin.000001
+    master_log_pos:120
+    创建一个主从复制用户
+  从库上：server-id和主库不同
+  
+基于GTID的主从复制：
+  UUID: dbbf22c5-f830-11e8-afef-000c293e6a42
+  TID：事务提交编号
+
+基于MHA的主从：
+  主库：
+    开启binlog
+    server-id: 5
+    创建一个主从复制用户
+  
+  从库：
+    开启binlog
+    server-id!=5建议大于5
+    从库的server-id不能相同
+    也要创建一个主从复制用户 
+```
+
+
 
 ### 4 GTID 主从完整搭建实操（MySQL 5.7 / 8.0 通用）
 
@@ -7213,7 +7297,7 @@ GTID 复制 vs 传统位点复制 对比
 | 约束限制 | 无额外 SQL 限制               | 开启一致性后，禁止部分特殊 SQL            |
 | 版本支持 | 全版本                      | MySQL 5.6+ 支持，5.7 稳定         |
 
-# MHA高可用及读写分离
+# 第十一章· MHA高可用及读写分离
 
 ## 一.MHA简介
 
@@ -7223,7 +7307,7 @@ MHA（**Master High Availability**）是**开源 MySQL 高可用集群方案**�
 - 核心能力：**自动监控主库、主库宕机后自动选新主、自动修复从库复制关系**，最大程度保证数据不丢失。
 - 主流版本：`MHA 0.58 / 0.59`，支持 MySQL 5.5 ~ 8.0。
 
-### 1.2 MHA 两大角色（必记）
+### MHA 两大角色（必记）
 
 MHA 分为 **Manager（管理节点）** 和 **Node（数据节点）**，所有 MySQL 实例都必须安装 Node。
 
@@ -7267,32 +7351,31 @@ mha manager 可以管理多套 mysql 集群
 
 当**主库完全宕机、网络不通**时，MHA 自动执行 6 步切换（`auto_failover=1` 开启自动切换）：
 
+```bash
 ### 阶段 1：故障检测
-
-MHA Manager 定时 `ping` 主库，连续多次探测失败，判定**主库不可用**。
+MHA Manager 定时 `ping` 主库，连续多次探测失败，判定主库不可用
 
 ### 阶段 2：筛选候选新主
-
 MHA 遍历所有从库，**优先选择「数据最新、延迟最小」的从库**（比对 `relay-log` 位点），避免选延迟过大的从库导致数据丢失。
 
 ### 阶段 3：日志补全（MHA 核心亮点）
-
 1. 尝试连接宕机主库，拉取**未同步到从库的剩余 binlog**；
 2. 将差异日志应用到候选新主，保证新主数据和原主尽可能一致。
 
 ### 阶段 4：提升新主
-
 将选中的从库，**提升为新 Master**。
 
 ### 阶段 5：重构复制关系
-
 所有剩余从库，自动修改 `CHANGE MASTER TO`，指向**新主库**（GTID 模式无需手动指定 binlog+pos，切换更稳）。
 
 ### 阶段 6：业务切换
-
 搭配 `Keepalived VIP`（虚拟 IP），将 VIP 漂移到新主库；应用无需修改 IP，继续正常读写。
-
 补充：如果只是主库 MySQL 进程挂了、服务器正常，MHA 会**尝试原地重启 MySQL**，而非直接切换。
+
+
+```
+
+
 
 **MHA优点总结**
 
@@ -7302,9 +7385,12 @@ MHA 遍历所有从库，**优先选择「数据最新、延迟最小」的从�
 - **灵活可控**：支持**自动故障切换**应对突发宕机，也支持**手动在线切换**用于版本升级、硬件维护等计划性操作；
 - **无架构侵入**：基于原生主从复制实现，不用修改 MySQL 内核和业务代码，原有集群逻辑完全保留。
 
-**工具介绍**
+## 四.MHA工具介绍
+
 MHA软件由两部分组成，Manager工具包和Node工具包，具体的说明如下：
 Manager工具包主要包括以下几个工具：
+
+manager 工具
 
 ```bash
 下载地址
@@ -7313,11 +7399,8 @@ https://github.com/yoshinorim/mha4mysql-node/releases
 
 wget https://github.com/yoshinorim/mha4mysql-manager/releases/download/v0.58/mha4mysql-manager-0.58-0.el7.centos.noarch.rpm
 wget https://github.com/yoshinorim/mha4mysql-node/releases/download/v0.58/mha4mysql-node-0.58-0.el7.centos.noarch.rpm
-```
 
-manager 工具
 
-```bash
 masterha_check_ssh              #检查MHA的ssh-key
 masterha_check_repl             #检查主从复制情况
 masterha_manger                 #启动MHA
@@ -7336,9 +7419,10 @@ save_binary_logs                #保存宕机的master的binlog
 apply_diff_relay_logs           #识别relay log的差异
 filter_mysqlbinlog              #防止回滚事件
 purge_relay_logs                #清除中继日志bash
+
 ```
 
-**环境准备**
+## **mysql 主从复制环境准备**
 
 ```bash
 #master
@@ -7360,9 +7444,7 @@ CentOS Linux release 7.9.2009 (Core)
 
 安装mysql5.6.40版本,初始化 root密码123 #省略
 基于GTID主从复制 一主两从  #略过 配置参考
-```
 
-```bash
 #主库配置
 # vim /etc/my.cnf
 [mysqld]
@@ -7402,14 +7484,178 @@ relay_log_purge = 0
 | gtid_purged                     |       |
 | simplified_binlog_gtid_recovery | OFF   |
 +---------------------------------+-------+
+
 ```
+
+**GTID 主从复制环境搭建**
+
+```bash
+主库操作
+
+[root@db ~]# vim /etc/my.cnf
+[mysqld]
+basedir=/application/mysql
+datadir=/application/mysql/data
+port=3306
+socket=/tmp/mysql.sock
+character-set-server=utf8mb4
+skip-name-resolve
+#主库server-id为1，从库不等于1
+server-id=1
+#开启binlog日志
+log-bin=mysql-bin
+binlog-format=row
+# 开启gtid三个参数  主库从库都需要配置
+gtid-mode=on
+enforce-gtid-consistency=true
+log-slave-updates=1  # mysql-5.7版本不用这个参数
+
+
+创建主从复制用户
+#登录数据库
+[root@mysql-db01 ~]# mysql -uroot -p123
+#创建rep用户
+mysql> grant replication slave on *.* to rep@'10.0.0.%' identified by 'oldboy123';
+
+
+
+从库操作
+
+#修改mysql-db02配置文件  db03配置 server_id=10
+[root@mysql-db02 ~]# vim /etc/my.cnf
+#在mysqld标签下配置
+[mysqld]
+#主库server-id为1，从库必须大于1
+server_id =5
+log_bin=mysql-bin
+binlog-format=row
+gtid_mode=ON
+enforce_gtid_consistency
+log_slave_updates   
+
+#重启数据库
+[root@mysql-db01 ~]# /etc/init.d/mysqld restart
+#检查GTID状态
+mysql> show global variables like '%gtid%';
++--------------------------+-------+
+| Variable_name            | Value |
++--------------------------+-------+
+| enforce_gtid_consistency | ON    | #执行GTID一致
+| gtid_executed            |       |
+| gtid_mode                | ON    | #开启GTID模块
+| gtid_owned               |       |
+| gtid_purged              |       |
++--------------------------+-------+
+
+
+配置主从复制
+#登录数据库
+[root@mysql-db02 ~]# mysql -uroot -p123
+#配置复制主机信息
+mysql> change master to
+#主库IP
+-> master_host='10.0.0.51',
+#主库复制用户
+-> master_user='rep',
+#主库复制用户的密码
+-> master_password='123',
+#GTID位置点
+-> master_auto_position=1;
+
+ change master to
+master_host='10.0.0.10',
+master_user='rep',
+master_password='123',
+master_auto_position=1;
+
+
+#开启slave
+mysql> start slave;
+#查看slave状态
+mysql> show slave status\G
+*************************** 1. row ***************************
+               Slave_IO_State: Waiting for master to send event
+                  Master_Host: 10.0.0.51
+                  Master_User: rep
+                  Master_Port: 3306
+                Connect_Retry: 60
+              Master_Log_File: mysql-bin.000003
+          Read_Master_Log_Pos: 403
+               Relay_Log_File: mysql-db02-relay-bin.000002
+                Relay_Log_Pos: 613
+        Relay_Master_Log_File: mysql-bin.000003
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: Yes
+              Replicate_Do_DB: 
+          Replicate_Ignore_DB: 
+           Replicate_Do_Table: 
+       Replicate_Ignore_Table: 
+      Replicate_Wild_Do_Table: 
+  Replicate_Wild_Ignore_Table: 
+                   Last_Errno: 0
+                   Last_Error: 
+                 Skip_Counter: 0
+          Exec_Master_Log_Pos: 403
+              Relay_Log_Space: 822
+              Until_Condition: None
+
+
+从库设置
+#登录从库
+[root@mysql-db02 ~]# mysql -uroot -p123
+#禁用自动删除relay log 功能
+mysql> set global relay_log_purge = 0;
+#设置只读
+mysql> set global read_only=1;
+#编辑配置文件 ,
+[root@mysql-db02 ~]# vim /etc/my.cnf
+#在mysqld标签下添加
+[mysqld]
+#禁用自动删除relay log 永久生效 #这个参数主库也设置一下
+relay_log_purge = 0
+#设置只读 这个不要写配置里,当主从切换的时候可能出问题.
+#read_only=1
+
+---------------------------------------小报错
+
+mysql> show slave status \G
+.....
+lat_IO_Error: error connectiong to master 'slave@172.16.1.52:3306' - retry-time: 60 retries:1
+
+排查过程
+ping 172.16.1.52  #通的
+telnet 172.16.1.52 3306 #通的
+# mysql -uslave -p1 -h172.16.1.52
+ERROR 1045 (28000): Access denied for user 'slave'@'mysql-01' (using password: YES)
+# 这里报错提示的主机名mysql-01
+解决: 
+# vi /etc/my.cnf
+skip-name-resolv   #mysql-5.6跳过反向解析
+skip_name_resolve  #mysql-5.7的写法  #5.6这么写也可以
+```
+
+
+
+
+
+
 
 ## 部署MHA
 
 ```bash
+1）环境准备（所有节点）
+下载地址
+https://github.com/yoshinorim/mha4mysql-manager/wiki/Downloads 
+项目地址
+https://github.com/yoshinorim/mha4mysql-manager/releases
+https://github.com/yoshinorim/mha4mysql-node/releases
+
+
+wget https://github.com/yoshinorim/mha4mysql-node/releases/download/v0.58/mha4mysql-node-0.58-0.el7.centos.noarch.rpm
+
 # 所有节点操作
 yum install perl-DBD-MySQL -y #安装依赖包
-rpm -ivh mha4mysql-node-0.56-0.el6.noarch.rpm
+rpm -ivh mha4mysql-node-0.58-0.el7.centos.noarch.rpm
 
 
 # mysql -uroot -p123  #这里创建mha账号,主库配置,从库会自动同步.
@@ -7426,14 +7672,18 @@ ssh-keygen -t ed25519 -P '' -f ~/.ssh/id_dsa > /dev/null 2>&1
 ssh-copy-id -i /root/.ssh/id_dsa.pub root@10.0.0.4
 ssh-copy-id -i /root/.ssh/id_dsa.pub root@10.0.0.5
 ssh-copy-id -i /root/.ssh/id_dsa.pub root@10.0.0.6
+
 ```
+
+
 
 **部署管理节点（mha-manager:mysql-db03）**
 
 ```bash
+wget https://github.com/yoshinorim/mha4mysql-manager/releases/download/v0.58/mha4mysql-manager-0.58-0.el7.centos.noarch.rpm
+
 yum -y install epel-release
 yum install -y perl-Config-Tiny epel-release perl-Log-Dispatch perl-Parallel-ForkManager perl-Time-HiRes
-rpm -ivh /tmp/mha4mysql-manager-0.56-0.el6.noarch.rpm
 
 rpm -ivh mha4mysql-node-0.58-0.el7.centos.noarch.rpm   
 rpm -ivh mha4mysql-manager-0.58-0.el7.centos.noarch.rpm  
@@ -7484,6 +7734,7 @@ rpm -ivh mha4mysql-node-0.58-0.el7.centos.noarch.rpm
 mha管理节点 # masterha_check_ssh --conf=/etc/mha/app1.cnf
 #看到如下字样，则测试成功
 Tue Mar  7 01:03:33 2017 - [info] All SSH connection tests passed successfully.
+
 #测试复制
 # masterha_check_repl --conf=/etc/mha/app1.cnf
 #看到如下字样，则测试成功
@@ -7571,7 +7822,7 @@ port=3306
 mha master # nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --ignore_last_failover < /dev/null > /var/log/mha/app1/manager.log 2>&1 &
 ```
 
-# 来配置vip漂移
+## 配置vip漂移
 
 VIP漂移的两种方式
     1）通过keepalived的方式，管理虚拟IP的漂移
@@ -7581,6 +7832,7 @@ VIP漂移的两种方式
 
 ```bash
 wget https://github.com/yoshinorim/mha4mysql-manager/releases/download/v0.58/mha4mysql-manager-0.58.tar.gz
+
 tar zxvf mha4mysql-manager-0.58.tar.gz
 ll mha4mysql-manager-0.58/samples/scripts/master_ip_failover #脚本位置
 
@@ -7776,6 +8028,7 @@ port=3306
 
 3.2 启动manager   
 nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --ignore_last_failover < /dev/null > /var/log/mha/app1/manager.log 2>&1 &
+
 ```
 
 ## 配置binlog-server
@@ -7791,20 +8044,23 @@ no_master=1
 hostname=10.0.0.6
 master_binlog_dir=/data/mysql/binlog/
 
+-------------------------------------------
 #创建备份binlog目录
 mkdir -p /data/mysql/binlog/
 cd /data/mysql/binlog/
-#备份binlog  #binlog 实时拉取主库上的binlog日志.
+#备份binlog  #binlog 实时拉取主库上的binlog日志;生产中改成vip
 mysqlbinlog  -R --host=10.0.0.5 --user=mha --password=mha --raw  --stop-never mysql-bin.000001 &
-#启动mha
+
+##启动mha 在mha-master主机上
 nohup masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --ignore_last_failover < /dev/null > /var/log/mha/app1/manager.log 2>&1 &
-注意：
-    拉取日志的起点,需要按照目前从库的已经获取到的二进制日志点为起点
+注意：拉取日志的起点,需要按照目前从库的已经获取到的二进制日志点为起点
+    
+    
 ```
 
 测试binlog 备份
 
-```
+```bash
 [root@db05 binlog]# ll
 total 12
 -rw-rw----. 1 root root 427 Dec 30 00:23 mysql-bin.000001
@@ -7834,19 +8090,19 @@ total 16
 3、最后再启动MHA
 ```
 
-# mysql中间件Atlas
+## MySQL中间件Atlas
 
  Atlas是由 Qihoo 360, Web平台部基础架构团队开发维护的一个基于MySQL协议的数据中间层项目。
 它是在mysql-proxy 0.8.2版本的基础上，对其进行了优化，增加了一些新的功能特性。
 360内部使用Atlas运行的mysql业务，每天承载的读写请求数达几十亿条。
 下载地址
-https://github.com/Qihoo360/Atlas/releases
+<https://github.com/Qihoo360/Atlas/releases>
 注意：
 1、Atlas只能安装运行在64位的系统上
 2、Centos 5.X安装 Atlas-XX.el5.x86_64.rpm，Centos 6.X安装Atlas-XX.el6.x86_64.rpm。
 3、后端mysql版本应大于5.1，建议使用Mysql 5.6以上
 
-Atlas主要功能
+**Atlas主要功能**
     1.读写分离
     2.从库负载均衡
     3.IP过滤
@@ -7854,15 +8110,37 @@ Atlas主要功能
     5.DBA可平滑上下线DB
     6.自动摘除宕机的DB
 
+**Atlas相对于官方MySQL-Proxy的优势**
+
+------
+
+- 1.将主流程中所有Lua代码用C重写，Lua仅用于管理接口
+- 2.重写网络模型、线程模型
+- 3.实现了真正意义上的连接池
+- 4.优化了锁机制，性能提高数十倍
+
+
+
 ```bash
+#在主库安装，进入安装包目录
+cd ~/tools/
+#下载Atlas
+wget https://github.com/Qihoo360/Atlas/releases/download/2.2.1/Atlas-2.2.1.el6.x86_64.rpm
 #安装
 [root@db03 MHA]# rpm -ivh Atlas-2.2.1.el6.x86_64.rpm
 
+
+#进入Atlas工具目录
+[root@mysql-db01 ~]# cd /usr/local/mysql-proxy/bin/
 #生成密码
 [root@db03 MHA]# cd /usr/local/mysql-proxy/bin/
 [root@db03 bin]# ./encrypt 123
 3yb5jEku5h4=
+# /usr/local/mysql-proxy/bin/encrypt mha
+O2jBXONX098=
 
+
+#修改Atlas配置文件
 [root@db03 bin]# cat /usr/local/mysql-proxy/conf/test.cnf
 [mysql-proxy]
 admin-username = user
@@ -7942,9 +8220,23 @@ vim test.cnf
 pwds = repl:3yb5jEku5h4=,mha:O2jBXONX098=,app:/iZxz+0GRoA=
 /usr/local/mysql-proxy/bin/mysql-proxyd test restart
 [root@db03 conf]# mysql -uapp -p123456  -h 10.0.0.4 -P 33060
+
+
 ```
 
-# MySQL性能优化
+作业:
+
+Atlas 高可用省机器方法,集群每台机器都装 Atlas, 使用 vip 作为对外提供服务
+
+第二种方法再加一台机器装 atlas 加上keepalive 
+
+
+
+
+
+
+
+# 第十二章MySQL性能优化
 
 ## 一、系统优化工具
 
@@ -7992,6 +8284,7 @@ used：used=RSS+anon+buffer+cached
 （1）基于固定大小page分配模式，他的一些不足的地方？
      在申请内存时，需要整个内存进行遍历
      会有大量的内存碎片，导致程序OOM（out of memory）
+     
 （2）SLAB Allocator内存管理子系统
     1、将内存逻辑化成chain+chunk模式，内存区域会有多条链。每条chain下都“挂着”多个等同大小的chunk（2的幂）
     2、在每条链的头部，都会有一个专门的chunk位图，来更快速的找到需要的空闲chunk，并且记录每个chunk最后被访问的时间戳。
@@ -8005,12 +8298,15 @@ echo 3 > /proc/sys/vm/drop_caches
 
 SWAP：交换分区，当内存紧张的时候，会将内存区域当中的数据临时置换到SWAP中。
 默认：在内存使用量达到60%
+
 [root@db02 ~]# cat /proc/sys/vm/swappiness 
 60
 对于MySQL环境，要尽量避免swap使用
 sysctl.conf 
 临时修改：
 [root@db02 ~]# echo 0 >/proc/sys/vm/swappiness 
+
+
 
 2、iostat 
 测试当前环境IO水平
@@ -8067,18 +8363,24 @@ Performance Schema(5.7默认开启)
 
 -----------------------------------------
 
-## 二、硬件优化：
+## 二、硬件优化
 
 ```bash
 主机：
 根据数据库类型
 （1）主机CPU选择
     IO密集型：可以处理多并发的CPU类型，特点是核心数量较多，主频中等
-              Intel E系列
-    CPU密集型：可以处理高性能计算的cpu类型，主频非常高，核心数量中等
-              Intel I系列的
-    MySQL的线上业务，处理高并发访问的业务。属于IO密集型的业务，所以选择志强系列的CPU更好一些。
-    MySQL非线上的业务，数据处理数据分析，属于CPU密集型业务，所以选择I系列的CPU。
+              Intel Xeon（至强/E系列，服务器CPU，支持多路+ECC内存）
+              
+    CPU密集型：可以处理高性能计算的cpu类型，主频非常高，核心数量中等（理论对应高主频CPU）
+    
+    MySQL的线上业务，处理高并发访问的业务。瓶颈在磁盘IO，属于IO密集型的业务，所以选择志强（Xeon）多核系列CPU更好。
+    MySQL非线上的业务，数据处理数据分析，属于CPU密集型业务，主频要高。但生产上的数据分析服务器同样用Xeon高主频型号（甚至双路）.
+
+MySQL 是 IO 密集型还是 CPU 密集型？
+标准答法：要分业务。 高并发 OLTP（在线交易）偏 IO 密集型——连接多、每次 SQL 简单、瓶颈在磁盘 IO；
+                   OLAP（数据分析、报表）偏 CPU 密集型——复杂 SQL 的排序、join、聚合都在烧 CPU。
+
 
 （2）内存容量选择
     一般是选择cpu核心数量的2倍
@@ -8110,7 +8412,7 @@ IOPS峰值：对于每一块硬件磁盘来讲，都有一个固定参数IOPS，
 交换机：堆叠
 ```
 
-## 三、系统层面优化：
+## 三、系统层面优化
 
 1、Swap调整
 
@@ -8219,7 +8521,7 @@ chkconfig --level 23456 yum-updatesd  off
 以上：硬件优化建议，操作系统优化建议，应该在业务架构搭建初始应该做好。    
 ```
 
-## 四、数据库层面优化：
+## 四、数据库层面优化
 
 4.1    参数优化（见参数优化建议）
 
@@ -8465,7 +8767,7 @@ mysqlslap \
 ----------------------------------------------------------------------------    
 ```
 
-### 2、优化细节：
+### 2、优化细节
 
 ```bash
 1、参数优化
@@ -8499,9 +8801,26 @@ Max_connections=1024
 
 
 2 back_log
-# back_log：TCP半连接队列长度，应对瞬间大量新建连接
+# back_log： listen 连接请求队列长度，应对瞬间大量新建连接
+# net.core.somaxconn 系统默认最大监听数，默认128 ；mysql的数量不能超过系统这个值
 # 线上常规推荐128~512
 back_log=128
+
+操作系统优化
+#半连接队列上限，握到一半（收到 SYN、没回 ACK）的连接排多长。管的是 SYN Flood 攻击防护；默认1024
+net.ipv4.tcp_max_syn_backlog
+#网卡收包软中断的队列，高流量机器也要提：
+net.core.netdev_max_backlog
+# 全连接队列上限（已完成握手、等 accept() 的连接排队长度）
+net.core.somaxconn
+默认 128，生产必调
+建议值：和 MySQL max_connections / 应用并发峰值对齐，常规设 512～1024；若 max_connections 上万则设到 1024～4096
+
+# TCP 连接队列优化（/etc/sysctl.conf 或 /etc/sysctl.d/99-mysql.conf）
+net.core.somaxconn = 1024
+net.ipv4.tcp_max_syn_backlog = 4096
+net.core.netdev_max_backlog = 4096
+
 
 （1）简介
 mysql能暂存的连接数量，当主要mysql线程在一个很短时间内得到非常多的连接请求时候它就会起作用，如果mysql的连接数据达到max_connections时候，新来的请求将会被存在堆栈中，等待某一连接释放资源，该推栈的数量及back_log,如果等待连接的数量超过back_log，将不被授予连接资源。
@@ -8915,7 +9234,7 @@ log-slave-updates=1
 relay_log_purge=0
 # 最大并发客户端连接数，业务高峰期调大，默认151过小
 max_connections=1024
-# TCP半连接队列长度，应对瞬间大量新建连接
+# MySQL 启动时设置的 listen 连接请求队列长度，应对瞬间大量新建连接
 back_log=128
 # 非交互式连接空闲60秒自动断开（程序长连接）
 wait_timeout=60
@@ -9011,6 +9330,10 @@ Benchmark
         Number of clients running queries: 100
         Average number of queries per client: 30
 ```
+
+
+
+
 
 # MySQL MGR
 
@@ -9550,22 +9873,25 @@ SHOW VARIABLES LIKE 'group_replication%';
 
 ------
 
-##二、高频面试题 + 极简标准答案（直接背）
+## 二、高频面试题 + 极简标准答案（直接背）
 
 ### 基础概念
 
 1. **什么是 MGR？解决什么问题**
-   
+
    MySQL Group Replication，MySQL 官方基于 Paxos 的原生高可用集群；解决传统主从数据不一致、故障手动切换、单点故障问题，支持自动选主、强一致、多副本容错。
 
 2. **单主 / 多主模式区别，生产选哪个**
+
 - 单主：仅 1 节点可写，其余只读，无行冲突，DDL 友好，**生产标配**；
 - 多主：所有节点支持读写，并发修改同一行会触发回滚，线上极少使用。
+
 1. **MGR 最少几个节点？为什么不能 2 节点**
-   
+
    最少 3 节点。过半投票机制：3 节点挂 1 台剩 2 台满足过半，可正常选主；2 节点宕 1 台只剩 1 台，不满足半数，集群只读无法提供写入。
 
 2. **MGR 和 Galera、原生异步主从区别**
+
 - 异步主从：无共识、存在数据延迟、故障切换易丢数据；
 - Galera：第三方 wsrep 实现；MGR 官方原生，8.0 性能、兼容性更强；
 - MGR 自带自动选主、clone 恢复、内置监控视图。
@@ -9573,7 +9899,7 @@ SHOW VARIABLES LIKE 'group_replication%';
 ## 核心原理
 
 1. **MGR 如何保证数据零丢失**
-   
+
    事务必须集群过半节点投票确认才允许提交；故障时事务已同步至多数副本，新主一定持有完整事务；配合 sync_binlog=1、innodb 刷盘参数，本地事务持久化。
 
 2. **MGR 事务有哪些限制**
@@ -9587,43 +9913,43 @@ SHOW VARIABLES LIKE 'group_replication%';
 6. 多主禁止跨节点并发修改同一行。
 
 7. **XCom 通信层作用**
-   
+
    MGR 独立通信模块，使用 33061 端口，负责节点心跳、事务广播、Paxos 投票消息传输，与业务 3306 端口隔离。
 
 8. **GTID 在 MGR 的作用**
-   
+
    全局唯一事务 ID；新节点分布式恢复对比缺失事务；主节点选举判断哪个节点数据最新。
 
 ## 故障容灾
 
 1. 主库宕机切换耗时？业务影响
-   
+
    心跳默认 5s + 选举毫秒级，整体中断 1~10s；搭配 MySQL Router 自动路由，无需改业务配置。
 
 2. 半数以上节点宕机（3 节点挂 2 台）现象
-   
+
    存活节点不足半数，集群全部节点进入 super_read_only，拒绝所有写，防止数据分裂。
 
 3. 故障旧主修复重新上线流程
-   
+
    自动对比集群 GTID，增量回放缺失 binlog；数据差距过大自动 clone 全量同步，同步完成自动加入集群成为只读节点。
 
 4. 网络抖动节点短暂失联会怎样
-   
+
    节点标记 UNREACHABLE，网络恢复后自动重连同步数据；失联期间大量写入会触发 clone 全量拷贝。
 
 ## 运维调优
 
 1. 搭建 MGR 核心必开参数
-   
+
    gtid_mode=ON、enforce_gtid_consistency=ON、binlog_format=ROW；
-   
+
    组复制参数：统一 group_name、local 通信地址、seed 种子节点、单主模式、member_weight 选举权重。
 
 2. MGR 性能瓶颈与优化方案
-   
+
    瓶颈：事务全网广播、Paxos 投票、超大事务网络 IO。
-   
+
    优化：拆分大事务；内网万兆网卡；调大消息缓存；低峰执行 DDL；使用 clone 快速扩容。
 
 3. 常用排查 SQL
@@ -9636,27 +9962,29 @@ select * from performance_schema.replication_group_member_stats;
 ```
 
 1. MySQL Router 作用
-   
+
    官方轻量中间件，屏蔽多节点地址；自动读写分离；主节点切换后自动更新写路由，业务无感知。
 
 ## 综合拔高题
 
 1. MGR、MySQL Router、ProxySQL 怎么选
+
 - MGR：底层数据库高可用集群；
 
 - Router：官方轻量，简单读写分离、故障路由，中小企业首选；
 
 - ProxySQL：第三方代理，支持 SQL 过滤、限流、复杂读写权重、分库分表场景，高并发复杂业务使用。
+
 1. DDL 在 MGR 注意事项
-   
+
    单主仅主库执行 DDL，同步至从节点；超大 DDL 会阻塞全集群写入，必须业务低峰执行，不支持并发 DDL。
 
 2. MGR 跨机房部署风险
-   
+
    跨机房网络延迟高，每次写入需跨机房投票，写入性能衰减严重；同城多机房可行，异地机房建议搭配异步复制做灾备。
 
 3. 如何排查 MGR 事务冲突
-   
+
    查询 replication_group_member_stats 视图中 CONFLICT_DETECTS 冲突计数，多主模式冲突高发，单主几乎无冲突。
 
 # CentOS 7 时间同步：推荐用 chrony（替代 ntpdate）

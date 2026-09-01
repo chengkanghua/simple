@@ -954,6 +954,60 @@
 
 **学法建议**：先看 ① 建立直觉 → 读 ② 类比理解 → 精读 ③ 并**亲手编译运行示例** → 琢磨 ④ 避开坑 → 完成 ⑤ 练手 → 用 ⑥ 自测 → 最后看"本章串联"确认它在全书的位置。
 
+**代码块怎么读（设计注释格式说明）**：本书每个 C 示例开头都带一份"设计注释"——让你不看正文也知道这段代码在干嘛、怎么跑起来。全书 68 个 C 块、65 个命令块统一为以下五类格式：
+
+① **C 完整程序块**（60 个，可直接编译运行）：
+
+````
+```c
+/* ===== 设计注释 xxx.c =====
+ * 演示：这段代码演示什么知识点
+ * 关键：设计要点 / 易错点 / 前置条件
+ * 编译：gcc -std=c99 xxx.c -o xxx（需特殊链接库时会标出 -pthread / -lrt / -ldl / -lcap / -lutil）
+ * 运行：./xxx 参数（含预期输出说明）
+ */
+/* xxx.c：原注释 */        ← 保留原注释，不影响阅读
+```
+````
+
+② **C 片段块**（7 个，结构体定义或代码片段，**不能独立编译**）：
+
+````
+```c
+/* ===== 设计注释（代码片段，非完整程序）=====
+ * 内容：这个片段是什么
+ * 说明：关键注意点；完整可编译示例见下方 xxx.c
+ */
+```
+````
+
+③ **C 复用块**（1 个，完整代码在别的章）：
+
+````
+```c
+/* ===== 设计注释（复用 xxx.c，本节只强调关键点）=====
+ * 演示：...
+ * 说明：完整可编译代码见第 N 章 xxx.c
+ */
+```
+````
+
+④ **bash 编译运行块**（紧跟 C 示例，给编译命令与真实输出）：
+
+````
+```bash
+# 参数解释：
+#   gcc=GNU C 编译器；-std=c99=按 C99 标准解析；-o xxx=指定输出文件名
+gcc -std=c99 xxx.c -o xxx && ./xxx
+# 模拟输出（CentOS 7）：
+#   这里给出该命令在 CentOS 7 上的真实输出样例
+```
+````
+
+⑤ **bash 运维命令块**（who / ss / ipcs 等工具）：每条命令后直接跟参数解释，块尾同样给 CentOS 7 模拟输出。
+
+**一句话**：C 块看"设计注释"（演示 → 关键 → 编译 → 运行），bash 块看"参数解释 + 模拟输出"。
+
 ## 三、全书知识地图：64 章怎么串起来
 
 ### 一条主线贯穿全书：Linux 如何管理"资源"
@@ -1046,6 +1100,12 @@ Linux **并不完全等于 POSIX**，而是采取"遵循 POSIX + 提供扩展"�
    Linux 特有的接口（如 epoll、inotify、memfd_create）通过**特性测试宏**（`_GNU_SOURCE` 等）控制是否可见——你需要显式声明"我要用扩展"，才不会写出不可移植的代码。
 
 ```c
+/* ===== 设计注释 std_check.c =====
+ * 演示：查看系统遵循的 POSIX / X/Open 标准版本
+ * 关键：特性测试宏必须在所有 #include 之前；也可用 gcc -D 在命令行定义（见下方 bash 块）
+ * 编译：gcc -std=c99 -D_XOPEN_SOURCE=700 std_check.c -o std_check
+ * 运行：./std_check（输出 POSIX/X/Open 版本号）
+ */
 /* std_check.c：查看系统遵循的标准版本 */
 #define _XOPEN_SOURCE 700        /* 特性测试宏必须在所有 #include 之前 */
 #include <stdio.h>
@@ -1064,13 +1124,67 @@ int main(void) {
 
 ```bash
 # 编译时指定遵循的标准（推荐做法，明确可移植性）
+# 参数逐个解释：
+#   gcc                   GNU C 编译器
+#   -std=c99              让编译器按 C99 标准解析语法（不用 GNU 扩展方言）
+#   -D_XOPEN_SOURCE=700   通过命令行定义"特性测试宏"：=700 表示向 glibc 申请暴露
+#                         SUSv4 / POSIX.1-2008 的接口（必须在所有 #include 之前生效，
+#                         命令行 -D 等价于源码第一行 #define，但不用改代码）
+#   std_check.c           源文件
+#   -o std_check          指定输出可执行文件名为 std_check（不写 -o 默认 a.out）
+#   &&                    逻辑与：前一条命令成功（退出码 0）才执行后面的
+#   ./std_check           运行当前目录下的可执行文件（./ 前缀告诉 shell 在当前目录找）
 gcc -std=c99 -D_XOPEN_SOURCE=700 std_check.c -o std_check && ./std_check
 
+# 模拟输出（CentOS 7 / glibc 2.17）：
+#   POSIX version: 200112
+#   X/Open version: 700
+
 # 查看系统的标准与版本信息
-getconf _POSIX_VERSION       # 系统支持的 POSIX 版本
-getconf GNU_LIBC_VERSION     # glibc 版本
-cat /proc/version            # 内核版本 + gcc 版本
+getconf _POSIX_VERSION       # 系统支持的 POSIX 版本（200112 = POSIX.1-2001/SUSv3）
+getconf GNU_LIBC_VERSION     # glibc 版本（CentOS 7 为 glibc 2.17）
+cat /proc/version            # 内核版本 + 编译内核用的 gcc 版本
+
+# 模拟输出（CentOS 7）：
+#   $ getconf _POSIX_VERSION
+#   200112
+#   $ getconf GNU_LIBC_VERSION
+#   glibc 2.17
+#   $ cat /proc/version
+#   Linux version 3.10.0-1160.el7.x86_64 (mockbuild@kbuilder.bsys.centos.org) (gcc version 4.8.5 20150623 (Red Hat 4.8.5-44) (GCC) ) #1 SMP Mon Oct 11 16:51:50 UTC 2021
 ```
+
+**glibc 是什么（30 秒搞懂）**
+
+- **一句话本质**：glibc（GNU C Library）= **Linux 上所有程序的"地基"库**——你写的 `printf`、`malloc`、`open`、`pthread_create` 这些函数，真正实现都在 glibc 里
+- **生活类比**：像外卖平台的**中央厨房**——程序只"点单"（调函数），glibc 负责"做菜"（真正实现），内核只负责"最后送餐"（写硬件）。程序 99% 的调用都先经过 glibc，很少直接碰内核
+- **它具体做什么**：
+  1. 提供 C 标准库函数：`printf`、`malloc`、`strcpy` 等
+  2. 封装系统调用：`open()` 内部去触发 `syscall` 进内核（第 3 章展开）
+  3. 提供 POSIX 接口：线程、socket、信号等
+  4. 动态链接器 `ld-linux.so`：程序启动时帮它加载共享库
+- **与特性测试宏的关系**：`_XOPEN_SOURCE` 就是**跟 glibc 的头文件"谈条件"**——glibc 头文件很大一部分是"开关"，根据你声明的标准决定放行哪些接口（见下一节）
+- **运维关联**：`ldd ./app` 里那个 `libc.so.6` 就是它；`ldd --version` 看版本（CentOS 7 = glibc 2.17）；Alpine 用 **musl** 替代 glibc——所以同一二进制常不能跨发行版跑
+- 一句话总结：**glibc 是程序与内核之间最厚的那层"翻译官"，提供函数实现 + 系统调用封装 + 动态链接**
+
+分清三个角色
+编译器(gcc):把 C 源码"翻译"成机器码,产出一个文件(可执行程序)。只在编译那一刻干活,程序运行后就没它的事了
+解释器(python3、node):拿到源码边读边执行,不产出文件。程序运行期间它一直参与
+库(glibc):一个"工具箱"——里面是现成的函数实现(printf、malloc…)。既不在编译前、也不在编译中干活,而是程序运行时被加载进来,程序调用它里面的函数
+
+**特性测试宏速查（看完 std_check.c 必懂）**
+
+- **宏是什么**：`#define` 是**预处理指令**，在真正的编译之前生效——把源码里出现的 `_XOPEN_SOURCE` 整体替换成 `700`，替换完这一行就"消失"了（像 Word 的"查找替换"，发生在编译之前）
+- **这一行定义了什么**：`#define _XOPEN_SOURCE 700` = 告诉 glibc"我按 **SUSv4 / POSIX.1-2008** 标准写程序，请把对应接口暴露给我"。glibc 为了兼容老程序**默认不暴露全部接口**，你声明了标准，头文件才放行
+- **为什么必须在所有 `#include` 之前**：头文件展开时（如 `<stdio.h>`）会检查这个宏来决定暴露多少内容，写在 `#include` 后面就**来不及生效**了
+- **两种写法等价**：源码第一行 `#define _XOPEN_SOURCE 700` ↔ 编译命令 `gcc -D_XOPEN_SOURCE=700`（命令行方式不用改代码）
+- **常见特性测试宏**：
+  1. `_XOPEN_SOURCE=700` → **SUSv4 / POSIX.1-2008**（上面这行）
+  2. `_XOPEN_SOURCE=600` → SUSv3 / POSIX.1-2001
+  3. `_XOPEN_SOURCE=500` → XPG4v2（老标准）
+  4. `_GNU_SOURCE` → POSIX 全部 + **Linux 特有扩展**（epoll、sendfile 等；不写值 = 只要"被定义了"这个事实）
+  5. `_POSIX_C_SOURCE=200809L` → 只要纯 POSIX，不要扩展
+- 一句话总结：**特性测试宏 = 在包含头文件之前声明"我按哪个标准写"**，`700` 就是声明按 SUSv4，让 glibc 放行对应 API
 
 ### ④ 怎么深入（进阶与坑）
 
@@ -1128,18 +1242,53 @@ cat /proc/version            # 内核版本 + gcc 版本
 
 ```bash
 # 一切皆文件：看不同类型的"文件"（注意每行第一个字符）
+# 参数解释：ls=列出文件；-l=长格式(类型/权限/属主/大小)；3 个参数是要看的设备文件；
+#   2>/dev/null=把标准错误(2)重定向到 /dev/null 丢弃——普通用户读 /dev/sda 会报"权限不足"，故意屏蔽
 ls -l /dev/null /dev/sda /dev/tty 2>/dev/null     # c=字符设备  b=块设备
 
+# 模拟输出（CentOS 7，注意每行第一个字符）：
+#   crw-rw-rw-. 1 root root 1, 3 Nov  3 14:20 /dev/null   # c=字符设备（1,3 是主/次设备号）
+#   brw-rw----. 1 root disk 8, 0 Nov  3 14:20 /dev/sda    # b=块设备
+#   crw-rw-rw-. 1 root tty  5, 0 Nov  3 14:20 /dev/tty    # c=字符设备
+
 # 程序 vs 进程：同一个程序可以同时跑多个进程
+# 参数解释：sleep 100=睡 100 秒；& =放到后台运行（连续两个 & 起两个后台 sleep）；
+#   ps=进程列表；-o pid,ppid,comm=只输出这三列；| =管道(把 ps 输出喂给 grep)；grep sleep=过滤含 sleep 的行
 sleep 100 & sleep 100 & ps -o pid,ppid,comm | grep sleep
 
+# 模拟输出（CentOS 7，两个 sleep 是同一个程序的两个进程，PID 不同、PPID 都是你的 shell）：
+#   15671 14910 sleep
+#   15672 14910 sleep
+
 # 文件描述符：每个进程都有自己的 fd 表，0/1/2 是标准输入/输出/错误
+# 参数解释：/proc/self=指向"当前进程"的 /proc/PID 符号链接；/proc/self/fd=当前进程的 fd 表目录
 ls -l /proc/self/fd
 
+# 模拟输出（CentOS 7，0/1/2 都指向同一个终端设备）：
+#   lrwx------. 1 root root 64 Nov  3 14:20 0 -> /dev/pts/0
+#   lrwx------. 1 root root 64 Nov  3 14:20 1 -> /dev/pts/0
+#   lrwx------. 1 root root 64 Nov  3 14:20 2 -> /dev/pts/0
+
 # /proc 是内核的窗口（这些"文件"不占磁盘，读时由内核动态生成）
-cat /proc/cpuinfo | head -5
+cat /proc/cpuinfo | head -5    # cat=输出文件内容；| head -5=只取前 5 行
 cat /proc/meminfo | head -3
-cat /proc/self/status | grep -E "^(Pid|Uid|VmRSS)"
+cat /proc/self/status | grep -E "^(Pid|Uid|VmRSS)"   # grep -E=扩展正则；^(Pid|Uid|VmRSS)=行首匹配这三个字段之一
+
+# 模拟输出（CentOS 7）：
+#   $ cat /proc/cpuinfo | head -5
+#   processor	: 0
+#   vendor_id	: GenuineIntel
+#   cpu family	: 6
+#   model		: 79
+#   model name	: Intel(R) Xeon(R) CPU E5-2682 v4 @ 2.50GHz
+#   $ cat /proc/meminfo | head -3
+#   MemTotal:       16332248 kB
+#   MemFree:         1123456 kB
+#   MemAvailable:    9876543 kB
+#   $ cat /proc/self/status | grep -E "^(Pid|Uid|VmRSS)"
+#   Pid:	15675
+#   Uid:	0	0	0	0
+#   VmRSS:	    4428 kB
 ```
 
 ```python
@@ -1153,6 +1302,40 @@ with open(f"/proc/{os.getpid()}/status") as f:
         if line.startswith(("VmSize", "VmRSS")):
             print(line.strip())
 ```
+
+**"一切皆文件"的实现机制（VFS 与 fd → f_op 两条路）**
+
+- **统一接口的真正载体不是 VFS**，而是 `fd → struct file → f_op`（file_operations 函数指针表）。每个 fd 都带自己的 f_op：系统调用入口统一（`read(fd)` 都进 `sys_read`），但进入内核后**按 f_op 分派到不同实现**：
+  - 普通文件 → ext4 等具体文件系统
+  - socket → socket 层（网络协议栈）
+  - 管道 → pipefifo_fops
+  - epoll → eventpoll_fops
+
+1. **VFS 管哪些接口**
+   - 文件操作：`open` / `read` / `write` / `close` / `lseek` / `mmap` / `fsync`
+   - 元数据：`stat` / `chmod` / `chown` / `truncate`
+   - 目录操作：`mkdir` / `rmdir` / `unlink` / `rename` / `readdir` / `link` / `symlink`
+   - 其他：`ioctl` / `poll` / `flock` / `splice`
+   - 它统一的对象是 **inode、dentry、file、super_block**——即"一切挂载在目录树上的东西"
+
+2. **哪些操作会进 VFS**
+   - 普通文件与目录的一切操作
+   - 伪文件系统：`/proc`、`/sys`、`/dev`（devtmpfs）、`/dev/shm`（tmpfs）、cgroupfs、debugfs
+   - 设备文件：对字符/块设备的 `open` / `read` / `write` → VFS → 设备驱动
+   - 判断标准：**有 inode、挂在目录树上的对象**，操作都走 VFS
+
+3. **哪些操作不进 VFS**
+   - **socket**：数据路径直接走 socket 层 / 网络协议栈（虽然形式上挂在 sockfs，见下）
+   - **管道**：`read` / `write` 直接走管道内部缓冲，没有文件系统
+   - **epoll**、**inotify**、**timerfd**、**eventfd**、**signalfd**：各有自己的 f_op，不走 VFS
+   - **信号**（kill）与 **System V IPC**（消息队列 / 信号量 / 共享内存）：根本不用 fd，也不进 VFS
+   - mmap 之后的内存访问：直接读写内存页，不走任何 VFS
+
+4. **另一套接口：fd → f_op 机制与 socket 层（这才是"一切皆文件"的本体）**
+   - **socket 的完整链路**：`socket()` 创建时挂到 **sockfs**（一个伪文件系统，只为形式上有 inode，让 `ls /proc/<pid>/fd` 显示 `socket:[inode]`）；但 `read` / `write` 进入 `sys_read` 后，socket 的 f_op = `socket_file_ops` → `sock_read_iter` → `sock_recvmsg` → `tcp_recvmsg` → 网络协议栈 → 网卡驱动——**不经过 VFS 的文件系统分派**
+   - socket 还有自己的专用接口（VFS 那套没有）：`bind` / `connect` / `accept` / `listen` / `setsockopt` / `getsockopt` / `shutdown` / `sendmsg` / `recvmsg`
+   - 管道、epoll 等同理：系统调用入口与文件一致（都有 fd），但数据路径各不相同
+- 一句话总结：**统一的是"fd + read/write 这套入口"，不是统一进 VFS；VFS 只管"挂载在目录树上的文件系统对象"，socket 走 socket 层、管道走管道缓冲——大家各自实现自己的 f_op**
 
 ### ④ 怎么深入（进阶与坑）
 
@@ -1216,6 +1399,12 @@ with open(f"/proc/{os.getpid()}/status") as f:
    - **系统数据类型**：用 `pid_t`、`uid_t`、`size_t`、`ssize_t`、`off_t` 这些 typedef 类型，**不要假设它们是 int 还是 long**（不同平台可能不同）
 
 ```c
+/* ===== 设计注释 errno_demo.c =====
+ * 演示：errno 的两种处理写法（直接读 errno / perror 打印）
+ * 关键：errno 是全局整数，成功调用不清零——判断错误要看【返回值】而非 errno
+ * 编译：gcc -std=c99 errno_demo.c -o errno_demo
+ * 运行：./errno_demo  （程序内已写死 /no/such/file，直接执行即可看到报错）
+ */
 /* errno_demo.c：系统调用错误处理的两种写法 */
 #include <stdio.h>
 #include <errno.h>
@@ -1246,6 +1435,50 @@ except OSError as e:
     print(f"errno={e.errno} ({os.strerror(e.errno)}): {e.strerror}")
     if e.errno == 2:      # ENOENT
         print("-> 文件不存在")
+```
+
+```bash
+# ===== 编译运行 errno_demo.c（本章重点：看 errno 到底怎么报的）=====
+
+# 1. 编译
+# 参数解释：
+#   gcc               GNU C 编译器
+#   -std=c99          按 C99 标准解析语法（不用 GNU 扩展方言）
+#   errno_demo.c      源文件
+#   -o errno_demo     指定输出的可执行文件名（不写 -o 则默认 a.out）
+gcc -std=c99 errno_demo.c -o errno_demo
+
+# 2. 运行（程序内已写死 /no/such/file，直接执行即可）
+./errno_demo
+# 模拟输出（CentOS 7）：
+#   open: No such file or directory
+#   errno=2, msg=No such file or directory
+#   -> 文件不存在
+
+# 3. 用 strace 观察"系统调用"（本章 ⑤ 实战任务）
+# 参数解释：
+#   strace        跟踪进程发起的【系统调用】（相当于系统调用的监控摄像头）
+#   ls /tmp       被跟踪的命令（换成任何命令都行）
+strace ls /tmp
+# 模拟输出（CentOS 7，节选）：
+#   openat(AT_FDCWD, "/tmp", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 3
+#   getdents(3, /* 12 entries */, 32768)      = 480
+#   write(1, "file1  file2\n", 13)            = 13
+#   close(3)                                  = 0
+#   +++ exited with 0 +++
+
+# 4. 对比 ltrace：跟踪【库函数】调用（与 strace 互补）
+# 参数解释：
+#   ltrace        跟踪进程调用的库函数（strace 看系统调用，ltrace 看库函数）
+ltrace ls /tmp
+# 模拟输出（CentOS 7，节选）：
+#   strlen("file1")                           = 5
+#   malloc(24)                                = 0x55d3a1b2c260
+#   memcpy(0x55d3a1b2c260, "file1", 6)        = 0x55d3a1b2c260
+
+# 说明：strace 看到的是"进内核"的动作（openat / write / close），ltrace 看到的是
+#       "用户态"的函数调用（strlen / malloc / memcpy）——两者在数量上的巨大差异，
+#       正是"系统调用贵、库函数便宜"最直观的证据
 ```
 
 ### ④ 怎么深入（进阶与坑）
@@ -1315,6 +1548,12 @@ Linux 上**所有** I/O 都归约为同一套模型："打开 → 读/写 → �
 6. **ioctl()**：通用 I/O 模型之外的"万能设备控制接口"，用于那些 read/write 表达不了的设备操作（如获取终端窗口大小）
 
 ```c
+/* ===== 设计注释 mycp.c =====
+ * 演示：open→read→write→close 完整文件 I/O 模型（实现一个简化版 cp）
+ * 关键：read 返回 0=读到 EOF；写入必须检查返回值；close 失败也要处理
+ * 编译：gcc -std=c99 mycp.c -o mycp
+ * 运行：./mycp 源文件 目标文件
+ */
 /* mycp.c：简化版 cp，演示 打开→读→写→关闭 的完整模型 */
 #include <stdio.h>
 #include <fcntl.h>
@@ -1352,13 +1591,36 @@ int main(int argc, char *argv[]) {
 
 ```bash
 # 编译并体验
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准编译；mycp.c=源文件；-o mycp=输出可执行文件名；
+#   echo "hello"=输出一行 hello；> a.txt=重定向写入 a.txt（覆盖）；
+#   ./mycp a.txt b.txt=运行程序，argv[1]=源文件 a.txt，argv[2]=目标文件 b.txt；
+#   cat b.txt=查看复制结果；&&=前一条成功才执行后一条（整条链是"编译→造数据→复制→验证"）
 gcc -std=c99 mycp.c -o mycp && echo "hello" > a.txt && ./mycp a.txt b.txt && cat b.txt
 
+# 模拟输出（CentOS 7）：
+#   hello
+
 # 一切皆文件：把内容"复制"到标准输出（fd 1）
+# 参数解释：/dev/stdout=标准输出的特殊文件（等价 fd 1），把文件"复制"给 /dev/stdout = 内容打到屏幕上
 ./mycp a.txt /dev/stdout
 
+# 模拟输出（CentOS 7）：
+#   hello
+
 # 观察真实的系统调用序列（附录 A 详解 strace）
+# 参数解释：strace=系统调用跟踪器（输出到 stderr）；2>&1=把标准错误合并进标准输出；
+#   | head -20=只保留前 20 行（strace 输出很长）
 strace ./mycp a.txt b.txt 2>&1 | head -20
+
+# 模拟输出（CentOS 7，关键几行）：
+#   execve("./mycp", ["./mycp", "a.txt", "b.txt"], [/* 22 vars */]) = 0
+#   open("a.txt", O_RDONLY)                  = 3        # open 源文件，拿到 fd 3
+#   open("b.txt", O_WRONLY|O_CREAT|O_TRUNC, 0666) = 4   # 创建/清空目标，fd 4
+#   read(3, "hello\n", 4096)                 = 6        # 读 6 字节
+#   write(4, "hello\n", 6)                   = 6        # 写 6 字节
+#   read(3, "", 4096)                        = 0        # EOF
+#   close(3)                                 = 0
+#   close(4)                                 = 0
 ```
 
 ```python
@@ -1439,6 +1701,12 @@ with open("a.txt", "rb") as src, open("b.txt", "wb") as dst:
 7. **临时文件**：`mkstemp()` 是安全做法（创建 + 打开一步完成，无竞态）；`tmpnam()`/`mktemp()` 是**不安全**的（先取名再打开，有竞态），已被废弃。
 
 ```c
+/* ===== 设计注释 advio.c =====
+ * 演示：O_EXCL 原子创建、dup2 重定向、pread 不改变偏移量
+ * 关键：O_EXCL+O_CREAT 保证【独占创建】；pread 与 lseek+read 不同，不污染共享偏移量
+ * 编译：gcc -std=c99 advio.c -o advio
+ * 运行：./advio
+ */
 /* advio.c：原子创建、dup2 重定向、pread 不改变偏移量 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -1475,7 +1743,17 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-D_XOPEN_SOURCE=700=命令行定义特性测试宏
+#   （pread 等 POSIX 函数需要它才被声明，等价源码里 #define _XOPEN_SOURCE 700）；
+#   advio.c=源文件；-o advio=输出可执行名；&&=前一条成功才执行后一条；
+#   ./advio=运行程序；cat /tmp/out.txt=查看程序写到文件的"重定向结果"
 gcc -std=c99 -D_XOPEN_SOURCE=700 advio.c -o advio && ./advio && cat /tmp/out.txt
+
+# 模拟输出（CentOS 7，第二次运行会因 O_EXCL 失败而显示 File exists）：
+#   created /tmp/onlyonce
+#   pread(0) got: this
+#   pread(0) again: this
+#   this line goes to the file        # cat /tmp/out.txt 的结果：dup2 重定向写进去的内容
 ```
 
 ```python
@@ -1553,6 +1831,12 @@ os.close(fd)
 6. **setjmp() / longjmp()**：**非局部跳转**——跨越函数边界的 goto。`setjmp` 保存"跳转点"和上下文，之后任意深处调用 `longjmp` 能直接跳回来，常用于错误恢复（类似其他语言的 try/throw，但更原始）
 
 ```c
+/* ===== 设计注释 proc_demo.c =====
+ * 演示：PID/PPID、环境变量访问、内存布局、setjmp/longjmp 非局部跳转
+ * 关键：setjmp 返回两次（首次 0，longjmp 跳回时非 0）；环境变量是 key=value 的字符指针数组
+ * 编译：gcc -std=c99 proc_demo.c -o proc_demo
+ * 运行：./proc_demo
+ */
 /* proc_demo.c：PID/PPID、环境变量、内存布局、setjmp/longjmp */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -1593,9 +1877,27 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；proc_demo.c=源文件；-o proc_demo=输出可执行名；
+#   && ./proc_demo=编译成功后运行；echo "..."=打印分隔提示行；
+#   cat /proc/self/maps=查看"当前进程"的虚拟内存映射表；
+#   | head -20=只取前 20 行（映射很多行）；# 注释：每行格式 = 地址范围 权限 偏移 设备  inode 映射文件
 gcc -std=c99 proc_demo.c -o proc_demo && ./proc_demo
 echo "--- 对比 /proc 里的真实内存布局 ---"
 cat /proc/self/maps | head -20       # 每行：地址范围 权限 映射文件
+
+# 模拟输出（CentOS 7，注意 PID 和地址每次运行都不同——ASLR 随机化）：
+#   PID=15678 PPID=14910
+#   argc=1, argv[0]=./proc_demo
+#   PATH env: PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/kanghua/.local/bin:/home/kanghua/bin
+#   text≈0x4004a7  data=0x601040  bss=0x601044  heap=0x1a0d010  stack=0x7ffd5f2f8d0c
+#   first time, call deep_func
+#     in deep_func, jumping back...
+#   jumped back, ret=42
+#   --- 对比 /proc 里的真实内存布局 ---
+#   00400000-00401000 r-xp 00000000 fd:00 65760 /usr/bin/cat   # r-x=文本段(只读可执行)
+#   00601000-00602000 rw-p 00001000 fd:00 65760 /usr/bin/cat   # rw-=数据段
+#   7f9b8c4b2000-7f9b8c673000 r-xp ... /usr/lib64/libc-2.17.so  # libc 共享库
+#   7ffd5f2c6000-7ffd5f2e7000 rw-p ...                          # 栈区(最高地址)
 ```
 
 ```python
@@ -1675,6 +1977,12 @@ with open(f"/proc/{os.getpid()}/status") as f:
    在**栈帧**里分配内存，函数返回时**自动释放**（不用 free，也不会泄漏）。代价是栈空间有限（默认 8MB），大块分配会栈溢出。
 
 ```c
+/* ===== 设计注释 alloc_demo.c =====
+ * 演示：malloc/calloc/realloc/free 的正确用法与常见错误
+ * 关键：malloc 后必须判空；realloc 失败会丢原指针；free 后置 NULL 防悬垂
+ * 编译：gcc -std=c99 alloc_demo.c -o alloc_demo
+ * 运行：./alloc_demo
+ */
 /* alloc_demo.c：malloc/calloc/realloc/free 的正确用法 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -1710,10 +2018,22 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；alloc_demo.c=源文件；-o alloc_demo=输出可执行名；
+#   && ./alloc_demo=编译成功后才运行
 gcc -std=c99 alloc_demo.c -o alloc_demo && ./alloc_demo
 
 # 观察堆大小随分配变化
+# 参数解释：grep=按模式过滤行；heap=只挑出 maps 里标着 [heap] 的那行；
+#   /proc/self/maps=当前进程的内存映射表（每行：地址范围 权限 偏移 设备 inode 路径）
 grep heap /proc/self/maps
+
+# 模拟输出（CentOS 7，地址随 ASLR 每次不同）：
+#   $ gcc -std=c99 alloc_demo.c -o alloc_demo && ./alloc_demo
+#   malloc (dirty):  p[0]=135902468 p[1]=-2014822664   # 脏数据：没初始化，值是随机的
+#   calloc: p[0]=0 p[1]=0                              # calloc 清零
+#   realloc: ...
+#   $ grep heap /proc/self/maps
+#   01d0d000-01d2e000 rw-p 00000000 00:00 0 [heap]      # 程序启动后堆只有 ~132KB
 ```
 
 ```python
@@ -1798,6 +2118,12 @@ Linux 是多用户系统，用户和组的信息存在 `/etc/passwd`、`/etc/sha
    `crypt()` 做单向哈希。shadow 里密码字段格式是 `$id$salt$hash`：id=1 是 MD5、5 是 SHA-256、**6 是 SHA-512（现代默认）**。
 
 ```c
+/* ===== 设计注释 user_demo.c =====
+ * 演示：getpwnam/getgrnam 查询用户与组，setpwent 遍历所有用户
+ * 关键：返回的指针指向【静态缓冲区】——下次调用会覆盖，需要立即复制
+ * 编译：gcc -std=c99 user_demo.c -o user_demo
+ * 运行：./user_demo
+ */
 /* user_demo.c：查询用户、组、遍历所有用户 */
 #include <stdio.h>
 #include <pwd.h>
@@ -1830,13 +2156,40 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；user_demo.c=源文件；-o user_demo=输出可执行名；
+#   && ./user_demo=编译成功后才运行
 gcc -std=c99 user_demo.c -o user_demo && ./user_demo
 
 # 命令行对照（getent 走 NSS，比直接读文件更通用）
-id                        # 当前用户的 uid/gid/所有组
-getent passwd root        # 查单个用户
+id                        # 当前用户的 uid/gid/所有组（无参数直接输出全部）
+getent passwd root        # getent=统一查询系统数据库；passwd=用户库；root=要查的用户名
 awk -F: '{print $1, $3, $4, $6, $7}' /etc/passwd | head -5
-sudo getent shadow root   # 看密码哈希（需 root），注意 $6$ 前缀
+#   awk=按列处理文本；-F:=以冒号作字段分隔符；'{print $1,$3,$4,$6,$7}'=打印第1/3/4/6/7列
+#   （即 用户名/UID/GID/家目录/shell）；/etc/passwd=输入文件；| head -5=只取前 5 行
+sudo getent shadow root   # 看密码哈希（需 root），注意 $6$ 前缀（sudo=以 root 身份执行）
+
+# 模拟输出（CentOS 7）：
+#   $ gcc -std=c99 user_demo.c -o user_demo && ./user_demo
+#   user=kanghua uid=1000 gid=1000
+#   home=/home/kanghua shell=/bin/bash gecos=Kang Hua
+#   group=kanghua gid=1000 members=kanghua
+#     root          uid=0     shell=/bin/bash
+#     bin           uid=1     shell=/sbin/nologin
+#     daemon        uid=2     shell=/sbin/nologin
+#     adm           uid=3     shell=/sbin/nologin
+#     lp            uid=4     shell=/sbin/nologin
+#   $ id
+#   uid=1000(kanghua) gid=1000(kanghua) groups=1000(kanghua),10(wheel)
+#   $ getent passwd root
+#   root:x:0:0:root:/root:/bin/bash
+#   $ awk -F: '{print $1, $3, $4, $6, $7}' /etc/passwd | head -5
+#   root 0 0 /root /bin/bash
+#   bin 1 1 /bin /sbin/nologin
+#   daemon 2 2 /sbin /sbin/nologin
+#   adm 3 4 /var/adm /sbin/nologin
+#   lp 4 7 /var/spool/lpd /sbin/nologin
+#   $ sudo getent shadow root
+#   root:$6$j8z0kQ2s$9fE7... (SHA-512 哈希)...:0:99999:7:::
 ```
 
 ```python
@@ -1918,6 +2271,12 @@ for p in pwd.getpwall()[:5]:
 6. **修改凭证的系统调用**：`setuid()`、`seteuid()`、`setreuid()`、`setresuid()`；组对应的有 `setgid()`、`setegid()`、`setgroups()`
 
 ```c
+/* ===== 设计注释 cred.c =====
+ * 演示：真实/有效/保存 ID 三套凭证 + 辅助组列表
+ * 关键：权限检查看【有效 ID】；setuid 后三套 ID 的联动规则是本例重点
+ * 编译：gcc -std=c99 cred.c -o cred
+ * 运行：./cred  （可对比普通用户与 sudo 运行的结果）
+ */
 /* cred.c：查看进程的三套 ID 与辅助组 */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -1946,18 +2305,40 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-D_GNU_SOURCE=定义 GNU 扩展宏
+#   （getresuid/getresgid 是 Linux/GNU 扩展函数，需要这个宏才被声明）；cred.c=源文件；-o cred=输出可执行名
 gcc -std=c99 -D_GNU_SOURCE cred.c -o cred
 
 # 1. 普通执行：三个 UID 都是你自己
-./cred
+./cred    # ./=当前目录（shell 在当前目录找这个可执行文件）；cred=程序名
+
+# 模拟输出（CentOS 7）：
+#   real UID=1000  effective UID=1000  saved UID=1000
+#   real GID=1000  effective GID=1000  saved GID=1000
+#   supplementary groups (2): 1000 10
 
 # 2. 设置 SUID 后再执行（需 root 权限设置）
+#   sudo=以 root 身份执行；chown=改属主（root=新的属主）；&&=前一条成功才执行后一条；
+#   chmod=改权限位；u+s=给"属主"加 set-user-ID 位
 sudo chown root cred && sudo chmod u+s cred
-ls -l cred          # 注意权限位显示 -rwsr-xr-x，属主执行位变成了 s
+ls -l cred          # 注意权限位显示 -rwsr-xr-x，属主执行位变成了 s（ls=列出，-l=长格式）
 ./cred              # 实际 UID 还是你，但有效 UID=0(root)、保存 UID=0
 
+# 模拟输出（CentOS 7，对比第 1 步，有效 UID 从 1000 变成 0）：
+#   -rwsr-xr-x. 1 root root 8500 Nov  3 14:20 cred
+#   real UID=1000  effective UID=0  saved UID=0     # 有效 UID=0：这就是 SUID 提权生效的样子！
+
 # 3. 找出系统里所有 SUID 程序（安全审查常用）
+#   find=文件查找命令；/=从根目录开始全盘找；-perm -4000=只要权限含 SUID 位(4000)的文件；
+#   -type f=只要普通文件；2>/dev/null=把"无权限访问"的错误输出丢弃；| head -20=只取前 20 行
 find / -perm -4000 -type f 2>/dev/null | head -20
+
+# 模拟输出（CentOS 7，典型几条）：
+#   /usr/bin/passwd
+#   /usr/bin/sudo
+#   /usr/bin/su
+#   /usr/bin/mount
+#   /usr/sbin/...
 ```
 
 ```python
@@ -2035,6 +2416,12 @@ Linux 内部用"从 1970-01-01 00:00:00 UTC 起经过的秒数"（**Epoch / 日�
 7. **软件时钟（jiffies）**：内核靠周期性时钟中断计时，频率由 `HZ` 决定（`_SC_CLK_TCK` 可查，通常 100 或 1000）
 
 ```c
+/* ===== 设计注释 time_demo.c =====
+ * 演示：日历时间、time/localtime/gmtime/mktime/strftime 转换链
+ * 关键：localtime 返回静态缓冲区【非线程安全】；struct tm.tm_year 从 1900 起算（陷阱）
+ * 编译：gcc -std=c99 time_demo.c -o time_demo
+ * 运行：./time_demo
+ */
 /* time_demo.c：日历时间、转换函数、struct tm 陷阱、CPU 时间 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -2071,15 +2458,37 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-D_XOPEN_SOURCE=700=定义特性测试宏
+#   （strftime 等函数需要）；time_demo.c=源文件；-o time_demo=输出可执行名；&& ./time_demo=编译成功才运行
 gcc -std=c99 -D_XOPEN_SOURCE=700 time_demo.c -o time_demo && ./time_demo
 
 # 时区环境变量的影响（同一程序，不同 TZ）
+# 参数解释：TZ=UTC=临时给程序设置环境变量 TZ 为 UTC（只对这条命令生效）；
+#   ./time_demo=运行程序；| grep "local hour"=只保留含 "local hour" 的那一行
 TZ=UTC ./time_demo | grep "local hour"
 TZ=America/New_York ./time_demo | grep "local hour"
 
 # 命令行对照
-date +%s                      # 当前 epoch 秒数
-date -d @1767225600           # 秒数 -> 日期
+date +%s                      # 当前 epoch 秒数（date=显示日期；+%s=输出格式化为秒数）
+date -d @1767225600           # 秒数 -> 日期（-d=按指定字符串解析；@秒数=按 epoch 秒解释）
+
+# 模拟输出（CentOS 7，假设当前时间 = 2026-01-01 00:00:00 UTC，系统时区为北京 UTC+8）：
+#   $ gcc -std=c99 -D_XOPEN_SOURCE=700 time_demo.c -o time_demo && ./time_demo
+#   epoch seconds      : 1767225600
+#   ctime              : Thu Jan  1 08:00:00 2026
+#   UTC hour=0, local hour=8  (时区差=8)
+#   strftime           : 2026-01-01 08:00:00 CST
+#   tm_mon=0 (0-based!)  tm_year=126 (since 1900!)   # 一月=0、2026年=126
+#   mktime round-trip   : 1767225600 (diff=0)        # 转换往返无误差
+#   process CPU time    : 0.000000 sec
+#   $ TZ=UTC ./time_demo | grep "local hour"
+#   UTC hour=0, local hour=0  (时区差=0)
+#   $ TZ=America/New_York ./time_demo | grep "local hour"
+#   UTC hour=0, local hour=-5  (时区差=-5)           # 纽约是 UTC-5（冬令时）
+#   $ date +%s
+#   1767225600
+#   $ date -d @1767225600
+#   Thu Jan  1 08:00:00 CST 2026
 ```
 
 ```python
@@ -2162,6 +2571,12 @@ print("monotonic:", time.monotonic())              # 单调时钟（测耗时用
 5. **系统选项**：`_SC_JOB_CONTROL`（是否支持作业控制）、`_SC_THREADS`（是否支持线程）等，返回 >0 表示支持
 
 ```c
+/* ===== 设计注释 limits_demo.c =====
+ * 演示：sysconf/pathconf 查询系统与文件限制
+ * 关键：返回 -1 要区分【无限制】和【查询出错】——必须再检查 errno
+ * 编译：gcc -std=c99 limits_demo.c -o limits_demo
+ * 运行：./limits_demo
+ */
 /* limits_demo.c：正确区分"无限制"与"查询出错" */
 #include <stdio.h>
 #include <unistd.h>
@@ -2200,13 +2615,34 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；limits_demo.c=源文件；-o limits_demo=输出可执行名；
+#   && ./limits_demo=编译成功才运行
 gcc -std=c99 limits_demo.c -o limits_demo && ./limits_demo
 
 # 命令行对照（getconf 就是这些函数的命令行版本）
-getconf OPEN_MAX
-getconf PAGESIZE
-getconf NAME_MAX /tmp
-ulimit -n                # shell 里看到的"最大打开文件数"（软限制）
+getconf OPEN_MAX          # getconf=查询系统配置值；OPEN_MAX=要查的项目名（对应 _SC_OPEN_MAX）
+getconf PAGESIZE          # 页大小（对应 _SC_PAGESIZE）
+getconf NAME_MAX /tmp     # 第三个参数=路径（对应 _PC_NAME_MAX，按文件系统查询）
+ulimit -n                 # shell 内建命令；-n=显示"最大打开文件数"（软限制，可修改）
+
+# 模拟输出（CentOS 7）：
+#   $ gcc -std=c99 limits_demo.c -o limits_demo && ./limits_demo
+#   _SC_OPEN_MAX (max open fds)    : 1024
+#   _SC_CLK_TCK (clock ticks/sec)  : 100
+#   _SC_NPROCESSORS_ONLN (cpus)    : 4
+#   _SC_PAGESIZE (page size bytes) : 4096
+#   _SC_JOB_CONTROL (supported?)   : 1
+#   _SC_THREADS (supported?)       : 200809
+#   _PC_NAME_MAX for /tmp          : 255
+#   compile-time NAME_MAX          : 255
+#   $ getconf OPEN_MAX
+#   1024
+#   $ getconf PAGESIZE
+#   4096
+#   $ getconf NAME_MAX /tmp
+#   255
+#   $ ulimit -n
+#   1024
 ```
 
 ```python
@@ -2286,6 +2722,12 @@ print(f"RLIMIT_NOFILE: soft={soft} hard={hard}")
    获取系统标识：内核名（sysname）、主机名（nodename）、内核发行版（release）、版本（version）、硬件架构（machine）。
 
 ```c
+/* ===== 设计注释 procinfo_demo.c =====
+ * 演示：uname 系统信息 + 读取 /proc 虚拟文件系统
+ * 关键：/proc 文件是内核动态生成的【虚拟文件】，read 按需产生内容
+ * 编译：gcc -std=c99 procinfo_demo.c -o procinfo_demo
+ * 运行：./procinfo_demo
+ */
 /* procinfo_demo.c：uname + 读取 /proc 的关键信息 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -2320,14 +2762,48 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；procinfo_demo.c=源文件；-o procinfo_demo=输出可执行名；
+#   && ./procinfo_demo=编译成功才运行
 gcc -std=c99 procinfo_demo.c -o procinfo_demo && ./procinfo_demo
 
 # 命令行对照：这些命令全部读 /proc
-ps aux | head -3              # 读 /proc/[0-9]*/stat,status,cmdline
-free -h                       # 读 /proc/meminfo
-uptime                        # 读 /proc/uptime + /proc/loadavg
-cat /proc/sys/net/ipv4/ip_forward    # 运维常用：是否开启 IP 转发
-ls /proc/$$/fd                # $$ 是当前 shell 的 PID
+ps aux | head -3              # ps=进程列表；a=所有用户；u=用户可读格式；x=含无终端进程；| head -3=取前3行
+free -h                       # free=内存使用情况；-h=人类可读（自动 G/M/K）
+uptime                        # 系统运行时长 + 平均负载（读 /proc/uptime + /proc/loadavg）
+cat /proc/sys/net/ipv4/ip_forward    # 运维常用：是否开启 IP 转发（cat=打印文件内容，1=开启 0=关闭）
+ls /proc/$$/fd                # $$=当前 shell 的 PID（ls=列出该进程的 fd 表）
+
+# 模拟输出（CentOS 7）：
+#   $ gcc -std=c99 procinfo_demo.c -o procinfo_demo && ./procinfo_demo
+#   sysname=Linux  nodename=localhost.localdomain
+#   release=3.10.0-1160.el7.x86_64  machine=x86_64
+#   --- /proc/self/status (前5行) ---
+#     Name:	procinfo_demo
+#     State:	R (running)
+#     Tgid:	15680
+#     Pid:	15680
+#     PPid:	14910
+#   --- /proc/uptime ---
+#     86400.12 45230.55       # 系统已运行 86400 秒(1天)，空闲 45230 秒
+#   --- /proc/loadavg ---
+#     0.00 0.01 0.05 1/233 15680   # 1/5/15分钟负载；1/233=当前运行/总进程数；15680=最近创建的 PID
+#   --- ls -l /proc/15680/fd 2>/dev/null | head -5 ---
+#     lrwx------. 1 root root 64 Nov  3 14:20 0 -> /dev/pts/0
+#     lrwx------. 1 root root 64 Nov  3 14:20 1 -> /dev/pts/0
+#     lrwx------. 1 root root 64 Nov  3 14:20 2 -> /dev/pts/0
+#   $ ps aux | head -3
+#   USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+#   root         1  0.0  0.1 193788  4452 ?        Ss   Nov01   0:04 /usr/lib/systemd/systemd
+#   root         2  0.0  0.0      0     0 ?        S    Nov01   0:00 [kthreadd]
+#   $ free -h
+#                 total        used        free      shared  buff/cache   available
+#   Mem:           15G        3.1G        1.0G         34M         11G         11G
+#   $ uptime
+#    14:20:01 up  1 day,  0:00,  2 users,  load average: 0.00, 0.01, 0.05
+#   $ cat /proc/sys/net/ipv4/ip_forward
+#   0
+#   $ ls /proc/$$/fd
+#   0  1  2  255
 ```
 
 ```python
@@ -2426,6 +2902,12 @@ I/O 性能的关键在于**缓冲**——内核有**页缓存**（page cache）�
 6. **混合使用库函数与系统调用**：`FILE*` 有用户态缓冲，直接用 fd 操作会与它冲突——**混用前必须先 `fflush()`**
 
 ```c
+/* ===== 设计注释 buf_demo.c =====
+ * 演示：stdio 缓冲、write 系统调用直写、fsync 强制落盘三层对比
+ * 关键：printf 默认行缓冲/全缓冲，exit 冲刷而 _exit 不冲刷（第 13 章核心）
+ * 编译：gcc -std=c99 buf_demo.c -o buf_demo
+ * 运行：./buf_demo
+ */
 /* buf_demo.c：stdio 缓冲 vs 系统调用 vs fsync */
 #include <stdio.h>
 #include <unistd.h>
@@ -2461,15 +2943,42 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；buf_demo.c=源文件；-o buf_demo=输出可执行名
 gcc -std=c99 buf_demo.c -o buf_demo
 
 # 对比：终端(行缓冲) vs 重定向到文件(块缓冲)，输出顺序会不同！
-./buf_demo
-echo "===== 重定向后 ====="
+./buf_demo    # 直接跑：stdout 连终端 → 行缓冲（遇到换行就刷新）
+echo "===== 重定向后 ====="   # echo=打印分隔提示行
+#   ./buf_demo=再跑一次；> out.txt=把标准输出重定向到文件（此时变块缓冲）；
+#   2>&1=把标准错误也合并进同一个文件；;=分隔符（前面的命令结束就执行下一条，不管成败）；
+#   cat out.txt=查看文件里的输出顺序
 ./buf_demo > out.txt 2>&1; cat out.txt
 
 # 用 strace 观察 printf 不带 fflush 时是否真的调用了 write
+# 参数解释：strace=系统调用跟踪器；-e trace=write=只跟踪 write 调用；
+#   ./buf_demo=要跟踪的程序；> /dev/null=丢弃程序自身的输出，只留 strace 的行
 strace -e trace=write ./buf_demo > /dev/null
+
+# 模拟输出（CentOS 7）：
+#   $ ./buf_demo
+#   stderr: appears immediately (unbuffered)     # stderr 无缓冲，立刻出现
+#   write(): straight to kernel                  # write 是系统调用，直接进内核
+#   stdio: no newline yetstdio: flushed now      # 两行贴在一起：fflush 前无换行
+#
+#   $ ./buf_demo > out.txt 2>&1; cat out.txt
+#   stderr: appears immediately (unbuffered)
+#   write(): straight to kernel
+#   stdio: no newline yetstdio: flushed now
+#   （本例因程序里显式调了 fflush，重定向后顺序一致；真正的差异要靠 strace 看
+#     write 调用的"时机"——不 fflush 时 printf 的内容会拖到程序退出才写）
+#
+#   $ strace -e trace=write ./buf_demo > /dev/null
+#   write(2, "stderr: appears immediately (unbuffered)\n", 41) = 41
+#   write(1, "write(): straight to kernel\n", 28) = 28
+#   write(1, "stdio: no newline yet", 22) = 22     # fflush 触发
+#   write(1, "stdio: flushed now\n", 19) = 19      # 程序退出时缓冲被刷新
+#   write(3, "buffered by stdio + raw write", 30) = 30   # /tmp/mix.txt
+#   write(4, "important data", 14) = 14                 # /tmp/fsync.txt
 ```
 
 ```python
@@ -2563,6 +3072,12 @@ with open("/tmp/nobuf.txt", "wb", buffering=0) as f:
 10. **statvfs()**：查询文件系统的容量信息（总块数、可用块数）——`df` 命令的数据来源
 
 ```c
+/* ===== 设计注释 fs_demo.c =====
+ * 演示：statvfs 查看文件系统容量、文件 i 节点信息
+ * 关键：对比 stat 与 statvfs：前者看【文件】，后者看【所在文件系统】
+ * 编译：gcc -std=c99 fs_demo.c -o fs_demo
+ * 运行：./fs_demo <路径>
+ */
 /* fs_demo.c：查看文件的 i 节点信息 + 文件系统容量 */
 #include <stdio.h>
 #include <sys/stat.h>
@@ -2602,16 +3117,63 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；fs_demo.c=源文件；-o fs_demo=输出可执行名；
+#   && ./fs_demo /etc/passwd=编译成功后运行，argv[1]=/etc/passwd；
+#   && ./fs_demo /=再运行一次，argv[1]=/（看目录的元数据）
 gcc -std=c99 fs_demo.c -o fs_demo && ./fs_demo /etc/passwd && ./fs_demo /
 
 # 命令行对照
-stat /etc/passwd          # 完整元数据：inode、链接数、设备、时间戳
-ls -i /etc/passwd         # 只显示 inode 号
-df -h /                   # 容量（底层就是 statvfs）
-df -i /                   # inode 使用率（排障必备）
-df -T                     # 显示文件系统类型：ext4 / xfs / tmpfs
-mount | head -5           # 查看当前挂载的文件系统
-find / -xdev -inum <ino>  # 按 inode 号找文件——能找出同一文件的所有硬链接
+stat /etc/passwd          # stat=显示文件完整元数据（inode、链接数、设备、时间戳）
+ls -i /etc/passwd         # ls=列出；-i=同时显示 inode 号
+df -h /                   # df=磁盘空间；-h=人类可读；/=指定路径（底层就是 statvfs）
+df -i /                   # -i=看 inode 使用率（海量小文件排障必备）
+df -T                     # -T=同时显示文件系统类型（ext4 / xfs / tmpfs）
+mount | head -5           # mount=列出当前挂载；| head -5=只取前 5 行
+find / -xdev -inum <ino>  # find=查找；/=从根找；-xdev=不跨文件系统；-inum=按 inode 号找；
+                          #   <ino>=替换成上一步查到的 inode 号——能找出同一文件的所有硬链接
+
+# 模拟输出（CentOS 7，根文件系统是 xfs）：
+#   $ gcc -std=c99 fs_demo.c -o fs_demo && ./fs_demo /etc/passwd && ./fs_demo /
+#   path        : /etc/passwd
+#   inode       : 33574978
+#   hard links  : 1
+#   device      : major=253 minor=0
+#   size        : 2711 bytes (8 blocks of 512B)
+#   type        : regular file
+#   filesystem  : total=20480 MB, available=10240 MB (50.0% used)
+#   path        : /
+#   inode       : 64
+#   hard links  : 19
+#   device      : major=253 minor=0
+#   size        : 4096 bytes (8 blocks of 512B)
+#   type        : directory
+#   $ stat /etc/passwd
+#     File: ‘/etc/passwd’
+#     Size: 2711      	Blocks: 8          IO Block: 4096   regular file
+#   Device: fd00h/64768d	Inode: 33574978    Links: 1
+#   Access: (0644/-rw-r--r--)  Uid: (    0/    root)   Gid: (    0/    root)
+#   Access: 2026-08-31 14:20:01.123456789 +0800
+#   Modify: 2026-08-01 10:00:00.123456789 +0800
+#   Change: 2026-08-01 10:00:00.123456789 +0800
+#   $ ls -i /etc/passwd
+#   33574978 /etc/passwd
+#   $ df -h /
+#   Filesystem      Size  Used Avail Use% Mounted on
+#   /dev/mapper/centos-root   20G  10G  10G  50% /
+#   $ df -i /
+#   Filesystem      Inodes  IUsed   IFree IUse% Mounted on
+#   /dev/mapper/centos-root 1310720 29154 1281566    3% /
+#   $ df -T
+#   Filesystem     Type     1K-blocks    Used Available Use% Mounted on
+#   /dev/mapper/centos-root xfs       20961280 10485760 10475520  50% /
+#   $ mount | head -5
+#   /dev/mapper/centos-root on / type xfs (rw,relatime,seclabel,attr2,inode64,noquota)
+#   proc on /proc type proc (rw,nosuid,nodev,noexec,relatime)
+#   sysfs on /sys type sysfs (rw,nosuid,nodev,noexec,relatime)
+#   devtmpfs on /dev type devtmpfs (rw,nosuid,size=8127432k,nr_inodes=2031858,mode=755)
+#   tmpfs on /dev/shm type tmpfs (rw,nosuid,nodev)
+#   $ find / -xdev -inum 33574978
+#   /etc/passwd
 ```
 
 ```python
@@ -2708,6 +3270,12 @@ print(f"total={total:.1f} GB, available={avail:.1f} GB")
 7. **i 节点标志（ext2 扩展文件属性）**：通过 `chattr`/`lsattr` 管理。如 `immutable`（不可修改，连 root 也不能删——防篡改利器）、`append-only`（只能追加）
 
 ```c
+/* ===== 设计注释 stat_demo.c =====
+ * 演示：stat/lstat 解读文件元数据：inode、链接数、权限位、三个时间戳
+ * 关键：区分 atime/mtime/ctime；S_ISUID/S_ISGID/S_ISVTX 位检测
+ * 编译：gcc -std=c99 stat_demo.c -o stat_demo
+ * 运行：./stat_demo <路径>  （试试 /tmp 看 sticky 位、/usr/bin/passwd 看 SUID）
+ */
 /* stat_demo.c：解读文件的全部元数据与权限位 */
 #include <stdio.h>
 #include <sys/stat.h>
@@ -2751,19 +3319,30 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；stat_demo.c=源文件；-o stat_demo=输出可执行名
 gcc -std=c99 stat_demo.c -o stat_demo
-./stat_demo /etc/passwd       # 普通文件
-./stat_demo /tmp              # 注意最后的 t —— sticky 位
-./stat_demo /usr/bin/passwd   # 注意属主执行位是 s —— SUID
+./stat_demo /etc/passwd       # 参数=文件名（普通文件）
+./stat_demo /tmp              # /tmp 注意最后的 t —— sticky 位
+./stat_demo /usr/bin/passwd   # /usr/bin/passwd 注意属主执行位是 s —— SUID
 
 # 命令行对照
-stat /etc/passwd              # 三个时间戳一目了然
-ls -l  /etc/passwd            # mtime
-ls -lc /etc/passwd            # ctime
-ls -lu /etc/passwd            # atime
-chmod 4755 myfile             # 4=SUID, 2=SGID, 1=sticky（前缀数字）
-chattr +i important.txt       # 设为不可修改（需 root，连 root 也删不掉）
-lsattr important.txt          # 查看 i 节点标志
+stat /etc/passwd              # stat=命令行版，三个时间戳一目了然
+ls -l  /etc/passwd            # ls -l=长格式（默认显示 mtime）
+ls -lc /etc/passwd            # -c=显示 ctime
+ls -lu /etc/passwd            # -u=显示 atime
+chmod 4755 myfile             # chmod 4位前缀：4=SUID, 2=SGID, 1=sticky
+chattr +i important.txt       # chattr=改文件属性；+i=设为不可修改（需 root，连 root 也删不掉）
+lsattr important.txt          # lsattr=查看 i 节点标志
+
+# 模拟输出（CentOS 7）：
+#   $ ./stat_demo /etc/passwd
+#   文件: /etc/passwd  inode: 16777342  nlink: 1  大小: 1234 字节
+#   属主/组权限: uid=0 gid=0 mode=-rw-r--r--
+#   三时间: atime=Mon Aug 31 09:00:01 2026   # 访问时间（读内容会变）
+#           mtime=Mon Aug 31 08:30:00 2026   # 内容修改时间（改内容会变）
+#           ctime=Mon Aug 31 08:31:00 2026   # 状态变更时间（chmod/chown 会变）
+#   $ chmod 4755 myfile && ls -l myfile
+#   -rwsr-xr-x 1 kanghua kanghua 0 Aug 31 09:00 myfile   # 注意属主位是 s！
 ```
 
 ```python
@@ -2846,6 +3425,12 @@ print("readable:", os.access("/etc/passwd", os.R_OK))
 5. **限制**：不同文件系统对单个 value 的大小和总大小有限制（ext4 上单个 value 通常 ≤ 4KB，且所有 xattr 加起来不能超过一个文件系统块）
 
 ```c
+/* ===== 设计注释 xattr_demo.c =====
+ * 演示：setxattr/getxattr/listxattr/removexattr 扩展属性增删查
+ * 关键：扩展属性有 user. 命名空间限制；容量不够时返回 ERANGE 需重试
+ * 编译：gcc -std=c99 xattr_demo.c -o xattr_demo
+ * 运行：./xattr_demo
+ */
 /* xattr_demo.c：设置 / 读取 / 列出 / 删除扩展属性 */
 #include <stdio.h>
 #include <string.h>
@@ -2887,17 +3472,36 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；xattr_demo.c=源文件；-o xattr_demo=输出可执行名；
+#   && ./xattr_demo=编译成功才运行
 gcc -std=c99 xattr_demo.c -o xattr_demo && ./xattr_demo
 
 # 命令行工具（attr 软件包）
 setfattr -n user.comment -v "VIP customer" file.txt
-getfattr -d file.txt            # -d 只显示 user 命名空间
-getfattr -d -m - file.txt       # 显示所有命名空间
-setfattr -x user.comment file.txt
+#   setfattr=设置扩展属性；-n=属性名；-v=属性值；file.txt=目标文件
+getfattr -d file.txt            # getfattr=读取；-d=只显示 user 命名空间（默认行为）
+getfattr -d -m - file.txt       # -m -=匹配模式设为"所有命名空间"（- 表示不加前缀限制）
+setfattr -x user.comment file.txt   # -x=按名字删除该属性
 
 # 关键观察：ACL 其实就是一个扩展属性
 touch /tmp/t && setfacl -m u:nobody:r /tmp/t 2>/dev/null
-getfattr -d -m - /tmp/t         # 会看到 system.posix_acl_access
+#   touch=创建空文件；&&=成功才继续；setfacl=设置 ACL；-m=添加/修改条目；
+#   u:nobody:r=给用户 nobody 读权限；/tmp/t=目标；2>/dev/null=丢弃错误输出（无 ACL 支持时）
+getfattr -d -m - /tmp/t         # 会看到 system.posix_acl_access（ACL 的存在形式）
+
+# 模拟输出（CentOS 7，ext4/xfs 均支持 xattr）：
+#   $ gcc -std=c99 xattr_demo.c -o xattr_demo && ./xattr_demo
+#   user.comment = VIP customer
+#   all xattrs: [user.comment]
+#   $ setfattr -n user.comment -v "VIP customer" file.txt
+#   $ getfattr -d file.txt
+#   # file: file.txt
+#   user.comment="VIP customer"
+#   $ setfattr -x user.comment file.txt          # 删除后无输出
+#   $ touch /tmp/t && setfacl -m u:nobody:r /tmp/t 2>/dev/null
+#   $ getfattr -d -m - /tmp/t
+#   # file: /tmp/t
+#   system.posix_acl_access=0sAgEAAAAA...        # 看到它 = ACL 就是扩展属性！
 ```
 
 ```python
@@ -2994,31 +3598,57 @@ except OSError as e:
 
 ```bash
 # ===== ACL 实操演示 =====
+# 参数解释：mkdir=建目录；-p=中间目录不存在时自动创建；&&=成功才继续；cd=进入目录
 mkdir -p /tmp/acldemo && cd /tmp/acldemo
+#   echo=打印内容；> file.txt=写入文件；chmod=改权限；640=属主rw、属组r、其他无
 echo "secret data" > file.txt && chmod 640 file.txt
-ls -l file.txt              # 注意：权限位后面【没有 +】
+ls -l file.txt              # ls=列出；-l=长格式（注意：此时权限位后面【没有 +】）
 
 # 1. 给特定用户授权（需 root；把 bob 换成你系统里存在的普通用户名）
+#   sudo=以 root 身份执行；setfacl=设置 ACL；-m=添加/修改条目；
+#   u:bob:rw=给"用户 bob"读写权限（格式=类型:限定符:权限）
 sudo setfacl -m u:bob:rw file.txt
-ls -l file.txt              # 现在权限位后面多了个【+】：-rw-rw----+
-getfacl -p file.txt         # 查看完整 ACL
+ls -l file.txt              # 现在权限位后面多了个【+】：-rw-rw----+（+ = 带扩展 ACL）
+getfacl -p file.txt         # getfacl=查看 ACL；-p=不带 ACL 时不显示无效默认条目
 
 # 2. 给特定组授权
-sudo setfacl -m g:devs:r file.txt
+sudo setfacl -m g:devs:r file.txt    # g:devs:r=给"组 devs"读权限
 
 # 3. 设置 mask —— 观察它如何削减实际权限
-sudo setfacl -m m::r file.txt
-getfacl -p file.txt         # 注意输出里的 "#effective:r--" 注释
+sudo setfacl -m m::r file.txt        # m::r=把 mask（掩码）设为只读
+getfacl -p file.txt         # 注意输出里的 "#effective:r--" 注释（实际权限被 mask 削减）
 
 # 4. 默认 ACL：目录下新建的文件自动继承
-mkdir shared
-sudo setfacl -d -m u:bob:rw shared
-touch shared/newfile.txt
+mkdir shared                # mkdir=建目录
+sudo setfacl -d -m u:bob:rw shared   # -d=设置"默认 ACL"（只对目录有意义，子项自动继承）
+touch shared/newfile.txt    # touch=创建空文件（在带默认 ACL 的目录里）
 getfacl -p shared/newfile.txt      # 新文件已继承 ACL
 
 # 5. 清除
-sudo setfacl -x u:bob file.txt     # 删单条
-sudo setfacl -b file.txt           # 删全部扩展 ACL
+sudo setfacl -x u:bob file.txt     # -x=删除单条条目（给 bob 的那条）
+sudo setfacl -b file.txt           # -b=删除所有扩展 ACL 条目
+
+# 模拟输出（CentOS 7，bob 换成真实用户后）：
+#   $ mkdir -p /tmp/acldemo && cd /tmp/acldemo
+#   $ echo "secret data" > file.txt && chmod 640 file.txt
+#   $ ls -l file.txt
+#   -rw-r----- 1 root root 12 Nov  3 14:20 file.txt     # 无 +
+#   $ sudo setfacl -m u:bob:rw file.txt
+#   $ ls -l file.txt
+#   -rw-rw----+ 1 root root 12 Nov  3 14:20 file.txt    # 出现 +（属组位显示的其实是 mask）
+#   $ getfacl -p file.txt
+#   user::rw-
+#   user:bob:rw-
+#   group::r--
+#   mask::rw-
+#   other::---
+#   $ sudo setfacl -m m::r file.txt
+#   $ getfacl -p file.txt
+#   user::rw-
+#   user:bob:rw-          #effective:r--      # mask=r-- 后 bob 实际只有读
+#   group::r--           #effective:r--
+#   mask::r--
+#   other::---
 ```
 
 ```
@@ -3120,6 +3750,12 @@ print(subprocess.run(["ls", "-l", path], capture_output=True, text=True).stdout)
    - `realpath()`：把路径彻底展开（解析 `.`、`..` 和符号链接）
 
 ```c
+/* ===== 设计注释 link_demo.c =====
+ * 演示：link/symlink/readlink 创建链接 + opendir/readdir 遍历目录
+ * 关键：硬链接不能跨文件系统/目录；符号链接有自己的 inode
+ * 编译：gcc -std=c99 link_demo.c -o link_demo
+ * 运行：./link_demo <目录>
+ */
 /* link_demo.c：硬链接 vs 符号链接 + 目录遍历 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -3175,24 +3811,47 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；link_demo.c=源文件；-o link_demo=输出可执行名；
+#   && ./link_demo=编译成功才运行
 gcc -std=c99 link_demo.c -o link_demo && ./link_demo
 
 # 直观对比：inode 号
-ln /tmp/orig.txt /tmp/hard.txt         # 硬链接
-ln -s /tmp/orig.txt /tmp/soft.txt      # 符号链接
+ln /tmp/orig.txt /tmp/hard.txt         # ln=创建硬链接（默认行为）
+ln -s /tmp/orig.txt /tmp/soft.txt      # -s=创建符号链接
 ls -li /tmp/orig.txt /tmp/hard.txt /tmp/soft.txt
+#   ls=列出；-l=长格式；-i=显示 inode 号；三个路径为参数
 #   orig 与 hard 的 inode【相同】，soft 的 inode【不同】
 
 # 删除原文件后：硬链接仍能读，软链接失效
-rm /tmp/orig.txt
-cat /tmp/hard.txt      # 能读（数据还在）
-cat /tmp/soft.txt      # 失败：No such file or directory（悬空）
+rm /tmp/orig.txt           # rm=删除（本质是 unlink：链接计数减 1，数据未删）
+cat /tmp/hard.txt      # cat=打印内容（能读：hard 还指向那个 inode，数据还在）
+cat /tmp/soft.txt      # 失败：No such file or directory（软链接存的是路径，目标没了就悬空）
 
 # 找系统里的悬空链接
+#   find=查找；/=从根开始；-xtype l=找"指向不存在目标的符号链接"；2>/dev/null=丢弃无权限报错；
+#   | head=只取前 10 行
 find / -xtype l 2>/dev/null | head
 
 # 目录操作
-mkdir -p a/b/c && rmdir a/b/c          # rmdir 只能删空目录
+mkdir -p a/b/c && rmdir a/b/c          # mkdir=建目录；-p=自动建中间层；rmdir=删目录（只能删空目录）
+
+# 模拟输出（CentOS 7）：
+#   $ gcc -std=c99 link_demo.c -o link_demo && ./link_demo
+#   hard link : inode=33574978 links=2 type=regular     # links=2：两个名字指向同一 inode
+#   soft link : inode=33574979 links=1 type=symlink size=13 (size=路径字符串长度)
+#   symlink   : -> /tmp/orig.txt
+#   first 5 entries in /tmp:
+#     ...
+#   realpath  : /tmp/orig.txt
+#   $ ls -li /tmp/orig.txt /tmp/hard.txt /tmp/soft.txt
+#   33574978 -rw-r--r-- 1 root root 6 Nov  3 14:20 /tmp/orig.txt
+#   33574978 -rw-r--r-- 2 root root 6 Nov  3 14:20 /tmp/hard.txt   # inode 相同！
+#   33574979 lrwxrwxrwx 1 root root 13 Nov  3 14:20 /tmp/soft.txt -> /tmp/orig.txt
+#   $ rm /tmp/orig.txt
+#   $ cat /tmp/hard.txt
+#   hello
+#   $ cat /tmp/soft.txt
+#   cat: /tmp/soft.txt: No such file or directory      # 悬空链接
 ```
 
 ```python
@@ -3288,6 +3947,12 @@ print("listdir  :", os.listdir("/tmp")[:5])
    - `max_queued_events`：事件队列长度（满了会丢弃并报 `IN_Q_OVERFLOW`）
 
 ```c
+/* ===== 设计注释 inotify_demo.c =====
+ * 演示：inotify 监控目录事件（创建/删除/修改/移动）
+ * 关键：inotify fd 也是 fd——可与 epoll 统一监听（第 63 章思想）
+ * 编译：gcc -std=c99 inotify_demo.c -o inotify_demo
+ * 运行：./inotify_demo <目录>  （另开终端在该目录增删文件观察事件）
+ */
 /* inotify_demo.c：监控目录中的文件变化事件 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -3341,25 +4006,44 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；inotify_demo.c=源文件；-o inotify_demo=输出可执行名
 gcc -std=c99 inotify_demo.c -o inotify_demo
 
 # 终端 1：启动监控
+#   mkdir=建目录；-p=已存在也不报错；&&=成功才继续；./inotify_demo=运行程序；
+#   /tmp/inotify_test=要监控的目录（argv[1]）
 mkdir -p /tmp/inotify_test && ./inotify_demo /tmp/inotify_test
 
 # 终端 2：制造事件（观察 MODIFY 与 CLOSE_WRITE 的先后）
-cd /tmp/inotify_test
-touch a.txt
-echo hi > b.txt        # 注意：先 MODIFY，再 CLOSE_WRITE
-mv a.txt c.txt         # MOVED_FROM + MOVED_TO
-rm b.txt               # DELETE
+cd /tmp/inotify_test      # cd=进入监控目录
+touch a.txt               # touch=创建空文件 → CREATE
+echo hi > b.txt        # echo=写内容；> b.txt=写入文件 → 先 MODIFY（写的过程），再 CLOSE_WRITE（写完关闭）
+mv a.txt c.txt         # mv=移动/改名 → MOVED_FROM（旧名消失）+ MOVED_TO（新名出现）
+rm b.txt               # rm=删除 → DELETE
 
 # 系统限制（跑 Docker / IDE / 同步工具时常见瓶颈）
 cat /proc/sys/fs/inotify/max_user_watches      # 每用户最大监控数（常见 8192 或 524288）
-cat /proc/sys/fs/inotify/max_user_instances
-cat /proc/sys/fs/inotify/max_queued_events
+cat /proc/sys/fs/inotify/max_user_instances   # 每用户最多可创建的 inotify 实例数
+cat /proc/sys/fs/inotify/max_queued_events    # 事件队列长度（满了丢事件并报 IN_Q_OVERFLOW）
 
 # 现成命令行工具（inotify-tools 包）
-inotifywait -m -r /tmp/inotify_test            # -m 持续，-r 递归
+inotifywait -m -r /tmp/inotify_test            # inotifywait=监听工具；-m=持续监控；-r=递归子目录
+
+# 模拟输出（CentOS 7，终端 1 的 inotify_demo 会依次打出）：
+#   watching /tmp/inotify_test (wd=1)...
+#   在另一个终端对该目录做操作试试
+#     CREATE        a.txt
+#     MODIFY        b.txt          # 先 MODIFY
+#     CLOSE_WRITE   b.txt          # 再 CLOSE_WRITE（写完才关闭）
+#     MOVED_FROM    a.txt          # mv 触发两个事件
+#     MOVED_TO      c.txt
+#     DELETE        b.txt
+#   $ cat /proc/sys/fs/inotify/max_user_watches
+#   8192
+#   $ cat /proc/sys/fs/inotify/max_user_instances
+#   128
+#   $ cat /proc/sys/fs/inotify/max_queued_events
+#   16384
 ```
 
 ```python
@@ -3473,6 +4157,12 @@ except KeyboardInterrupt:
 10. `pause()`：挂起进程，直到收到一个信号（且该信号的处理器执行完毕）才返回
 
 ```c
+/* ===== 设计注释 sig_demo.c =====
+ * 演示：signal/sigaction 注册处理器、sigprocmask 阻塞、sigpending 查看
+ * 关键：被阻塞的信号不会丢，解除阻塞后【只递送一次】
+ * 编译：gcc -std=c99 sig_demo.c -o sig_demo
+ * 运行：./sig_demo （另开终端 kill -INT/-TERM <PID> 体验）
+ */
 /* sig_demo.c：注册处理器、阻塞信号、查看 pending */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -3524,14 +4214,16 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；sig_demo.c=源文件；-o sig_demo=输出可执行名；
+#   && ./sig_demo=编译成功才运行（运行后注意打印出的 PID）
 gcc -std=c99 sig_demo.c -o sig_demo && ./sig_demo
 
-# 在另一个终端操作
-kill -INT  <PID>     # 发送 SIGINT（等价于 Ctrl+C）
-kill -TERM <PID>     # 优雅终止（kill 的默认信号）
-kill -9    <PID>     # SIGKILL：无法被捕获/忽略
-kill -0    <PID>     # 空信号：只检查进程是否存在
-kill -l              # 列出所有信号名与编号
+# 在另一个终端操作（<PID> 换成程序打印出的进程号）
+kill -INT  <PID>     # kill=发信号命令；-INT=发送 SIGINT（等价于 Ctrl+C，可被捕获）
+kill -TERM <PID>     # -TERM=发送 SIGTERM（优雅终止，kill 的默认信号）
+kill -9    <PID>     # -9=SIGKILL：强制终止（无法被捕获/忽略）
+kill -0    <PID>     # -0=空信号：不真发信号，只检查进程是否存在（0=存在，错=不存在）
+kill -l              # -l=列出所有信号名与编号
 
 # ==== 常用信号速查 ====
 # SIGINT(2)   Ctrl+C    终止（可捕获）
@@ -3544,6 +4236,13 @@ kill -l              # 列出所有信号名与编号
 # SIGCHLD(17)           子进程终止或停止（第26章）
 # SIGCONT(18)           继续运行
 # SIGSTOP(19)           暂停（【不可捕获/忽略】）
+
+# 模拟输出（CentOS 7）：
+#   $ ./sig_demo
+#   PID=1234，按 Ctrl+C 试试（或另开终端 kill -INT 1234）
+#   [handler] 收到信号 2 (SIGINT)      # 捕获后程序继续运行，不退出
+#   [handler] 收到信号 15 (SIGTERM)    # kill -TERM 也被捕获
+#   （若发 kill -9 1234：进程立即消失，处理器不执行 —— 无法捕获）
 ```
 
 ```python
@@ -3658,6 +4357,12 @@ def pid_exists(pid):
    - 若不设该标志，代码**必须处理 EINTR**（循环重试或退出）
 
 ```c
+/* ===== 设计注释 sig_handler.c =====
+ * 演示：三种处理器写法（信号处理/恢复默认/忽略）+ EINTR 慢系统调用中断
+ * 关键：处理器中只能用 async-signal-safe 函数（write 可以，printf 不行）
+ * 编译：gcc -std=c99 sig_handler.c -o sig_handler
+ * 运行：./sig_handler
+ */
 /* sig_handler.c：三种处理器写法 + EINTR 演示 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -3728,11 +4433,19 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；sig_handler.c=源文件；-o sig_handler=输出可执行名；
+#   && ./sig_handler=编译成功才运行（运行后程序会打印 PID 和操作提示）
 gcc -std=c99 sig_handler.c -o sig_handler && ./sig_handler
 
-# 另开终端，分别发不同信号观察效果
-kill -USR1 <PID>     # 只设标志，主循环处理
-kill -USR2 <PID>     # SA_SIGINFO：显示发送者 PID/UID
+# 另开终端，分别发不同信号观察效果（<PID> 换成程序打印的进程号）
+kill -USR1 <PID>     # kill=发信号；-USR1=发送 SIGUSR1（自定义信号）→ 处理器只设标志，主循环处理
+kill -USR2 <PID>     # -USR2=发送 SIGUSR2 → SA_SIGINFO 处理器：显示发送者 PID/UID
+
+# 模拟输出（CentOS 7，发送 USR1 后）：
+#   PID=15800  另开终端执行: kill -USR1 15800
+#   主循环检测到 flag=10 —— 处理器只设标志，实际处理在主程序完成
+#   再试试: kill -USR2 15800 （会显示发送者 PID）
+#     got signal 12 from pid=14910 uid=1000 (si_code=0)   # 12=SIGUSR2，si_code=0 表示 kill 发送
 ```
 
 ```python
@@ -3846,6 +4559,12 @@ print("主循环检测到 flag=True")
    **最大价值：信号可以放进 select/poll/epoll 事件循环**，与网络 I/O 统一处理——现代服务程序的推荐做法。
 
 ```c
+/* ===== 设计注释 sig_adv.c =====
+ * 演示：sigsuspend 原子地等待信号（消除竞态）+ signalfd 把信号变成 fd
+ * 关键：先 sigprocmask 阻塞再 sigsuspend 替换，中间不丢信号；signalfd 可进 epoll
+ * 编译：gcc -std=c99 -D_GNU_SOURCE sig_adv.c -o sig_adv
+ * 运行：./sig_adv
+ */
 /* sig_adv.c：sigsuspend 原子等待 + signalfd 统一事件 */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -3908,21 +4627,36 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-D_GNU_SOURCE=定义 GNU 扩展宏（signalfd 需要）；
+#   sig_adv.c=源文件；-o sig_adv=输出可执行名；&& ./sig_adv=编译成功才运行
 gcc -std=c99 -D_GNU_SOURCE sig_adv.c -o sig_adv && ./sig_adv
 
 # core dump 相关
-ulimit -c                        # 查看限制（0 = 不生成 core）
-ulimit -c unlimited              # 允许生成 core 文件
-cat /proc/sys/kernel/core_pattern    # core 文件的命名与存放位置
+ulimit -c                        # ulimit=查看/设置进程资源限制；-c=core 文件大小限制（0 = 不生成）
+ulimit -c unlimited              # unlimited=不限制（这样崩溃才会留下 core 文件给 gdb 调试）
+cat /proc/sys/kernel/core_pattern    # cat=打印内容；core_pattern=内核控制 core 文件的命名与存放位置
 
 # 查看实时信号范围
-kill -l | tail -20               # SIGRTMIN=34, SIGRTMAX=64
+kill -l | tail -20               # kill=信号命令；-l=列出全部信号名与编号；| tail -20=只取最后 20 行（34~64 即实时信号）
 
 # 找出处于不可中断睡眠（D 状态）的进程
+#   ps=进程列表；aux=所有用户+可读格式；| awk=文本处理；
+#   '$8 ~ /^D/ {print}'=第 8 列(STAT)以 D 开头的行全部打印出来
 ps aux | awk '$8 ~ /^D/ {print}'     # 有输出通常意味着 I/O 有问题（如 NFS 挂了）
 
 # 找出僵尸进程（Z 状态）
-ps aux | awk '$8 ~ /^Z/ {print}'
+ps aux | awk '$8 ~ /^Z/ {print}'     # 同上，STAT 列以 Z 开头（已死但父进程没回收）
+
+# 模拟输出（CentOS 7）：
+#   $ ulimit -c
+#   0                             # 默认不生成 core
+#   $ ulimit -c unlimited
+#   $ cat /proc/sys/kernel/core_pattern
+#   core
+#   $ kill -l | tail -20
+#   34) SIGRTMIN       35) SIGRTMIN+1     ...  64) SIGRTMAX
+#   $ ps aux | awk '$8 ~ /^Z/ {print}'
+#   （无输出 = 系统里没有僵尸进程，正常）
 ```
 
 ```python
@@ -4041,6 +4775,12 @@ Linux 提供两类定时能力：**"让进程睡一会儿"**（sleep / nanosleep
      2. **到期次数用计数器累计，不会像信号那样丢事件**
 
 ```c
+/* ===== 设计注释 timer_demo.c =====
+ * 演示：CLOCK_MONOTONIC、setitimer 信号定时、nanosleep 睡眠、timerfd 定时器
+ * 关键：setitimer 产生 SIGALRM（需配合信号）；timerfd 返回 fd 可进 epoll
+ * 编译：gcc -std=c99 -D_GNU_SOURCE timer_demo.c -o timer_demo
+ * 运行：./timer_demo
+ */
 /* timer_demo.c：单调时钟、setitimer、nanosleep、timerfd 四种玩法 */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -4130,12 +4870,37 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-D_GNU_SOURCE=定义 GNU 扩展宏（timerfd 需要）；
+#   timer_demo.c=源文件；-o timer_demo=输出可执行名；&& ./timer_demo=编译成功才运行
 gcc -std=c99 -D_GNU_SOURCE timer_demo.c -o timer_demo && ./timer_demo
 
 # 内核时钟频率（jiffies）
-getconf CLK_TCK
+getconf CLK_TCK                  # getconf=查询系统配置值；CLK_TCK=每秒时钟滴答数（通常 100）
 # 时钟精度
 python3 -c "import time; print(time.get_clock_info('monotonic'))"
+#   python3=解释器；-c=执行引号里的 Python 代码；get_clock_info=查看时钟的实现/精度/是否可调
+
+# 模拟输出（CentOS 7）：
+#   === 1. 单调时钟 vs 墙钟 ===
+#     CLOCK_REALTIME  : 1767225800.123456789  (墙钟，可被 NTP/用户修改)
+#     CLOCK_MONOTONIC : 90123.456789012      (单调，不倒流，测耗时用它)
+#   === 2. setitimer（SIGALRM 通知）===
+#     每 1 秒触发 SIGALRM，等待 3 次...
+#       -> 第 1 次到期
+#       -> 第 2 次到期
+#       -> 第 3 次到期
+#   === 3. nanosleep（高分辨率休眠）===
+#     休眠 0.5 秒...
+#       -> 休眠完成
+#   === 4. timerfd（推荐：定时器即 fd）===
+#     fd=3，每 1 秒到期，读 3 次（注意累计次数）...
+#       -> read 返回，累计到期 1 次
+#       -> read 返回，累计到期 1 次
+#       -> read 返回，累计到期 1 次
+#   $ getconf CLK_TCK
+#   100
+#   $ python3 -c "import time; print(time.get_clock_info('monotonic'))"
+#   namespace(adjustable=False, implementation='clock_gettime(CLOCK_MONOTONIC)', monotonic=True, resolution=1e-09)
 ```
 
 ```python
@@ -4226,6 +4991,12 @@ Linux 创建新进程的**唯一**方式是 `fork()`——它**复制**当前进
    父子进程**谁先运行不确定**（取决于调度器）。**绝不要编写依赖执行顺序的代码**；需要同步时用信号、管道或信号量显式同步。
 
 ```c
+/* ===== 设计注释 fork_demo.c =====
+ * 演示：fork 返回两次、子进程从 fork 处继续、父子共享打开文件偏移量
+ * 关键：fork 后父子各自继续执行；共享的是【打开文件描述】而非内存
+ * 编译：gcc -std=c99 fork_demo.c -o fork_demo
+ * 运行：./fork_demo
+ */
 /* fork_demo.c：fork 的两次返回 + 父子共享文件偏移量 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -4274,11 +5045,24 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；fork_demo.c=源文件；-o fork_demo=输出可执行名；
+#   && ./fork_demo=编译成功才运行
 gcc -std=c99 fork_demo.c -o fork_demo && ./fork_demo
 
 # 观察进程树（看清父子关系）
-pstree -p | head -20
+pstree -p | head -20             # pstree=以树形显示进程；-p=同时显示 PID；| head -20=只取前 20 行
 ps -o pid,ppid,stat,comm --forest | head -20
+#   ps=进程列表；-o=自定义输出列（这里要 pid/ppid/stat/comm 四列）；--forest=树形缩进显示父子；
+#   | head -20=只取前 20 行
+
+# 模拟输出（CentOS 7）：
+#   before fork: PID=15830
+#     [child ] PID=15831 PPID=15830，fork() 返回 0
+#     [parent] PID=15830，fork() 返回子进程 PID=15831
+#     [parent] 子进程已结束并被回收
+#   --- 父子共享文件偏移量演示 ---
+#   文件内容应该是 START:childparent（而不是互相覆盖）
+#     START:childparent          # 共享偏移量 → 追加不覆盖
 ```
 
 ```python
@@ -4378,6 +5162,12 @@ subprocess.run(["echo", "hello from subprocess"])
    - `abort()`：给自己发 SIGABRT，通常产生 core dump
 
 ```c
+/* ===== 设计注释 exit_demo.c =====
+ * 演示：exit 与 _exit 的区别、atexit 注册清理函数、退出码传递
+ * 关键：exit 冲刷 stdio 缓冲并执行 atexit，_exit 直接进内核
+ * 编译：gcc -std=c99 exit_demo.c -o exit_demo
+ * 运行：./exit_demo; echo $?   （$? 看退出码）
+ */
 /* exit_demo.c：exit vs _exit，atexit，退出码 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -4424,10 +5214,14 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；exit_demo.c=源文件；-o exit_demo=输出可执行名；
+#   && ./exit_demo=编译成功才运行
 gcc -std=c99 exit_demo.c -o exit_demo && ./exit_demo
 
 # 关键对比实验：块缓冲下的重复输出（更直观）
 cat > /tmp/t.c <<'EOF'
+#   cat=拼接/写文件命令；> /tmp/t.c=把内容写入 /tmp/t.c；<<'EOF'=heredoc（直到 EOF 之前的内容
+#   全部作为 cat 的输入；EOF 加引号表示不做变量展开）
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -4437,8 +5231,25 @@ int main(void) {
     wait(NULL);
     return 0;
 }
-EOF
+EOF                            # heredoc 结束标记
 gcc -o /tmp/t /tmp/t.c && /tmp/t > /tmp/out.txt && cat /tmp/out.txt
+#   gcc=编译器；-o /tmp/t=输出可执行文件到 /tmp/t；/tmp/t.c=源文件；&&=成功才继续；
+#   /tmp/t=运行程序；> /tmp/out.txt=输出重定向到文件（块缓冲更明显）；&&=成功才继续；
+#   cat /tmp/out.txt=查看结果
+
+# 模拟输出（CentOS 7）：
+#   $ gcc -std=c99 exit_demo.c -o exit_demo && ./exit_demo
+#   --- 演示 exit() 会刷新继承来的 stdio 缓冲区 ---
+#     [child] 若我用 exit()，会把父进程缓冲区的那行再打一遍
+#   --- 演示退出码 ---
+#     子进程正常退出，退出码=42
+#     exit(-1) 实际得到的退出码=255（只有低8位有效）
+#   main 返回 —— 即将执行 atexit 注册的清理函数
+#     cleanup2 执行
+#     cleanup1 执行（注意：按注册的【逆序】调用）
+#   $ cat /tmp/out.txt
+#   HELLO                        # 子进程用 _exit(0) 时只输出一次
+#   （把子进程改成 exit(0) 重跑，会看到 HELLOHELLO —— 重复输出！）
 ```
 
 ```python
@@ -4550,6 +5361,12 @@ print("os._exit(-1) ->", os.WEXITSTATUS(st))
    **关键：处理器里必须用 while 循环**——因为**标准信号不排队**，多个子进程同时终止时父进程可能只收到一次 SIGCHLD，只 wait 一次会漏掉其余的。
 
 ```c
+/* ===== 设计注释 wait_demo.c =====
+ * 演示：wait/waitpid 同步回收、WIFEXITED 等宏解析状态、僵尸进程、SIGCHLD 异步回收
+ * 关键：僵尸 = 已退出但没被 wait 的进程；SIGCHLD 处理器必须 while+WNOHANG 循环
+ * 编译：gcc -std=c99 wait_demo.c -o wait_demo
+ * 运行：./wait_demo
+ */
 /* wait_demo.c：wait/waitpid、状态解析、僵尸进程、SIGCHLD 异步回收 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -4629,12 +5446,34 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；wait_demo.c=源文件；-o wait_demo=输出可执行名；
+#   && ./wait_demo=编译成功才运行
 gcc -std=c99 wait_demo.c -o wait_demo && ./wait_demo
 
 # 在另一个终端（趁程序 sleep(3) 时）观察僵尸进程
-ps -l <PID>                          # 看 STAT 列的 Z
-ps aux | awk '$8 ~ /^Z/ {print}'     # 列出所有僵尸进程
+ps -l <PID>                          # ps=进程列表；-l=长格式（看 STAT 列的 Z）；<PID> 换成程序提示的 PID
+ps aux | awk '$8 ~ /^Z/ {print}'     # 列出所有僵尸进程（第 8 列 STAT 以 Z 开头的行全部打印）
 ps aux | awk '$8 ~ /^Z/ {n++} END {print "僵尸进程数:", n+0}'
+#   awk 脚本含义：匹配 Z 状态的行做计数 n++，全部结束后在 END 块打印总数（n+0 保证输出数字）
+
+# 模拟输出（CentOS 7）：
+#   [1] 等待正常退出的子进程
+#     [child] 我将 exit(42)
+#     子进程 15840：正常退出，退出码=42
+#   [2] 等待被信号杀死的子进程
+#     [child] 我等死
+#     子进程 15841：被信号 9 杀死
+#   [3] 制造僵尸进程（父进程 3 秒不回收）
+#     >>> 趁这 3 秒，另开终端执行: ps -l 15842   （STAT 应为 Z）
+#   （另一个终端）$ ps -l 15842
+#   F S   UID   PID  PPID  C PRI  NI ADDR SZ WCHAN  TTY          TIME CMD
+#   0 Z  1000 15842 15840  0  80   0 -     0 -      pts/0      00:00:00 wait_demo   # Z=僵尸！
+#     已回收僵尸进程 15842
+#   [4] 创建 3 个子进程，观察 SIGCHLD 异步回收
+#     [SIGCHLD handler] 回收 子进程 15843：正常退出，退出码=0
+#     [SIGCHLD handler] 回收 子进程 15844：正常退出，退出码=1
+#     [SIGCHLD handler] 回收 子进程 15845：正常退出，退出码=2
+#   主程序结束
 ```
 
 ```python
@@ -4741,6 +5580,12 @@ print("returncode:", r.returncode)           # 就是 wait 到的退出码
 7. **system()**：执行 shell 命令，内部就是 `fork` + `execl("/bin/sh", "sh", "-c", command)` + `waitpid`。**方便，但有命令注入风险**。
 
 ```c
+/* ===== 设计注释 exec_demo.c =====
+ * 演示：exec 函数族用法 + fd 在 exec 后保持打开（shell 重定向的本质）
+ * 关键：exec 失败才返回；成功则代码被替换、不回头
+ * 编译：gcc -std=c99 exec_demo.c -o exec_demo
+ * 运行：./exec_demo
+ */
 /* exec_demo.c：exec 函数族 + fd 继承（重定向的本质） */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -4807,11 +5652,32 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；exec_demo.c=源文件；-o exec_demo=输出可执行名；
+#   && ./exec_demo=编译成功才运行
 gcc -std=c99 exec_demo.c -o exec_demo && ./exec_demo
 
 # shebang 验证
 printf '#!/bin/sh\necho "I am a script"\n' > /tmp/myscript.sh
+#   printf=格式化输出；'#!/bin/sh\necho...'=要写的内容（首行 #! 告诉内核用哪个解释器；
+#   \n=换行）；> /tmp/myscript.sh=写入文件
 chmod +x /tmp/myscript.sh && /tmp/myscript.sh     # 内核按 #! 找到 /bin/sh 执行
+#   chmod=改权限；+x=加上执行权限；&&=成功才继续；/tmp/myscript.sh=直接执行脚本
+#   （内核看到首行 #!/bin/sh，自动用 /bin/sh 解释执行）
+
+# 模拟输出（CentOS 7）：
+#   $ gcc -std=c99 exec_demo.c -o exec_demo && ./exec_demo
+#     [child] 我即将变成 /bin/ls
+#   （ls -l /tmp 的输出……）
+#   hello from execvp
+#   MY_VAR=hello
+#   --- exec 后 fd 保持打开（重定向的本质）---
+#   上面 echo 的输出被重定向到文件，内容为：
+#     这行输出进了文件而不是屏幕
+#   --- system() 执行 date ---
+#   2026年 08月 31日 星期一 14:20:01 CST
+#   system() 返回，子进程退出码=0
+#   $ chmod +x /tmp/myscript.sh && /tmp/myscript.sh
+#   I am a script
 ```
 
 ```python
@@ -4915,6 +5781,12 @@ fork 和 pthread_create 看起来完全不同（一个创建进程、一个创�
 5. **进程记账（process accounting）**：内核可记录每个终止进程的资源使用写入记账文件，用 `acct()` 开启
 
 ```c
+/* ===== 设计注释 clone_demo.c =====
+ * 演示：clone 底层创建线程/进程、fd 继承、pending 信号不继承
+ * 关键：clone 是 fork/pthread_create 的内核底层；CLONE_VM 共享地址空间
+ * 编译：gcc -std=c99 -D_GNU_SOURCE clone_demo.c -o clone_demo
+ * 运行：./clone_demo
+ */
 /* clone_demo.c：clone 共享地址空间 + exec 后 fd 继承 + pending 信号不继承 */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -4987,11 +5859,27 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-D_GNU_SOURCE=定义 GNU 扩展宏（clone 需要）；
+#   clone_demo.c=源文件；-o clone_demo=输出可执行名；&& ./clone_demo=编译成功才运行
 gcc -std=c99 -D_GNU_SOURCE clone_demo.c -o clone_demo && ./clone_demo
 
 # Linux 上线程也有独立 PID（内核视角）
-ps -eLf | head -20          # -L 显示线程（LWP 列）
-top -H                      # -H 按线程显示
+ps -eLf | head -20          # ps=进程列表；-e=所有进程；-L=同时列出线程（LWP 列）；
+                            #   -f=完整格式；| head -20=只取前 20 行
+top -H                      # top=实时进程监视器；-H=按线程而非仅按进程显示
+
+# 模拟输出（CentOS 7）：
+#   main PID=15890
+#   --- 1. clone（CLONE_VM = 共享地址空间）---
+#     [clone] 我与父进程共享地址空间！arg=hello from parent
+#     [clone] 我的 PID=15891（Linux 上线程也有独立 PID）
+#   clone 出的执行流已结束
+#   --- 2. exec 后 fd 保持打开 ---
+#   文件内容：
+#     这行进了文件（fd 1 被 exec 继承）
+#   --- 3. fork 后 pending 信号集被清空 ---
+#   父进程：SIGUSR1 pending = YES
+#   子进程：SIGUSR1 pending = no（被清空了！）
 ```
 
 ```python
@@ -5092,6 +5980,12 @@ print(f"  [parent ] PID={os.getpid()}")
 5. **线程属性**（`pthread_attr_t`）：分离状态、栈大小、调度策略等，一般传 NULL 用默认值
 
 ```c
+/* ===== 设计注释 thread_demo.c =====
+ * 演示：pthread_create/join 创建线程、多线程共享全局变量、取回返回值
+ * 关键：线程共享地址空间（对比进程隔离）；编译需 -pthread
+ * 编译：gcc -std=c99 -pthread thread_demo.c -o thread_demo
+ * 运行：./thread_demo
+ */
 /* thread_demo.c：创建线程、共享变量、join 获取返回值 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -5147,11 +6041,28 @@ int main(void) {
 
 ```bash
 # 编译多线程程序【必须加 -pthread】（它同时定义宏并链接 pthread 库）
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-pthread=启用 POSIX 线程支持
+#   （自动定义 _REENTRANT 宏 + 链接 libpthread，【必须加】，否则编译或链接会报错）；
+#   thread_demo.c=源文件；-o thread_demo=输出可执行名；&& ./thread_demo=编译成功才运行
 gcc -std=c99 -pthread thread_demo.c -o thread_demo && ./thread_demo
 
 # 观察线程（每个线程在内核中都有独立 ID）
-ps -eLf | grep thread_demo          # -L 显示线程，看 LWP 列
-top -H -p <PID>                     # -H 按线程显示
+ps -eLf | grep thread_demo          # ps=进程列表；-e=所有进程；-L=显示线程（LWP 列）；-f=完整格式；
+                                    #   | grep thread_demo=只过滤出本程序相关的行
+top -H -p <PID>                     # top=进程监视器；-H=按线程显示；-p=只监视指定 PID
+
+# 模拟输出（CentOS 7）：
+#   main: PID=15900，主线程 pthread_self=140633327564864
+#     [线程 1] 启动，pthread_self=1397...，PID=15900（与主线程相同）
+#     [线程 2] 启动，pthread_self=1397...，PID=15900
+#     [线程 3] 启动，pthread_self=1397...，PID=15900
+#     [线程 1] shared_counter=1
+#     [线程 2] shared_counter=2      # 无同步时顺序不确定（第 30 章解决）
+#     ...
+#   线程 1 结束，返回值=100
+#   线程 2 结束，返回值=200
+#   线程 3 结束，返回值=300
+#   main: 所有线程结束，shared_counter=9
 ```
 
 ```python
@@ -5247,6 +6158,10 @@ print("main: 所有线程结束，counter =", counter)
    标准模式：
 
 ```c
+/* ===== 设计注释（代码片段，非完整程序）=====
+ * 内容：条件变量【标准使用模式】（mutex + while + cond_wait）
+ * 说明：必须用 while 而非 if（防虚假唤醒）；完整可编译示例见下方 sync_demo.c
+ */
 pthread_mutex_lock(&mutex);
 while (条件不成立) {          /* 关键：while 而不是 if */
     pthread_cond_wait(&cond, &mutex);
@@ -5256,6 +6171,12 @@ pthread_mutex_unlock(&mutex);
 ```
 
 ```c
+/* ===== 设计注释 sync_demo.c =====
+ * 演示：无保护竞态（counter 错乱）+ 互斥量 + 条件变量生产者消费者
+ * 关键：cond_wait 必须 while 循环检查条件（防虚假唤醒）；mutex 与 cond 配对
+ * 编译：gcc -std=c99 -pthread sync_demo.c -o sync_demo
+ * 运行：./sync_demo  （对比有/无锁两种计数器结果）
+ */
 /* sync_demo.c：竞态演示 + 生产者消费者（条件变量经典范式） */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -5351,8 +6272,21 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-pthread=启用 POSIX 线程支持（必须加）；
+#   sync_demo.c=源文件；-o sync_demo=输出可执行名；&& ./sync_demo=编译成功才运行
 gcc -std=c99 -pthread sync_demo.c -o sync_demo && ./sync_demo
 # 多跑几次，观察无锁 counter 每次都可能不同（竞态的不确定性）
+
+# 模拟输出（CentOS 7）：
+#   === 竞态对比（每线程累加 100000 次，两线程）===
+#   无锁   counter = 109325  （期望 200000，实际往往【小于】）   # 每次运行都可能不同！
+#   加锁   counter = 200000  （期望 200000，准确）
+#   === 生产者-消费者（条件变量）===
+#     [生产者] 生产 0，count=1
+#     [消费者] 消费 0，count=0
+#     [生产者] 生产 1，count=1
+#     ...（交替进行，缓冲区满/空时会打印等待信息）
+#   完成，count=0
 ```
 
 ```python
@@ -5481,6 +6415,12 @@ def consumer():
    - 限制：只能用于 POD 类型和指针，不能有复杂的动态初始化
 
 ```c
+/* ===== 设计注释 tls_demo.c =====
+ * 演示：pthread_once 一次性初始化 + pthread_key 线程专属数据 + _Thread_local
+ * 关键：全局变量所有线程共享一份；TLS 每个线程各自一份
+ * 编译：gcc -std=c99 -pthread tls_demo.c -o tls_demo
+ * 运行：./tls_demo
+ */
 /* tls_demo.c：一次性初始化 + TSD + 线程局部存储 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -5537,9 +6477,24 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-pthread=启用 POSIX 线程支持（必须加）；
+#   tls_demo.c=源文件；-o tls_demo=输出可执行名；&& ./tls_demo=编译成功才运行
 gcc -std=c99 -pthread tls_demo.c -o tls_demo && ./tls_demo
 # 观察：两个线程的 tls_counter 各自从 1 数到 3，互不干扰
 # 线程退出时自动调用析构函数释放 TSD
+
+# 模拟输出（CentOS 7）：
+#   [pthread_once] key 已创建 —— 这段只会执行一次
+#     [线程 1] tls_counter=1   TSD=线程1的数据
+#     [线程 2] tls_counter=1   TSD=线程2的数据
+#     [线程 1] tls_counter=2   TSD=线程1的数据
+#     [线程 2] tls_counter=2   TSD=线程2的数据
+#     [线程 1] tls_counter=3   TSD=线程1的数据
+#     [线程 2] tls_counter=3   TSD=线程2的数据
+#     [析构] 自动释放本线程的值: 线程1的数据
+#     [析构] 自动释放本线程的值: 线程2的数据
+#   main: 主线程的 tls_counter=0（主线程从未改过，所以是 0）
+#   （注意：每个线程的 tls_counter 都独立从 1→3，谁也不影响谁！）
 ```
 
 ```python
@@ -5626,6 +6581,12 @@ print("主线程有自己独立的副本，互不干扰")
    - **必须成对出现在同一作用域**（它们通常实现为带 `{` `}` 的宏，不成对会编译失败）
 
 ```c
+/* ===== 设计注释 cancel_demo.c =====
+ * 演示：pthread_cancel 延迟取消 + pthread_cleanup_push 清理函数释放资源
+ * 关键：默认延迟取消只在取消点响应；cleanup 处理函数保证资源不泄漏
+ * 编译：gcc -std=c99 -pthread cancel_demo.c -o cancel_demo
+ * 运行：./cancel_demo
+ */
 /* cancel_demo.c：延迟取消 + 清理函数释放资源 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -5682,8 +6643,20 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-pthread=启用 POSIX 线程支持（必须加）；
+#   cancel_demo.c=源文件；-o cancel_demo=输出可执行名；&& ./cancel_demo=编译成功才运行
 gcc -std=c99 -pthread cancel_demo.c -o cancel_demo && ./cancel_demo
 # 观察：cancel 请求后，worker 在 sleep（取消点）处退出，cleanup 自动执行
+
+# 模拟输出（CentOS 7）：
+#   [worker] 持有锁，开始工作
+#   [worker] 工作中 0
+#   [worker] 工作中 1
+#   main: 请求取消 worker（注意它不会立即消失，而是到取消点才退出）
+#   [cleanup] 释放资源: 互斥量 + 缓冲区      # 到 sleep 取消点时退出，先执行清理
+#   main: 线程已被取消（返回值 = PTHREAD_CANCELED）
+#   main: 锁已归还，主线程加锁试试...
+#   main: 加锁成功 —— 证明清理函数确实释放了锁
 ```
 
 ```python
@@ -5785,6 +6758,12 @@ print("main: 线程已优雅退出（Python 推荐这种协作式停止）")
    - **NPTL**（Native POSIX Thread Library，2.6 内核起的标准）：符合 POSIX，**所有线程共享同一个 PID**（getpid 返回相同的 TGID/线程组 ID），每个线程有自己的 TID（用 `gettid()` 获取，需通过 syscall）
 
 ```c
+/* ===== 设计注释 thread_sig.c =====
+ * 演示：主线程阻塞信号 + 专用线程 sigwait 统一处理（多线程信号最佳实践）
+ * 关键：信号发给进程，哪个线程处理不可控——用 sigwait 交给专用线程
+ * 编译：gcc -std=c99 -pthread thread_sig.c -o thread_sig
+ * 运行：./thread_sig
+ */
 /* thread_sig.c：专门的信号处理线程（多线程信号最佳实践） */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -5847,10 +6826,27 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-pthread=启用 POSIX 线程支持（必须加）；
+#   thread_sig.c=源文件；-o thread_sig=输出可执行名；&& ./thread_sig=编译成功才运行
 gcc -std=c99 -pthread thread_sig.c -o thread_sig && ./thread_sig
 
 # 观察：所有线程 PID 相同，TID 不同
-ps -eLf | grep thread_sig        # PID 列相同，LWP 列（TID）不同
+ps -eLf | grep thread_sig        # ps=进程列表；-e=所有；-L=显示线程；-f=完整格式；
+                                 #   | grep thread_sig=过滤：PID 列相同，LWP 列（TID）不同
+
+# 模拟输出（CentOS 7）：
+#   [信号线程] 启动，专职用 sigwait 同步等待信号
+#     [worker 1] PID=15910 TID=15911（PID 相同，TID 不同）
+#     [worker 2] PID=15910 TID=15912（PID 相同，TID 不同）
+#   >>> 另开终端执行: kill -USR1 15910  （观察由信号线程统一处理）
+#   （另一个终端）$ kill -USR1 15910
+#   [信号线程] 收到信号 10 —— 这里可以【安全使用 printf】
+#     [worker 1] 工作中 0
+#     ...
+#   （再发 kill -INT 15910）
+#   [信号线程] 收到信号 2 —— 这里可以【安全使用 printf】
+#   [信号线程] 收到 SIGINT，退出
+#   main: 工作结束
 ```
 
 ```python
@@ -5975,6 +6971,12 @@ for t in threads: t.join()
    组内所有进程的父进程都不在本会话内（或都已终止），且该组不是前台组——若组内有被停止的进程，内核会发 SIGHUP + SIGCONT 让它醒来再退出（避免永久挂起）。
 
 ```c
+/* ===== 设计注释 session_demo.c =====
+ * 演示：getpgid/getsid 查看进程组与会话、setsid 创建新会话脱离控制终端
+ * 关键：setsid 前提：调用进程不能是进程组组长（先 fork 再 setsid）
+ * 编译：gcc -std=c99 session_demo.c -o session_demo
+ * 运行：./session_demo
+ */
 /* session_demo.c：进程组/会话 IDs 与 setsid 脱离终端 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -6011,18 +7013,22 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；session_demo.c=源文件；-o session_demo=输出可执行名；
+#   && ./session_demo=编译成功才运行
 gcc -std=c99 session_demo.c -o session_demo && ./session_demo
 
 # 观察进程组与会话（看 PGID / SID / TTY 列）
+#   ps=进程列表；-o=自定义输出列；pid=进程号；ppid=父进程号；pgid=进程组号；
+#   sid=会话号；tty=终端；stat=状态；comm=命令名
 ps -o pid,ppid,pgid,sid,tty,stat,comm
 
 # ===== 作业控制实战 =====
-sleep 100 &          # 后台运行
-jobs                 # 查看作业列表
-fg %1                # 调到前台
+sleep 100 &          # 后台运行（& = 放到后台立即返回）
+jobs                 # 查看作业列表（[1]+ Running ...）
+fg %1                # 调到前台（%1=作业编号 1）
 # 按 Ctrl+Z          # 暂停（SIGTSTP），回到 shell
-bg %1                # 后台继续
-jobs -l              # 显示 PID
+bg %1                # 后台继续（发 SIGCONT）
+jobs -l              # 显示作业及 PID（-l=加一列 PID）
 
 # ===== 让进程在终端关闭后依然存活（三种方法）=====
 nohup sleep 300 &            # 方法1：忽略 SIGHUP（仍在原会话）
@@ -6031,6 +7037,18 @@ sleep 300 & disown           # 方法3：从 shell 作业表移除
 
 # 验证：关闭终端后重连，检查是否存活（TTY 为 ? 表示已脱离）
 ps -o pid,ppid,pgid,sid,tty,comm -p <PID>
+
+# 模拟输出（CentOS 7）：
+#   $ gcc -std=c99 session_demo.c -o session_demo && ./session_demo
+#     main:          PID=15920  PPID=15740  PGID=15920  SID=15740
+#     child(继承):   PID=15921  PPID=15920  PGID=15920  SID=15740    # 继承父的 PGID/SID
+#     --- 子进程调用 setsid() 之后 ---
+#     after setsid:  PID=15922  PPID=1      PGID=15922  SID=15922    # PID=PGID=SID！
+#     控制终端: （无 —— 已脱离终端）
+#   （注意：setsid 后 PID=PGID=SID，且无控制终端 —— 这就是 daemon 化的第 2 步）
+#   $ ps -o pid,ppid,pgid,sid,tty,comm -p 15922
+#      PID  PPID  PGID   SID TTY  COMMAND     # TTY 为 ? 表示已脱离终端
+#   （进程已退出，看不到也是正常的——重点看 setsid 后的数值关系）
 ```
 
 ```python
@@ -6127,6 +7145,12 @@ Linux 用 **nice 值（-20 ~ 19，值越小优先级越高）**影响普通进�
    把进程绑定到特定 CPU 核——提高**缓存命中率**、避免核间迁移开销、NUMA 架构下访问本地内存。函数 `sched_setaffinity()`，命令 `taskset`。
 
 ```c
+/* ===== 设计注释 sched_demo.c =====
+ * 演示：nice 调整优先级、sched_getscheduler 查看调度策略、CPU 亲和力
+ * 关键：nice 只影响 CFS 的普通调度；SCHED_FIFO/RR 需要特权
+ * 编译：gcc -std=c99 -D_GNU_SOURCE sched_demo.c -o sched_demo
+ * 运行：./sched_demo
+ */
 /* sched_demo.c：nice 值、调度策略、CPU 亲和力 */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -6180,21 +7204,33 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-D_GNU_SOURCE=定义 GNU 扩展宏；
+#   sched_demo.c=源文件；-o sched_demo=输出可执行名；&& ./sched_demo=编译成功才运行
 gcc -std=c99 -D_GNU_SOURCE sched_demo.c -o sched_demo && ./sched_demo
 
 # nice 相关命令
-nice -n 10 ./myprogram       # 以降低的优先级启动
-renice 10 -p <PID>           # 修改运行中进程的 nice
-ps -o pid,ni,pri,rtprio,comm # NI=nice值, PRI=优先级, RTPRIO=实时优先级（- 表示非实时）
-
+nice -n 10 ./myprogram       # nice=以指定 nice 启动程序；-n 10=设 nice 为 10（降低优先级）
+renice 10 -p <PID>           # renice=修改运行中进程的 nice；-p=按 PID
+ps -o pid,ni,pri,rtprio,comm # ps=进程列表；-o=自定义列；ni=nice值；pri=优先级；
+                             #   rtprio=实时优先级（- 表示非实时）
 # 实时进程（需 root）
-sudo chrt -f -p 50 <PID>     # 设为 SCHED_FIFO，实时优先级 50
+sudo chrt -f -p 50 <PID>     # chrt=改调度策略；-f=SCHED_FIFO；-p 50=实时优先级 50
 chrt -p <PID>                # 查看某进程的调度策略
 
 # CPU 亲和力
-taskset -cp <PID>            # 查看绑定在哪些核
-sudo taskset -cp 0,1 <PID>   # 绑定到 0、1 号核
-taskset -c 0 ./myprogram     # 启动时绑定
+taskset -cp <PID>            # taskset=CPU 绑定工具；-c=按 CPU 列表；-p=查看某进程绑核
+sudo taskset -cp 0,1 <PID>   # 绑定到 0、1 号核（-p 后跟核号列表）
+taskset -c 0 ./myprogram     # 启动时绑定到 0 号核
+
+# 模拟输出（CentOS 7）：
+#   当前 nice = 0（-20 最高优先级，19 最低）
+#   调高 nice 到 10（降低优先级）...
+#     现在 nice = 10
+#   调回 0 失败：普通用户只能调高 nice，不能调低（需 CAP_SYS_NICE）
+#   当前调度策略: SCHED_OTHER（默认 CFS 完全公平调度）
+#   实时优先级范围: FIFO 1~99, RR 1~99
+#   （实时优先级【数字越大越优先】，与 nice 值方向相反！）
+#   可运行的 CPU 核: 0 1 2 3
 ```
 
 ```python
@@ -6290,6 +7326,12 @@ print("可用 CPU 核:", os.sched_getaffinity(0))
    - `/etc/security/limits.conf`：用户登录时的默认限制（PAM 机制）
 
 ```c
+/* ===== 设计注释 resource_demo.c =====
+ * 演示：getrlimit/setrlimit 查看修改资源限制、getrusage 统计资源使用
+ * 关键：RLIMIT_NOFILE 管 fd 上限（too many open files 的根源）
+ * 编译：gcc -std=c99 resource_demo.c -o resource_demo
+ * 运行：./resource_demo
+ */
 /* resource_demo.c：查看/修改资源限制 + 资源使用统计 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -6354,22 +7396,24 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；resource_demo.c=源文件；-o resource_demo=输出可执行名；
+#   && ./resource_demo=编译成功才运行
 gcc -std=c99 resource_demo.c -o resource_demo && ./resource_demo
 
 # ===== ulimit（shell 内置，影响当前 shell 及其子进程）=====
 ulimit -a          # 查看全部限制
-ulimit -n          # 文件描述符数（最常调）
-ulimit -Sn         # 软限制
-ulimit -Hn         # 硬限制
-ulimit -n 65535    # 提高（不能超过硬限制！）
-ulimit -c unlimited   # 允许生成 core 文件
+ulimit -n          # 文件描述符数（最常调）；-n=NOFILE
+ulimit -Sn         # 只显示软限制（S）
+ulimit -Hn         # 只显示硬限制（H）
+ulimit -n 65535    # 提高软限制到 65535（不能超过硬限制！）
+ulimit -c unlimited   # 允许生成 core 文件（-c=CORE）
 
 # ===== 查看某进程的实际限制 =====
 cat /proc/<PID>/limits
 
 # ===== 永久修改（需重新登录生效）=====
 cat /etc/security/limits.conf
-# 格式：<domain> <type> <item> <value>
+# 格式：<domain> <type> <item> <value>     # domain=用户/组/*；type=soft/hard；item=nofile 等
 # 例：*  soft  nofile  65535
 #     *  hard  nofile  65535
 
@@ -6379,8 +7423,26 @@ systemctl show <service> | grep LimitNOFILE
 
 # ===== 系统级（sysctl）=====
 cat /proc/sys/fs/file-max       # 系统总文件句柄上限
-cat /proc/sys/fs/file-nr        # 已分配/未使用/上限
-sysctl fs.file-max              # 同上
+cat /proc/sys/fs/file-nr        # 已分配/未使用/上限（三个数）
+sysctl fs.file-max              # sysctl=查看/设置内核参数（等同于读 /proc/sys）
+
+# 模拟输出（CentOS 7）：
+#   === 本进程的资源限制 ===
+#     NOFILE(文件数)   soft=1024       hard=4096
+#     NPROC(进程数)    soft=63438      hard=63438
+#     STACK(栈)        soft=8388608    hard=unlimited
+#     CORE(core文件)   soft=0          hard=unlimited
+#     CPU(秒)          soft=unlimited  hard=unlimited
+#     FSIZE(文件大小)  soft=unlimited  hard=unlimited
+#   1. 降低 NOFILE 软限制: 1024 -> 64
+#      现在 NOFILE soft=64（注意：降下去通常就升不回来了）
+#   2. 尝试把软限制提到超过硬限制...
+#      失败: Operation not permitted（普通进程不能突破硬限制）
+#   === 本进程已消耗的资源 ===
+#     用户态CPU: 0.001234 秒   内核态CPU: 0.002345 秒
+#     最大常驻内存(RSS): 2424 KB
+#     缺页: 118 次次要 / 0 次主要
+#     上下文切换: 2 次自愿 / 0 次非自愿
 ```
 
 ```python
@@ -6480,6 +7542,12 @@ daemon（守护进程）是"**在系统后台长期运行、脱离终端、不�
    - 但**传统 daemon 化步骤仍必须掌握**（面试高频 + 维护老程序）
 
 ```c
+/* ===== 设计注释 daemon_demo.c =====
+ * 演示：手写标准 daemon 化五步（fork/setsid/二次fork/chdir/umask/关fd）
+ * 关键：setsid 脱离终端；umask(0) 不受继承掩码影响；chdir("/") 不占挂载点
+ * 编译：gcc -std=c99 daemon_demo.c -o daemon_demo
+ * 运行：./daemon_demo; ps -o pid,ppid,sid,stat,comm | grep daemon_demo
+ */
 /* daemon_demo.c：手写一个标准 daemon */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -6560,6 +7628,7 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；daemon_demo.c=源文件；-o daemon_demo=输出可执行名
 gcc -std=c99 daemon_demo.c -o daemon_demo
 
 # 启动（会立即返回 shell，进程留在后台）
@@ -6567,21 +7636,34 @@ gcc -std=c99 daemon_demo.c -o daemon_demo
 
 # 验证 daemon 特征（重点看 PPID=1、TTY=?）
 ps -o pid,ppid,pgid,sid,tty,stat,comm -C daemon_demo
+#   ps=进程列表；-o=自定义输出列；-C=按命令名匹配进程
+#   重点看两列：TTY 为 ? 表示已脱离终端；PPID 应变为 1（被 init/systemd 收养）
 
 # 查看 syslog 输出
 tail -f /var/log/syslog   | grep mydaemon     # Debian/Ubuntu
 tail -f /var/log/messages | grep mydaemon     # CentOS/RHEL
 journalctl -f | grep mydaemon                 # systemd 系统
+#   tail=查看文件尾部；-f=持续跟踪新增内容；| grep mydaemon=过滤出本程序的日志行
+#   journalctl=systemd 日志工具；-f=持续跟踪
 
 # 发 SIGHUP 触发重载（观察日志里的"重新读取配置文件"）
-kill -HUP <PID>
+kill -HUP <PID>            # kill=发信号；-HUP=发 SIGHUP；<PID> 换成 daemon 的 PID
 
 # 停止
 kill -TERM <PID>
 
 # 快速让现成命令 daemon 化
-setsid sleep 300 > /dev/null 2>&1 < /dev/null &
-nohup sleep 300 &
+setsid sleep 300 > /dev/null 2>&1 < /dev/null &   # 新会话 + 三个流全部丢弃 + 后台
+nohup sleep 300 &                                  # 忽略 SIGHUP + 后台
+
+# 模拟输出（CentOS 7）：
+#   $ ./daemon_demo           # 立即返回 shell，屏幕无任何输出（stdout 已重定向到 /dev/null）
+#   $ ps -o pid,ppid,pgid,sid,tty,stat,comm -C daemon_demo
+#      PID  PPID  PGID   SID TTY  STAT COMMAND
+#    15870     1 15868 15868 ?    Ss   daemon_demo   # PPID=1、TTY=? → 标准 daemon！
+#   $ kill -HUP 15870
+#   （journalctl 里追加一行）mydaemon: 收到 SIGHUP —— 重新读取配置文件
+#   $ kill -TERM 15870
 ```
 
 ```python
@@ -6695,6 +7777,12 @@ while True:
    - **顺序**：先处理组（`setgid` + 清除辅助组），再 `setuid` —— 因为降权到普通用户后就没权限改组了
 
 ```c
+/* ===== 设计注释 secure_demo.c =====
+ * 演示：特权程序最小化权限的实践（setuid 后马上降权、环境变量处理）
+ * 关键：用完全不需要时立即 setuid(getuid()) 丢弃特权；检查 PATH 防注入
+ * 编译：gcc -std=c99 secure_demo.c -o secure_demo
+ * 运行：./secure_demo
+ */
 /* secure_demo.c：特权程序的安全实践 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -6762,21 +7850,46 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；secure_demo.c=源文件；-o secure_demo=输出可执行名；
+#   && ./secure_demo=编译成功才运行
 gcc -std=c99 secure_demo.c -o secure_demo && ./secure_demo
 sudo ./secure_demo          # 用 root 运行可观察降权效果
 
 # 演示环境变量攻击（理解为什么必须清理 PATH）
 mkdir -p /tmp/evil && echo '#!/bin/sh
 echo "  我伪装成了 ls！"' > /tmp/evil/ls && chmod +x /tmp/evil/ls
-PATH=/tmp/evil:$PATH ls     # 执行的是"假 ls"（若程序以 root 运行，后果严重）
-
+#   mkdir=建目录；-p=自动建父目录；echo=输出；> /tmp/evil/ls=把内容写入"假 ls"脚本；
+#   chmod=改权限；+x=加执行权限
+PATH=/tmp/evil:$PATH ls     # 把 /tmp/evil 放到 PATH 最前面再执行 ls
+                            #   → 执行的是"假 ls"！（若特权程序这么干，后果严重）
 # 演示命令行参数泄露（为什么不能把密码放 argv）
 sleep 60 --password=secret123 &
 ps aux | grep password      # 任何用户都能看到这个密码！
-kill %1
+kill %1                     # 结束刚才的后台作业（%1=作业编号）
 
 # core dump 与敏感信息
 ulimit -c 0                 # 禁用 core（生产环境的安全基线之一）
+
+# 模拟输出（CentOS 7）：
+#   $ ./secure_demo
+#   初始: real UID=1000  effective UID=1000
+#   --- 2. TOCTOU 竞态 ---
+#     错误: access() 检查 + open() 之间有窗口，文件可能被替换
+#     正确: 先 open，再基于【fd】用 fstat 检查（不基于路径）
+#     已打开并校验: uid=1000 mode=0600
+#   --- 3. 安全临时文件 ---
+#     /tmp/myprog_XxYyZz（mkstemp 原子创建+打开，权限 0600）
+#     已 unlink —— 文件将在 fd 关闭时真正消失（用完即焚）
+#   --- 4. 清理环境变量 ---
+#     清理前 LD_PRELOAD=(未设置)
+#     已重置 PATH，清除 LD_PRELOAD
+#   --- 5. 降权演示（需 root 才有效果）---
+#     当前非 root，跳过（可用 sudo 运行观察效果）
+#   $ PATH=/tmp/evil:$PATH ls
+#     我伪装成了 ls！          # 注意：真的执行了"假 ls"！
+#   $ sleep 60 --password=secret123 &
+#   $ ps aux | grep password
+#   kanghua  12345 ... sleep 60 --password=secret123    # 密码公开可见！
 ```
 
 ```python
@@ -6891,7 +8004,7 @@ pwd = getpass.getpass("请输入密码: ")            # 从终端读，不出现
 # ===== 能力实战（本章以命令行为主）=====
 
 # 1. 查看所有能力清单
-man 7 capabilities
+man 7 capabilities        # man=查看手册；7=章节号（capabilities 手册在第 7 章）
 
 # 2. 经典案例：让普通程序绑定 80 端口（无需 root！）
 python3 -c "
@@ -6899,47 +8012,75 @@ import socket
 s = socket.socket(); s.bind(('0.0.0.0', 80))
 print('绑定 80 端口成功')
 "
-# 普通用户会失败：PermissionError: [Errno 13] Permission denied
+#   python3 -c "..."=执行引号内的 Python 代码（多行代码用双引号包住）
+#   普通用户会失败：PermissionError: [Errno 13] Permission denied
 
 # 用能力解决（注意：给解释器加能力有安全风险，仅作演示）
 sudo setcap cap_net_bind_service=+ep $(which python3)
+#   sudo=以 root 执行；setcap=设置文件能力；cap_net_bind_service=能力名；
+#   +ep=加入 permitted 集(p)与 effective 集(e)；$(which python3)=python3 完整路径
 python3 -c "
 import socket
 s = socket.socket(); s.bind(('0.0.0.0', 80))
 print('绑定 80 端口成功！全程没有 root 权限')
 s.close()
 "
-sudo setcap -r $(which python3)        # 用完务必移除（安全起见）
+sudo setcap -r $(which python3)        # 用完务必移除（安全起见）；-r=移除全部能力
 
 # 3. 正确做法：只给【特定的可信程序】加能力
 sudo setcap cap_net_bind_service=+ep /usr/local/bin/myapp
-getcap /usr/local/bin/myapp
+getcap /usr/local/bin/myapp            # getcap=查看文件已设置的能力
 # 输出: /usr/local/bin/myapp = cap_net_bind_service+ep
 #   +e = 加入 effective 集（实际生效）
 #   +p = 加入 permitted 集（允许使用）
 
 # 4. ping 的演进：从 SUID 到能力（这是能力替代 SUID 的教科书案例）
-ls -l /bin/ping      # 老系统: -rwsr-xr-x（SUID root）
+ls -l /bin/ping      # 老系统: -rwsr-xr-x（SUID root，s 权限位）
 getcap /bin/ping     # 新系统: /bin/ping = cap_net_raw+ep
 # 现代系统中 ping 不再需要 SUID，只需 CAP_NET_RAW —— 攻击面大幅缩小
 
 # 5. 查看进程的能力（/proc/PID/status，十六进制位图）
-grep Cap /proc/self/status
-# CapInh: 0000000000000000   可继承集
-# CapPrm: 0000000000000000   许可集
-# CapEff: 0000000000000000   有效集（全 0 = 普通进程，无特殊能力）
-capsh --decode=0000000000000000       # 解码（需要 libcap 工具）
+grep Cap /proc/self/status      # grep=过滤；Cap=匹配 Cap 开头的行；/proc/self=当前进程
+# CapInh: 0000000000000000   可继承集（Inheritable）
+# CapPrm: 0000000000000000   许可集（Permitted）
+# CapEff: 0000000000000000   有效集（Effective；全 0 = 普通进程，无特殊能力）
+capsh --decode=0000000000000000       # capsh=能力工具；--decode=把能力位图解码成名字
+                                      #   （需要 libcap 工具，未安装可跳过）
 
 # 6. 查看当前 shell 的能力
-capsh --print
+capsh --print                          # 打印能力相关全部信息（Current 等）
 
 # 7. Docker 与能力
 docker run --cap-drop=ALL --cap-add=NET_BIND_SERVICE myimage
-docker run --privileged ...           # 危险！等于给回所有能力（≈ 宿主机 root）
+#   docker run=运行容器；--cap-drop=ALL=先丢弃全部能力；
+#   --cap-add=NET_BIND_SERVICE=再只补回"绑定特权端口"这一项
+docker run --privileged ...            # 危险！等于给回所有能力（≈ 宿主机 root）
 docker inspect <container> | grep -A5 CapAdd
+#   docker inspect=查看容器详细信息；| grep -A5 CapAdd=显示 CapAdd 行及其后 5 行
+
+# 模拟输出（CentOS 7）：
+#   $ python3 -c "..."                      # 普通用户直接绑定 80
+#   PermissionError: [Errno 13] Permission denied
+#   $ sudo setcap cap_net_bind_service=+ep $(which python3)
+#   $ python3 -c "..."                      # 加能力后成功！
+#   绑定 80 端口成功！全程没有 root 权限
+#   $ getcap /usr/local/bin/myapp
+#   /usr/local/bin/myapp = cap_net_bind_service+ep
+#   $ getcap /bin/ping
+#   /bin/ping = cap_net_raw+ep
+#   $ grep Cap /proc/self/status
+#   CapInh: 0000000000000000
+#   CapPrm: 0000000000000000
+#   CapEff: 0000000000000000
 ```
 
 ```c
+/* ===== 设计注释 cap_demo.c =====
+ * 演示：capget/capset 与 libcap 工具查看本进程能力集
+ * 关键：需要链接 libcap：gcc cap_demo.c -lcap；普通进程 effective 集为空
+ * 编译：gcc -std=c99 cap_demo.c -o cap_demo -lcap
+ * 运行：./cap_demo
+ */
 /* cap_demo.c：查看本进程的能力（需 libcap: gcc cap_demo.c -lcap） */
 #include <stdio.h>
 #include <stdlib.h>
@@ -7070,25 +8211,46 @@ except PermissionError:
 who                 # 当前登录的用户（读 utmp）
 w                   # 当前登录用户 + 他们在做什么（读 utmp + /proc）
 last                # 登录历史（读 wtmp）
-last -n 10          # 最近 10 条
+last -n 10          # 最近 10 条（-n=条数）
 last root           # 只看 root 的登录记录
 lastb               # 失败的登录尝试（读 btmp，需 root）—— 排查暴力破解！
 lastlog             # 每个用户的最后登录时间（读 lastlog）
-lastlog -u root
+lastlog -u root     # 只看 root 的（-u=按用户名）
 
 # ===== 安全排查实战 =====
 # 1. 查看是否有可疑的异地登录
-last | head -30
+last | head -30             # head=取前 30 行
 # 2. 查看暴力破解尝试（失败登录）
 sudo lastb | head -20
 sudo lastb | awk '{print $3}' | sort | uniq -c | sort -rn | head
+#   awk '{print $3}'=提取第 3 列（来源 IP）；sort=排序；uniq -c=去重并计数；
+#   sort -rn=按计数降序；head=取前几条 → 统计攻击来源 IP 排行
 # 3. 查看从未登录过的系统账号（可能是后门账号）
 sudo lastlog | grep "Never logged in"
 # 4. 系统重启记录
 last reboot
+
+# 模拟输出（CentOS 7）：
+#   $ who
+#   kanghua  pts/0        2026-08-31 09:12 (192.168.1.100)
+#   root     pts/1        2026-08-31 09:15 (192.168.1.101)
+#   $ last -n 3
+#   kanghua  pts/0        192.168.1.100  Mon Aug 31 09:12   still logged in
+#   root     pts/1        192.168.1.101  Mon Aug 31 09:15   still logged in
+#   reboot   system boot  3.10.0-957.el7.x86_64  Mon Aug 31 09:10 - 09:12  (00:02)
+#   $ sudo lastlog | grep "Never logged in"
+#   bin                                    **Never logged in**
+#   daemon                                 **Never logged in**
+#   ...（这些是系统内置账号，正常；若出现陌生的普通用户名就要警惕）
 ```
 
 ```c
+/* ===== 设计注释 who_demo.c =====
+ * 演示：读取 /var/run/utmp 登录记录，实现简化版 who 命令
+ * 关键：二进制记录文件用 struct utmp 解析；对比命令 who/last 的底层数据源
+ * 编译：gcc -std=c99 -D_GNU_SOURCE who_demo.c -o who_demo
+ * 运行：./who_demo
+ */
 /* who_demo.c：读取 utmp，实现一个简化版 who */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -7218,6 +8380,7 @@ if r.stdout.strip():
 
 # 1. 准备库的源码
 cat > foo.c <<'EOF'
+#   cat=写文件；> foo.c=写入文件；<<'EOF'=heredoc（EOF 之前的内容作为输入；加引号=不展开变量）
 #include <stdio.h>
 void hello(const char *name) { printf("Hello, %s!\n", name); }
 int  add(int a, int b)       { return a + b; }
@@ -7225,12 +8388,15 @@ EOF
 
 # 2. 编译为共享库（-fPIC + -shared）
 gcc -fPIC -shared -o libfoo.so foo.c
+#   gcc=编译器；-fPIC=生成位置无关代码（必须）；-shared=生成共享库；
+#   -o libfoo.so=输出文件；foo.c=源文件
 
 # 生产做法（带 soname 的版本号）
 gcc -fPIC -shared -Wl,-soname,libfoo.so.1 -o libfoo.so.1.0.0 foo.c
-ln -sf libfoo.so.1.0.0 libfoo.so.1      # soname 链接
-ln -sf libfoo.so.1      libfoo.so       # linker name 链接
-ls -l libfoo*
+#   -Wl,-soname,libfoo.so.1=把 soname 写进库文件（-Wl,=把参数传给链接器）
+ln -sf libfoo.so.1.0.0 libfoo.so.1      # 建 soname 符号链接（ln=链接；-s=软链接；-f=强制覆盖）
+ln -sf libfoo.so.1      libfoo.so       # 建 linker name 链接（编译链接时用）
+ls -l libfoo*                           # 查看三个名字的链接关系
 
 # 3. 使用库的程序
 cat > app.c <<'EOF'
@@ -7246,27 +8412,46 @@ EOF
 
 # 4. 链接（-L 库路径，-l 库名）
 gcc -o app app.c -L. -lfoo
+#   -L.=在当前目录找库；-lfoo=链接 libfoo.so（-l 后跟库名去掉 lib 前缀和 .so 后缀）
 
 # 5. 运行 —— 三种让程序找到 .so 的方法
 LD_LIBRARY_PATH=. ./app                       # 方法1：临时指定（调试常用）
+#   LD_LIBRARY_PATH=环境变量（告诉动态链接器去哪找库）；.=设为当前目录
 gcc -o app app.c -L. -lfoo -Wl,-rpath=.       # 方法2：把路径编译进程序（rpath）
 sudo cp libfoo.so* /usr/local/lib && sudo ldconfig && ./app   # 方法3：安装+更新缓存
+#   cp=复制；libfoo.so*=匹配的所有版本文件；ldconfig=重建共享库缓存 /etc/ld.so.cache
 
 # 6. 排障与查看
-ldd ./app                     # 查看程序依赖（找不到会显示 "not found"）
+ldd ./app                     # 查看程序依赖（找不到的会显示 "not found"）
 readelf -d ./app | grep -E "NEEDED|RPATH|RUNPATH"
-nm -D libfoo.so               # 查看库导出的符号
-sudo ldconfig -p | head -20   # 查看系统缓存中的共享库
+#   readelf=查看 ELF 文件；-d=动态段；| grep -E=正则过滤（NEEDED=依赖的库、RPATH/RUNPATH=路径）
+nm -D libfoo.so               # 查看库导出的符号（nm=符号表；-D=只显示动态符号）
+sudo ldconfig -p | head -20   # 查看系统缓存中的共享库（ldconfig -p=打印缓存）
 
 # 7. 静态链接（对比）
-gcc -static -o app_static app.c -L. -lfoo     # 体积会大很多
-ls -lh app app_static                          # 对比体积
+gcc -static -o app_static app.c -L. -lfoo     # 体积会大很多（-static=静态链接）
+ls -lh app app_static                          # 对比体积（ls -lh=人性化大小）
 
 # ===== 运行时搜索共享库的顺序 =====
 # 1) 程序中的 RPATH / RUNPATH（编译时 -Wl,-rpath 写入）
 # 2) LD_LIBRARY_PATH 环境变量
 # 3) /etc/ld.so.cache（由 ldconfig 根据 /etc/ld.so.conf 生成）
 # 4) 默认目录 /lib、/usr/lib、/usr/local/lib
+
+# 模拟输出（CentOS 7）：
+#   $ ls -l libfoo*
+#   libfoo.so -> libfoo.so.1
+#   libfoo.so.1 -> libfoo.so.1.0.0
+#   libfoo.so.1.0.0
+#   $ gcc -o app app.c -L. -lfoo
+#   $ LD_LIBRARY_PATH=. ./app
+#   Hello, World!
+#   add(2,3) = 5
+#   $ ldd ./app | grep foo
+#   libfoo.so.1 => ./libfoo.so.1 (0x00007f...)   # 注意：程序运行时找的是 soname！
+#   $ ls -lh app app_static
+#   -rwxr-xr-x 1 ... 8.0K app
+#   -rwxr-xr-x 1 ... 750K app_static              # 静态版大近百倍！
 ```
 
 ```python
@@ -7355,6 +8540,12 @@ lib.hello(b"from Python")               # 注意：Python3 要传 bytes
 6. **预加载**：`LD_PRELOAD` 环境变量——可在程序启动前**替换**任意库函数（既是调试利器，也是攻击手段，见第 38 章）
 
 ```c
+/* ===== 设计注释 plugin_demo.c =====
+ * 演示：dlopen/dlsym/dlerror/dlclose 运行时加载共享库（插件架构）
+ * 关键：dlsym 拿到的是【函数指针】；编译需 -ldl
+ * 编译：gcc -std=c99 plugin_demo.c -o plugin_demo -ldl
+ * 运行：./plugin_demo  （先编译 libfoo.so，见下方 bash 块）
+ */
 /* plugin_demo.c：用 dlopen 动态加载共享库（插件式） */
 #include <stdio.h>
 #include <stdlib.h>
@@ -7392,10 +8583,13 @@ int main(void) {
 # 编译（注意：动态加载需要链接 -ldl）
 gcc -fPIC -shared -o libfoo.so foo.c
 gcc -o plugin_demo plugin_demo.c -ldl && ./plugin_demo
+#   gcc=编译器；-ldl=链接 dl 库（dlopen/dlsym 所在库，【必须加】，否则链接报错）；
+#   && ./plugin_demo=编译成功才运行
 
 # 符号可见性对比
 nm -D libfoo.so                                        # 默认：导出所有符号
 gcc -fPIC -shared -fvisibility=hidden -o libfoo_h.so foo.c
+#   -fvisibility=hidden=默认隐藏所有符号（要导出需加 __attribute__((visibility("default")))）
 nm -D libfoo_h.so                                      # 对比：符号大幅减少
 
 # LD_PRELOAD：替换/拦截库函数（调试神器，也是攻击面）
@@ -7404,6 +8598,16 @@ LD_PRELOAD=./mymalloc.so ./app                         # 用自定义 malloc 替
 # 追踪动态链接过程（排障利器）
 LD_DEBUG=libs ./app 2>&1 | head -20                    # 显示库的查找过程
 LD_DEBUG=symbols ./app 2>&1 | head -20                 # 显示符号解析过程
+#   LD_DEBUG=环境变量（libs=库加载过程、symbols=符号解析过程）；2>&1=把 stderr 也接到管道；
+#   | head -20=只看前 20 行
+
+# 模拟输出（CentOS 7）：
+#   $ gcc -o plugin_demo plugin_demo.c -ldl && ./plugin_demo
+#   动态调用 add(2, 3) = 5
+#   Hello, plugin!
+#   库已卸载
+#   $ nm -D libfoo_h.so
+#   （默认版的 add、hello 等符号全部消失，只剩动态链接器需要的少量符号）
 ```
 
 ```python
@@ -7496,26 +8700,35 @@ IPC（Inter-Process Communication）解决"**进程之间如何交换数据与�
 
 ```bash
 # ===== System V IPC 对象管理 =====
-ipcs                 # 列出所有 System V IPC 对象
-ipcs -q              # 只看消息队列
-ipcs -s              # 只看信号量
-ipcs -m              # 只看共享内存
-ipcs -l              # 查看系统限制
+ipcs                 # ipcs=查看 System V IPC（不加参数=全部：消息队列/信号量/共享内存）
+ipcs -q              # -q=只看消息队列
+ipcs -s              # -s=只看信号量
+ipcs -m              # -m=只看共享内存
+ipcs -l              # -l=查看系统限制
 
-ipcrm -q <id>        # 删除消息队列
-ipcrm -s <id>        # 删除信号量集
-ipcrm -m <id>        # 删除共享内存段
-ipcrm -a             # 删除所有（慎用！会影响其他程序）
+ipcrm -q <id>        # ipcrm=删除对象；-q <id>=删除指定消息队列
+ipcrm -s <id>        # -s=删除信号量集
+ipcrm -m <id>        # -m=删除共享内存段
+ipcrm -a             # -a=删除所有（慎用！会影响其他程序）
 
 # ===== POSIX IPC 对象（在虚拟文件系统中，可 ls）=====
-ls -l /dev/shm/          # POSIX 共享内存（tmpfs，可直接 ls/rm 管理）
-ls -l /dev/mqueue/       # POSIX 消息队列（需先挂载 mqueue）
-mount | grep -E "mqueue|shm"
+ls -l /dev/shm/          # /dev/shm=tmpfs 内存文件系统；POSIX 共享内存对象在这
+ls -l /dev/mqueue/       # /dev/mqueue=POSIX 消息队列（需先挂载 mqueue）
+mount | grep -E "mqueue|shm"   # mount=查看挂载；grep -E=扩展正则过滤
 # 挂载 POSIX 消息队列文件系统
 sudo mount -t mqueue none /dev/mqueue
+#   sudo=以 root 执行；mount=挂载；-t mqueue=类型为 mqueue；none=无源设备；/dev/mqueue=挂载点
 
 # ===== 查看进程用了哪些 IPC =====
 ls -l /proc/<PID>/fd     # 看打开的 IPC 相关 fd
+
+# 模拟输出（CentOS 7）：
+#   $ ipcs -m
+#   ------ Shared Memory Segments --------
+#   key        shmid      owner      perms      bytes      nattch     status
+#   0x00000000 32768      kanghua    600        4096       2
+#   $ ls -l /dev/shm/
+#   -rw-r--r-- 1 kanghua kanghua 4096 Aug 31 09:00 my_demo_shm   # 可直接 ls/rm！
 ```
 
 ### ④ 怎么深入（进阶与坑）
@@ -7604,6 +8817,12 @@ ls -l /proc/<PID>/fd     # 看打开的 IPC 相关 fd
    **父 shell 必须关闭自己的两端**（否则读端永远等不到 EOF）。这也解释了为什么管道里的命令在同一个进程组（第 34 章）——所以能一起 Ctrl+C。
 
 ```c
+/* ===== 设计注释 pipe_demo.c =====
+ * 演示：pipe 父子通信、用 dup2 实现 shell 管道（ls | wc -l）、popen 封装
+ * 关键：管道单向；写端不关会读不到 EOF（经典坑）
+ * 编译：gcc -std=c99 pipe_demo.c -o pipe_demo
+ * 运行：./pipe_demo
+ */
 /* pipe_demo.c：管道通信 + 实现 shell 管道 + popen */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -7676,6 +8895,12 @@ int main(void) {
 ```
 
 ```c
+/* ===== 设计注释 fifo_demo.c =====
+ * 演示：mkfifo 创建命名管道，两个无关进程读写通信
+ * 关键：FIFO 在文件系统有实体（类型标记 p）；open 读端会阻塞直到写端出现
+ * 编译：gcc -std=c99 fifo_demo.c -o fifo_demo
+ * 运行：./fifo_demo  （两个终端分别以读写模式运行）
+ */
 /* fifo_demo.c：命名管道（无亲缘关系的进程通信） */
 #include <stdio.h>
 #include <stdlib.h>
@@ -7707,6 +8932,8 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；pipe_demo.c=源文件；-o pipe_demo=输出可执行名；
+#   && ./pipe_demo=编译成功才运行
 gcc -std=c99 pipe_demo.c -o pipe_demo && ./pipe_demo
 gcc -std=c99 fifo_demo.c -o fifo_demo
 
@@ -7715,17 +8942,31 @@ gcc -std=c99 fifo_demo.c -o fifo_demo
 # 终端2: ./fifo_demo write    （写入后终端1 收到）
 
 # shell 里的 FIFO
-mkfifo /tmp/myfifo && ls -l /tmp/myfifo     # 类型标记为 p
-echo "hello" > /tmp/myfifo &                 # 写（阻塞直到有读端）
-cat /tmp/myfifo                              # 读
+mkfifo /tmp/myfifo && ls -l /tmp/myfifo     # mkfifo=创建命名管道；ls -l 可看到类型标记为 p
+echo "hello" > /tmp/myfifo &                 # 写（阻塞直到有读端打开）
+cat /tmp/myfifo                              # 读（cat=显示文件内容）
 
 # 观察管道
-lsof | grep FIFO
-ls -l /proc/<PID>/fd | grep pipe
-getconf PIPE_BUF /                           # 原子写入上限（通常 4096）
+lsof | grep FIFO                             # lsof=列出打开的文件；| grep FIFO=过滤出管道
+ls -l /proc/<PID>/fd | grep pipe             # 看某进程的管道 fd
+getconf PIPE_BUF /                           # getconf=查系统配置值；PIPE_BUF=原子写入上限
 
 # Broken pipe 复现
 yes | head -1                                # yes 会因为管道读端关闭而收到 SIGPIPE 退出
+
+# 模拟输出（CentOS 7）：
+#   $ gcc -std=c99 pipe_demo.c -o pipe_demo && ./pipe_demo
+#   === 1. 基本管道（父写子读）===
+#     [子进程] 收到: hello via pipe
+#   === 2. 用管道实现 ls | wc -l ===
+#   12                      # ls -l /tmp 的行数
+#   === 3. popen 读取命令输出 ===
+#     （/tmp 下前 5 个文件名）
+#     命令退出码: 0
+#   $ mkfifo /tmp/myfifo && ls -l /tmp/myfifo
+#   prw-r--r-- 1 kanghua kanghua 0 Aug 31 10:00 /tmp/myfifo   # 首字符 p = 命名管道！
+#   $ getconf PIPE_BUF /
+#   4096                    # 原子写入上限（不能超过它，否则写入可能交错）
 ```
 
 ```python
@@ -7838,6 +9079,12 @@ System V IPC 是**老牌的 IPC 机制**（消息队列、信号量、共享内�
    - `ipcrm`：删除对象
 
 ```c
+/* ===== 设计注释 svipc_intro.c =====
+ * 演示：System V IPC 的生命周期：创建(IPC_CREAT)→查看(ipcs)→删除(IPC_RMID)
+ * 关键：System V 对象是【内核持续】的——进程退出对象还在，必须显式删除
+ * 编译：gcc -std=c99 svipc_intro.c -o svipc_intro
+ * 运行：./svipc_intro; ipcs  （观察对象创建与删除）
+ */
 /* svipc_intro.c：创建、查看、删除一个 System V IPC 对象 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -7872,22 +9119,34 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；svipc_intro.c=源文件；-o svipc_intro=输出可执行名；
+#   && ./svipc_intro=编译成功才运行
 gcc -std=c99 svipc_intro.c -o svipc_intro && ./svipc_intro
 
 # ===== 管理命令 =====
-ipcs -a          # 查看所有 IPC 对象
-ipcs -q          # 消息队列
-ipcs -s          # 信号量
-ipcs -m          # 共享内存
-ipcs -l          # 查看各类上限
+ipcs -a          # 查看所有 IPC 对象（ipcs=IPC 状态工具；-a=全部）
+ipcs -q          # 消息队列（-q=queue）
+ipcs -s          # 信号量（-s=semaphore）
+ipcs -m          # 共享内存（-m=shm）
+ipcs -l          # 查看各类上限（-l=limits）
 
-ipcrm -m <id>    # 删除共享内存
+ipcrm -m <id>    # 删除共享内存（ipcrm=IPC 删除工具；-m=按共享内存 id）
 ipcrm -q <id>    # 删除消息队列
 ipcrm -s <id>    # 删除信号量
 ipcrm -a         # 删除全部（慎用！会影响其他程序）
 
 # 注意：如果程序崩溃没删除，对象会残留 —— 用 ipcs 巡检
-ipcs -m | awk 'NR>3 && $6>0 {print}'   # 找出仍被附加的段
+ipcs -m | awk 'NR>3 && $6>0 {print}'   # awk 过滤：跳过前 3 行表头（NR>3），第 6 列
+                                       #   （附加进程数 NATTCH）> 0 的段 —— 即仍被使用的
+# 模拟输出（CentOS 7）：
+#   $ gcc -std=c99 svipc_intro.c -o svipc_intro && ./svipc_intro
+#   ftok 生成的 key = 0x41014d59
+#   共享内存 id = 65536
+#     大小=4096 字节  属主UID=1000  权限=0666  附加进程数=0
+#   删除该共享内存段...
+#   已删除 —— 用 ipcs -m 验证它已消失
+#   $ ipcs -m
+#   （空 —— 已删除，什么也看不到）
 ```
 
 ```python
@@ -7955,6 +9214,10 @@ ipcs -m | awk 'NR>3 && $6>0 {print}'   # 找出仍被附加的段
 2. **消息结构（必须自定义，第一个字段必须是 long）**
 
 ```c
+/* ===== 设计注释（结构体定义片段，非完整程序）=====
+ * 内容：System V 消息队列的自定义消息结构
+ * 说明：第一个字段【必须是 long】（消息类型）；完整示例见下方 msg_demo.c
+ */
 struct mymsg {
     long mtype;        /* 消息类型，必须 > 0 */
     char mtext[256];   /* 消息数据（长度自定） */
@@ -7973,6 +9236,12 @@ struct mymsg {
    - **缺点**：内核持续（需显式删除）、有大小限制、接口较繁琐
 
 ```c
+/* ===== 设计注释 msg_demo.c =====
+ * 演示：msgsnd/msgrcv 发送与按类型接收消息（配合上方 struct mymsg）
+ * 关键：消息结构第一个字段必须 long；msgtyp 控制按类型取值
+ * 编译：gcc -std=c99 msg_demo.c -o msg_demo
+ * 运行：./msg_demo
+ */
 /* msg_demo.c：System V 消息队列（发送 + 按类型接收） */
 #include <stdio.h>
 #include <stdlib.h>
@@ -8036,17 +9305,27 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；msg_demo.c=源文件；-o msg_demo=输出可执行名
 gcc -std=c99 msg_demo.c -o msg_demo
-./msg_demo && ./msg_demo recv          # 观察"加急"被优先取到
+./msg_demo && ./msg_demo recv          # 第一次运行=发送；第二次带 recv 参数=接收
 
 # 管理
-ipcs -q                    # 查看消息队列
-ipcrm -q <msqid>           # 删除
+ipcs -q                    # 查看消息队列（ipcs -q=只看队列）
+ipcrm -q <msqid>           # 删除（ipcrm -q=按队列 id 删除）
 
 # 队列的系统限制
 cat /proc/sys/kernel/msgmax   # 单条消息最大字节（默认 8192）
 cat /proc/sys/kernel/msgmnb   # 单个队列最大字节（默认 16384）
 cat /proc/sys/kernel/msgmni   # 系统最多队列数（默认 32000）
+
+# 模拟输出（CentOS 7）：
+#   $ ./msg_demo
+#     已发送 2 条：类型1(普通) 先发、类型2(加急) 后发
+#     >>> 再运行: ./msg_demo recv
+#   $ ./msg_demo recv
+#     优先取到 [类型2]: 加急消息        # 指定类型 2，绕过先发的类型 1！
+#     然后取到 [类型1]: 普通消息
+#     队列已删除
 ```
 
 ```python
@@ -8131,6 +9410,10 @@ print("  优先取出:", pq.get())     # (1, "普通") —— 数字小的优先
 3. **sembuf 结构**
 
 ```c
+/* ===== 设计注释（结构体定义片段，非完整程序）=====
+ * 内容：semop() 的操作输入结构（信号量集索引 + P/V/等零操作）
+ * 说明：sem_op=-1 为 P(申请)、+1 为 V(释放)、0 为等待归零；完整示例见下方 sem_demo.c
+ */
 struct sembuf {
     unsigned short sem_num;   /* 信号量在集合中的索引 */
     short          sem_op;    /* -1 = P(等待), +1 = V(释放), 0 = 等待其变为 0 */
@@ -8151,6 +9434,12 @@ struct sembuf {
    System V 信号量创建后**值是未定义的**！必须用 `semctl(SETVAL)` 显式设置初值，否则会出现随机的死锁或错误。
 
 ```c
+/* ===== 设计注释 sem_demo.c =====
+ * 演示：semget/semop/semctl 用二元信号量实现进程间互斥
+ * 关键：创建后必须 semctl(SETVAL) 初始化（否则值随机）；SEM_UNDO 防死锁
+ * 编译：gcc -std=c99 sem_demo.c -o sem_demo
+ * 运行：./sem_demo
+ */
 /* sem_demo.c：用二元信号量实现进程间互斥 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -8205,16 +9494,30 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；sem_demo.c=源文件；-o sem_demo=输出可执行名；
+#   && ./sem_demo=编译成功才运行
 gcc -std=c99 sem_demo.c -o sem_demo && ./sem_demo
 # 观察：两个进程【串行】进入临界区（不会同时进入）
 
-ipcs -s                    # 查看信号量集
-ipcrm -s <semid>           # 删除
+ipcs -s                    # 查看信号量集（ipcs -s=只看信号量）
+ipcrm -s <semid>           # 删除（ipcrm -s=按信号量 id 删除）
 
 # 系统限制（四个值）
 cat /proc/sys/kernel/sem
-# SEMMSL(每集合最大信号量数) SEMMNS(系统最大信号量数) SEMOPM(每次semop最大操作数) SEMMNI(系统最大集合数)
+# 输出 4 个数字依次是：
+#   SEMMSL(每集合最大信号量数) SEMMNS(系统最大信号量数)
+#   SEMOPM(每次 semop 最大操作数) SEMMNI(系统最大集合数)
 # 典型值: 250  32000  32  128
+
+# 模拟输出（CentOS 7）：
+#   信号量集已创建并初始化为 1（二元信号量 = 互斥锁）
+#     [进程0] 等待进入临界区...
+#     [进程0] >>> 进入临界区
+#     [进程1] 等待进入临界区...
+#     [进程0] <<< 离开临界区           # 进程1 要等进程0 离开才能进！
+#     [进程1] >>> 进入临界区
+#     [进程1] <<< 离开临界区
+#   信号量已删除
 ```
 
 ```python
@@ -8307,6 +9610,12 @@ for p in ps: p.join()
 5. **大小按页对齐**：`shmget` 的 size 会被向上取整到页大小（通常 4KB）的整数倍
 
 ```c
+/* ===== 设计注释 shm_demo.c =====
+ * 演示：shmget/shmat/shmdt 共享内存映射与读写
+ * 关键：最快但需自己解决同步（配信号量）；对象内核持续需 IPC_RMID
+ * 编译：gcc -std=c99 shm_demo.c -o shm_demo
+ * 运行：./shm_demo write; ./shm_demo read  （两个进程通过共享内存通信）
+ */
 /* shm_demo.c：System V 共享内存（写 + 读） */
 #include <stdio.h>
 #include <stdlib.h>
@@ -8343,20 +9652,28 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；shm_demo.c=源文件；-o shm_demo=输出可执行名
 gcc -std=c99 shm_demo.c -o shm_demo
-./shm_demo write && ./shm_demo read
+./shm_demo write && ./shm_demo read    # 第一个进程写，第二个进程读
 
 ipcs -m                    # 查看（注意 nattch 列 = 当前附加的进程数）
-ipcrm -m <shmid>           # 删除
+ipcrm -m <shmid>           # 删除（ipcrm -m=按共享内存 id 删除）
 
 # 系统限制
-cat /proc/sys/kernel/shmmax    # 单个段最大字节
+cat /proc/sys/kernel/shmmax    # 单个段最大字节（默认 32MB，可调大）
 cat /proc/sys/kernel/shmall    # 系统共享内存总页数
 cat /proc/sys/kernel/shmmni    # 系统最多段数（默认 4096）
 
 # 运维常踩：Docker 容器 /dev/shm 默认只有 64MB
-df -h /dev/shm
-docker run --shm-size=1g myimage    # 调大共享内存（Chrome/数据库常需要）
+df -h /dev/shm                    # df=磁盘占用；-h=人性化；/dev/shm=共享内存文件系统
+docker run --shm-size=1g myimage  # 调大共享内存（Chrome/数据库常需要）
+
+# 模拟输出（CentOS 7）：
+#   $ ./shm_demo write && ./shm_demo read
+#     已写入: hello via shared memory
+#     提示：真实项目必须用信号量保护这块内存
+#     读到: hello via shared memory      # 第二个独立进程读到了！
+#     已标记删除（所有进程分离后真正销毁）
 ```
 
 ```python
@@ -8474,6 +9791,12 @@ shm.unlink()                           # 删除（对应 IPC_RMID）
    - 修改不会立即落盘——需要 `msync` 或等内核自动刷（`munmap` 时也会）
 
 ```c
+/* ===== 设计注释 mmap_demo.c =====
+ * 演示：mmap 文件映射（改内存即改文件）+ MAP_ANONYMOUS 父子匿名共享
+ * 关键：写共享映射要 MAP_SHARED；匿名映射不占文件、只能亲缘进程用
+ * 编译：gcc -std=c99 mmap_demo.c -o mmap_demo
+ * 运行：./mmap_demo
+ */
 /* mmap_demo.c：文件映射（改内存即改文件）+ 匿名共享映射（父子共享） */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -8536,18 +9859,31 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；mmap_demo.c=源文件；-o mmap_demo=输出可执行名；
+#   && ./mmap_demo=编译成功才运行
 gcc -std=c99 mmap_demo.c -o mmap_demo && ./mmap_demo
 
 # 观察进程的映射（回顾第 6 章）
-cat /proc/self/maps           # 每行的权限列 rwxp/s，最后是被映射的文件
-pmap -x <PID>                 # 更详细的映射信息
+cat /proc/self/maps           # 显示本进程所有内存映射区（每行：地址段 权限 偏移 设备 inode 文件）
+pmap -x <PID>                 # pmap=查看进程内存映射；-x=扩展信息
 
 # 页大小（mmap 必须按页对齐）
-getconf PAGESIZE              # 通常 4096
+getconf PAGESIZE              # getconf=查系统配置；PAGESIZE=页大小（通常 4096）
 
 # 系统限制
 cat /proc/sys/vm/max_map_count     # 单进程最大映射区数（默认 65530）
 # Elasticsearch、Docker 等常需要调大：sysctl -w vm.max_map_count=262144
+
+# 模拟输出（CentOS 7）：
+#   === 1. 文件映射 ===
+#   映射后读到: Hello, mmap!
+#   修改+msync 后: hello, Mmap!
+#   磁盘上的文件内容: hello, Mmap!        # 改内存 → 文件也跟着变了！
+#   === 2. 匿名共享映射（父子进程共享）===
+#     [子进程] 把共享值改成 42
+#     [父进程] 读到 42 —— 子进程改的，证明内存是【共享】的
+#   $ getconf PAGESIZE
+#   4096
 ```
 
 ```python
@@ -8656,6 +9992,12 @@ mm.close()
    - `MADV_DONTNEED`：不再需要 → 内核可回收这些页
 
 ```c
+/* ===== 设计注释 vm_demo.c =====
+ * 演示：mprotect 修改内存页权限、madvise 给内核提内存使用建议
+ * 关键：修改权限必须页对齐（PAGE_SIZE 整数倍）；违规访问触发 SIGSEGV
+ * 编译：gcc -std=c99 vm_demo.c -o vm_demo
+ * 运行：./vm_demo
+ */
 /* vm_demo.c：mprotect 改权限 + madvise 提建议 */
 #define _DEFAULT_SOURCE
 #include <stdio.h>
@@ -8708,15 +10050,28 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；vm_demo.c=源文件；-o vm_demo=输出可执行名；
+#   && ./vm_demo=编译成功才运行
 gcc -std=c99 vm_demo.c -o vm_demo && ./vm_demo
 
 # 查看 mlock 的限制
-ulimit -l                  # RLIMIT_MEMLOCK（单位 KB，默认常为 64 或 8192）
-cat /proc/<PID>/limits | grep -i memlock
+ulimit -l                  # ulimit 查内存锁定上限（-l=MEMLOCK，单位 KB，默认常为 64 或 8192）
+cat /proc/<PID>/limits | grep -i memlock    # 从进程的 limits 文件里过滤 memlock 行
 # 提高：ulimit -l unlimited（需权限）或在 limits.conf 设置
 
 # 观察内存映射与权限
 cat /proc/self/maps        # 权限列 rwxp：r=读 w=写 x=执行 p=私有(s=共享)
+
+# 模拟输出（CentOS 7）：
+#   页大小 = 4096 字节
+#   1. 可读写时: hello
+#   2. 已改为只读，读取仍然正常: hello
+#      （若现在写入会触发 SIGSEGV —— 这就是内存保护）
+#   3. 已建议内核：将顺序访问此区域（内核会调整预读策略）
+#   4. 已改为 PROT_NONE（读写都会 SIGSEGV，可做警戒页检测溢出）
+#   5. 已锁定内存（不会被换出到 swap，适合存密钥）
+#   $ ulimit -l
+#   64        # 单位 KB —— 普通用户能锁的内存非常有限
 ```
 
 ```python
@@ -8805,17 +10160,31 @@ POSIX IPC 是比 System V **更现代**的 IPC 体系——用**名字**标识�
 
 ```bash
 # ===== POSIX IPC 对象可以直接在文件系统里看到 =====
-ls -l /dev/shm/           # POSIX 共享内存对象（tmpfs）
-ls -l /dev/mqueue/        # POSIX 消息队列（需挂载）
+ls -l /dev/shm/           # ls 查看 /dev/shm（tmpfs 内存文件系统，POSIX 共享内存对象在这）
+ls -l /dev/mqueue/        # POSIX 消息队列对象在这（需先挂载）
 
 # 挂载 POSIX 消息队列文件系统
 sudo mount -t mqueue none /dev/mqueue
+#   mount=挂载命令；-t mqueue=指定文件系统类型为 mqueue；none=无源设备；/dev/mqueue=挂载点
 
 # 对比：System V 只能用 ipcs 查看，POSIX 可以 ls/rm 直接管理
-rm /dev/shm/myshm         # 直接删除共享内存对象（等价于 shm_unlink）
+rm /dev/shm/myshm         # 直接删除共享内存对象（rm=删除；等价于调用 shm_unlink）
+
+# 模拟输出（CentOS 7）：
+#   $ ls -l /dev/shm/
+#   -rw-r--r-- 1 kanghua kanghua 4096 Aug 31 09:00 my_demo_shm
+#   -rw-r--r-- 1 kanghua kanghua 4096 Aug 31 09:00 sem.my_demo_sem   # 命名信号量也在这
+#   $ rm /dev/shm/myshm
+#   $ ls /dev/shm/ | grep myshm     # 无输出 = 已删除（对比 System V 得用 ipcrm）
 ```
 
 ```c
+/* ===== 设计注释 posix_shm_demo.c =====
+ * 演示：shm_open/ftruncate/mmap/munmap/shm_unlink 生命周期
+ * 关键：对象名以 / 开头；在 /dev/shm 可见可 ls/rm（对比 System V 只能 ipcs）
+ * 编译：gcc -std=c99 posix_shm_demo.c -o posix_shm_demo -lrt
+ * 运行：./posix_shm_demo write; ./posix_shm_demo read; ./posix_shm_demo rm
+ */
 /* posix_shm_demo.c：POSIX 共享内存（写 + 读 + 删除） */
 #include <stdio.h>
 #include <stdlib.h>
@@ -8859,11 +10228,21 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；posix_shm_demo.c=源文件；-o posix_shm_demo=输出可执行名
 gcc -std=c99 posix_shm_demo.c -o posix_shm_demo
-./posix_shm_demo write && ls -l /dev/shm/      # 看到 my_demo_shm
-./posix_shm_demo read  && ls -l /dev/shm/      # 已消失
+./posix_shm_demo write && ls -l /dev/shm/      # write 模式写数据；ls 应看到 my_demo_shm 对象
+./posix_shm_demo read  && ls -l /dev/shm/      # read 模式读数据并 unlink；ls 应已无该对象
 
 # 对比 System V 的做法（需要 ipcrm 管理），POSIX 用 ls/rm 就能管理，直观得多
+
+# 模拟输出（CentOS 7）：
+#   $ ./posix_shm_demo write && ls -l /dev/shm/
+#     已写入: hello from POSIX shared memory
+#   -rw-r--r-- 1 kanghua kanghua 4096 Aug 31 10:30 my_demo_shm
+#   $ ./posix_shm_demo read && ls -l /dev/shm/
+#     读到: hello from POSIX shared memory
+#     已 shm_unlink（用 ls /dev/shm 验证已消失）
+#   （第二行 ls 无输出 —— 对象已删除）
 ```
 
 ```python
@@ -8956,6 +10335,12 @@ POSIX 消息队列用**名字**标识（如 `/myqueue`），**原生支持消息
    - 管理：POSIX 队列在 `/dev/mqueue` 可见，可 `ls`/`rm`；System V 只能用 `ipcs`/`ipcrm`
 
 ```c
+/* ===== 设计注释 pmq_demo.c =====
+ * 演示：mq_open/mq_send/mq_receive 带优先级收发消息
+ * 关键：优先级高的先取（类似 System V 的 msgtyp<0）；使用后 mq_unlink 清理
+ * 编译：gcc -std=c99 pmq_demo.c -o pmq_demo -lrt
+ * 运行：./pmq_demo
+ */
 /* pmq_demo.c：POSIX 消息队列（优先级演示） */
 #include <stdio.h>
 #include <stdlib.h>
@@ -9008,18 +10393,30 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-lrt=链接实时库（老系统需要，新 glibc 可省略）；
+#   pmq_demo.c=源文件；-o pmq_demo=输出可执行名
 gcc -std=c99 pmq_demo.c -o pmq_demo -lrt        # 新系统可省略 -lrt
-./pmq_demo && ./pmq_demo recv
+./pmq_demo && ./pmq_demo recv                   # 第一次=发送；第二次=按优先级接收
 
 # 管理（POSIX 队列在 /dev/mqueue 中可见）
-ls -l /dev/mqueue/                    # 需先挂载 mqueue
-cat /dev/mqueue/my_demo_queue         # 查看队列状态
+ls -l /dev/mqueue/                    # 需先挂载 mqueue（见第 51 章）
+cat /dev/mqueue/my_demo_queue         # 查看队列状态（当前消息数/大小）
 rm /dev/mqueue/my_demo_queue          # 直接删除（等价于 mq_unlink）
 
 # 系统限制
 cat /proc/sys/fs/mqueue/msg_max       # 单队列最大消息数（默认 10）
 cat /proc/sys/fs/mqueue/msgsize_max   # 单条最大字节（默认 8192）
 cat /proc/sys/fs/mqueue/queues_max    # 系统最多队列数（默认 256）
+
+# 模拟输出（CentOS 7）：
+#   $ ./pmq_demo && ./pmq_demo recv
+#     已按 [低(1) -> 高(10) -> 中(5)] 发送
+#     >>> 运行 './pmq_demo recv' 会按 [高 -> 中 -> 低] 收到
+#   队列属性：最大消息数=10, 单条上限=256 字节
+#     收到 [优先级10]: 高优先级消息    # 后发的反而先收到！
+#     收到 [优先级5]: 中优先级消息
+#     收到 [优先级1]: 低优先级消息
+#     队列已删除
 ```
 
 ```python
@@ -9110,6 +10507,12 @@ POSIX 信号量提供 `sem_wait`（P 操作，减一）与 `sem_post`（V 操作
    - 标识：POSIX 用名字；System V 用 key
 
 ```c
+/* ===== 设计注释 psem_demo.c =====
+ * 演示：sem_open/sem_wait/sem_post 命名信号量进程间互斥
+ * 关键：命名信号量在 /dev/shm 有实体文件；对比 System V 无 SEM_UNDO
+ * 编译：gcc -std=c99 -pthread psem_demo.c -o psem_demo -lrt
+ * 运行：./psem_demo  （两个终端同时跑，观察互斥）
+ */
 /* psem_demo.c：POSIX 命名信号量（进程间互斥） */
 #include <stdio.h>
 #include <stdlib.h>
@@ -9148,12 +10551,23 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-lpthread=链接 pthread 库（POSIX 信号量需要）；
+#   psem_demo.c=源文件；-o psem_demo=输出可执行名
 gcc -std=c99 psem_demo.c -o psem_demo -lpthread    # 需 -lpthread
 ./psem_demo
 
 # 命名信号量在 /dev/shm 中可见
-ls -l /dev/shm/ | grep sem
-rm /dev/shm/sem.my_demo_sem        # 等价于 sem_unlink
+ls -l /dev/shm/ | grep sem          # grep sem=过滤名字带 sem 的对象
+rm /dev/shm/sem.my_demo_sem        # 直接删除（等价于 sem_unlink）
+
+# 模拟输出（CentOS 7）：
+#     [进程0] 等待进入临界区...
+#     [进程0] >>> 进入临界区
+#     [进程1] 等待进入临界区...
+#     [进程0] <<< 离开临界区
+#     [进程1] >>> 进入临界区
+#     [进程1] <<< 离开临界区
+#   信号量已删除
 ```
 
 ```python
@@ -9247,19 +10661,34 @@ POSIX 共享内存 = **`shm_open`（创建对象）+ `ftruncate`（设大小）+
 ```bash
 # ===== POSIX 共享内存管理（核心：可直接 ls/rm）=====
 ls -l /dev/shm/                      # 列出所有共享内存对象
-df -h /dev/shm                       # 查看容量（tmpfs，通常内存的一半）
+df -h /dev/shm                       # df=磁盘占用；-h=人性化；查看 tmpfs 容量（通常内存一半）
 rm /dev/shm/my_object                # 直接删除（等价于 shm_unlink）
 
 # 用命令创建/观察（无需编程）
 dd if=/dev/zero of=/dev/shm/test bs=1M count=10    # 创建 10MB 共享内存对象
+#   dd=按块复制命令；if=/dev/zero=输入（全 0）；of=/dev/shm/test=输出文件；
+#   bs=1M=块大小 1MB；count=10=复制 10 块 → 生成 10MB 文件
 ls -lh /dev/shm/test
 rm /dev/shm/test
 
 # 对比 System V（只能用 ipcs/ipcrm，看不到实体文件）
 ipcs -m
+
+# 模拟输出（CentOS 7）：
+#   $ df -h /dev/shm
+#   Filesystem      Size  Used Avail Use% Mounted on
+#   tmpfs           3.9G     0  3.9G   0% /dev/shm     # 容量=物理内存的一半
+#   $ dd if=/dev/zero of=/dev/shm/test bs=1M count=10
+#   10+0 records in
+#   10+0 records out
+#   10485760 bytes (10 MB) copied, 0.01 s, 1.0 GB/s    # 内存速度，飞快
 ```
 
 ```c
+/* ===== 设计注释（复用 posix_shm_demo.c，本节只强调关键点）=====
+ * 演示：POSIX 共享内存的关键操作 shm_open / mmap / munmap
+ * 说明：完整可编译代码见第 51 章 posix_shm_demo.c，此处给出要点对照
+ */
 /* 复用第 51 章的 posix_shm_demo.c 即可，这里强调关键点 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -9403,6 +10832,12 @@ print("已删除")
    - 数据库/邮件系统的**记录级**锁
 
 ```c
+/* ===== 设计注释 flock_demo.c =====
+ * 演示：flock 整文件锁、记录锁（字节范围）、用锁实现单实例
+ * 关键：flock 与 fcntl(F_SETLK) 是两套锁体系，互不感知；关闭 fd 自动释放
+ * 编译：gcc -std=c99 flock_demo.c -o flock_demo
+ * 运行：./flock_demo single &; ./flock_demo single  （第二个被拒绝）
+ */
 /* flock_demo.c：flock 整文件锁 + 保证单实例运行 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -9495,12 +10930,13 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；flock_demo.c=源文件；-o flock_demo=输出可执行名
 gcc -std=c99 flock_demo.c -o flock_demo
 
-./flock_demo                 # 写锁演示
-./flock_demo record          # 记录锁（字节范围）
-./flock_demo single &        # 后台启动单实例
-./flock_demo single          # 再次运行 -> 被拒绝！
+./flock_demo                 # 写锁演示（两个终端同时跑，观察串行进入）
+./flock_demo record          # record=参数，演示记录锁（字节范围）
+./flock_demo single &        # & = 放后台运行
+./flock_demo single          # 再运行一次 -> 被拒绝！（体会单实例）
 
 # ===== 查看系统当前所有文件锁（排障利器）=====
 cat /proc/locks
@@ -9508,13 +10944,20 @@ cat /proc/locks
 #           2: POSIX  ADVISORY  WRITE 1234 08:01:12346 0 10
 #         序号 类型   劝告/强制  锁型  PID  设备:inode   范围
 
-lslocks                      # 更友好的显示（util-linux 包）
-lslocks -p <PID>             # 查看某进程持有的锁
+lslocks                      # lslocks=更友好的锁列表（util-linux 包）
+lslocks -p <PID>             # -p PID=只看某进程持有的锁
 
 # ===== 命令行加锁（脚本里常用）=====
-flock /tmp/mylock -c "echo 拿到锁，执行命令"        # 阻塞等待
-flock -n /tmp/mylock -c "echo ok" || echo "锁被占用"  # 非阻塞
-flock -x /tmp/mylock -c "sleep 10" &                 # 后台持锁
+flock /tmp/mylock -c "echo 拿到锁，执行命令"        # -c 命令=持锁期间执行的命令（拿不到就阻塞等）
+flock -n /tmp/mylock -c "echo ok" || echo "锁被占用"  # -n 非阻塞：拿不到锁直接失败
+flock -x /tmp/mylock -c "sleep 10" &                 # -x 排他锁；& 放后台持锁 10 秒
+
+# 模拟输出（CentOS 7，单实例部分）：
+#   $ ./flock_demo single &          $ ./flock_demo single
+#     获得锁，PID 已写入 /tmp/myapp.lock
+#     工作中 10 秒...（另开终端再运行本命令会被拒绝）
+#                                     -> 程序已在运行中（拒绝启动第二个实例）
+#     结束（关闭 fd 即释放锁）
 ```
 
 ```python
@@ -9635,6 +11078,10 @@ socket 是"**跨主机（也可本机）的通信端点**"——它让不同机�
 5. **通用地址结构**
 
 ```c
+/* ===== 设计注释（结构体定义片段，非完整程序）=====
+ * 内容：socket 的【通用】地址结构（老接口）
+ * 说明：实际编程用具体类型（sockaddr_in 等）再强转；完整示例见下方 tcp_server.c
+ */
 struct sockaddr {
     sa_family_t sa_family;    /* 地址族（AF_INET 等） */
     char        sa_data[14];  /* 地址数据 */
@@ -9650,6 +11097,12 @@ struct sockaddr {
    - 转换函数：`htons()`（host→network short，用于**端口**）、`htonl()`（用于 **IP**）、`ntohs()`、`ntohl()`
 
 ```c
+/* ===== 设计注释 tcp_server.c =====
+ * 演示：socket/bind/listen/accept 四步建服务器 + 迭代式 echo
+ * 关键：accept 返回【新 fd】用于通信；迭代型一次只能服务一个客户端
+ * 编译：gcc -std=c99 tcp_server.c -o server
+ * 运行：./server  （另开终端 nc 127.0.0.1 8888 测试）
+ */
 /* tcp_server.c：最简单的 TCP echo 服务器（一次处理一个连接） */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -9713,6 +11166,12 @@ int main(void) {
 ```
 
 ```c
+/* ===== 设计注释 tcp_client.c =====
+ * 演示：socket/connect 两步建客户端 + read/write 收发
+ * 关键：connect 后即可用普通 read/write（socket 也是 fd）
+ * 编译：gcc -std=c99 tcp_client.c -o client
+ * 运行：./client  （需先启动 ./server）
+ */
 /* tcp_client.c：TCP 客户端 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -9757,6 +11216,7 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；tcp_server.c=源文件；-o server=输出可执行名
 gcc -std=c99 tcp_server.c -o server
 gcc -std=c99 tcp_client.c -o client
 
@@ -9764,13 +11224,22 @@ gcc -std=c99 tcp_client.c -o client
 # 终端2：./client        （或用 nc：nc 127.0.0.1 8888，输入任意内容会回显）
 
 # ===== 观察 socket 连接（运维常用）=====
-ss -tlnp | grep 8888       # 查看监听中的 socket（-l 监听 -n 数字 -p 进程）
-ss -tnp  | grep 8888       # 查看已建立的连接
-netstat -anp | grep 8888
-lsof -i :8888              # 查看谁占用了该端口
+ss -tlnp | grep 8888       # ss=查看 socket；-l 只看监听 -n 用数字 -t TCP -p 显示进程
+ss -tnp  | grep 8888       # 不加 -l = 只看已建立的连接
+netstat -anp | grep 8888   # netstat=老工具，-a 全部 -n 数字 -p 进程
+lsof -i :8888              # lsof=谁占用了端口 8888
 
 # socket 也是 fd（体现"一切皆文件"）
 ls -l /proc/<PID>/fd       # socket 显示为 socket:[inode]
+
+# 模拟输出（CentOS 7）：
+#   $ ./server
+#   服务器监听端口 8888 ...
+#   客户端连入: 127.0.0.1:41234        # 端口是内核随机分配的
+#     收到 13 字节: hello socket
+#   客户端断开
+#   $ ss -tlnp | grep 8888
+#   LISTEN  0  5  *:8888  *:*  users:(("server",pid=1234,fd=3))
 ```
 
 ```python
@@ -9857,6 +11326,10 @@ UNIX domain socket 用于**本机**进程间通信——它用同样的 socket A
 1. **地址结构**
 
 ```c
+/* ===== 设计注释（结构体定义片段，非完整程序）=====
+ * 内容：UNIX domain socket 的地址结构（用文件系统路径寻址）
+ * 说明：sun_path 长度通常 108 字节；完整示例见下方 unix_socket.c
+ */
 struct sockaddr_un {
     sa_family_t sun_family;      /* AF_UNIX */
     char        sun_path[108];   /* 文件系统路径 */
@@ -9881,6 +11354,12 @@ struct sockaddr_un {
    本机服务通信——Docker daemon（`/var/run/docker.sock`）、MySQL（`mysql.sock`）、Nginx 与 PHP-FPM（`php-fpm.sock`）
 
 ```c
+/* ===== 设计注释 unix_socket.c =====
+ * 演示：AF_UNIX 地址结构绑定路径 + socketpair 双向通信
+ * 关键：UNIX domain 不走协议栈更快；socketpair 双向（对比管道单向）
+ * 编译：gcc -std=c99 unix_socket.c -o unix_socket
+ * 运行：./unix_socket &; echo hi | nc -U /tmp/my_unix_sock; ./unix_socket pair
+ */
 /* unix_socket.c：UNIX domain socket + socketpair */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -9957,22 +11436,31 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；unix_socket.c=源文件；-o unix_socket=输出可执行名
 gcc -std=c99 unix_socket.c -o unix_socket
 
-./unix_socket &                                # 后台启动服务器
-echo "hello" | nc -U /tmp/my_unix_sock         # 用 nc 连接（会回显）
-echo "hello" | socat - UNIX-CONNECT:/tmp/my_unix_sock
-./unix_socket pair                             # socketpair 演示
+./unix_socket &                                # & 后台启动服务器
+echo "hello" | nc -U /tmp/my_unix_sock         # nc -U=用 UNIX domain 模式连接（会回显）
+echo "hello" | socat - UNIX-CONNECT:/tmp/my_unix_sock   # socat=另一个更强大的工具
+./unix_socket pair                             # pair=参数，演示 socketpair 双向通信
 
 # 观察 socket 文件（类型标记是 s）
-ls -l /tmp/my_unix_sock        # srwxr-xr-x  （首字母 s = socket）
-file /tmp/my_unix_sock         # socket
+ls -l /tmp/my_unix_sock        # srwxr-xr-x  （首字母 s = socket，不是 - 也不是 d）
+file /tmp/my_unix_sock         # file=识别文件类型 -> 输出 "socket"
 
 # 系统里常见的 UNIX domain socket
 ls -l /var/run/docker.sock           # Docker daemon
 ls -l /run/mysqld/mysqld.sock        # MySQL
 ls -l /run/php/php-fpm.sock          # PHP-FPM
-ss -xl                               # 列出所有 UNIX domain socket
+ss -xl                               # ss -x=只看 UNIX domain socket；-l 只看监听
+
+# 模拟输出（CentOS 7，socketpair 部分）：
+#   $ ./unix_socket pair
+#   === socketpair（双向，比管道更强）===
+#     [父进程] 发送: ping from parent
+#     [子进程] 收到: ping from parent
+#     [子进程] 反向发送: pong from child
+#     [父进程] 收到回复: pong from child
 ```
 
 ```python
@@ -10102,28 +11590,36 @@ a.close(); b.close()
 
 ```bash
 # ===== 网络诊断命令（运维日常）=====
-ip addr show                  # 查看网卡与 IP（或 ifconfig）
-ip route show                 # 查看路由表
+ip addr show                  # ip=现代网络工具；addr=地址；show=显示 -> 查看网卡与 IP（或 ifconfig）
+ip route show                 # route=路由表 -> 查看默认网关、路由条目
 
 # 端口与连接（ss 比 netstat 更现代、更快）
-ss -tlnp                      # 监听中的 TCP 端口（-l监听 -n数字 -p进程）
-ss -tunp                      # 所有 TCP/UDP 连接
-ss -s                         # 统计摘要（含 TIME_WAIT 数量）
-ss -tan state time-wait | wc -l    # 统计 TIME_WAIT 连接数
+ss -tlnp                      # -l 只看监听 -n 用数字不解析域名 -t 只看TCP -p 显示进程
+ss -tunp                      # 加上 -u = 所有 TCP/UDP 连接（含已建立的）
+ss -s                         # -s = statistics 统计摘要（含 TIME_WAIT 数量）
+ss -tan state time-wait | wc -l    # 统计 TIME_WAIT 连接数（wc -l = 数行数）
 
 # 连通性测试
-ping <host>                   # ICMP（网络层）
-traceroute <host>             # 追踪路由
-nc -zv <host> <port>          # 端口连通性测试（-z 只扫描不发送数据）
-curl -v http://...            # 应用层测试（能看到连接建立过程）
+ping <host>                   # ICMP 探测（网络层，测主机通不通）
+traceroute <host>             # 追踪到目标经过的每一跳路由
+nc -zv <host> <port>          # nc=netcat；-z 只扫描不发送数据 -v 显示详情 -> 端口通不通
+curl -v http://...            # curl -v=verbose 显示握手过程 -> 应用层测试
 
 # DNS
-nslookup <domain>; dig <domain>
+nslookup <domain>; dig <domain>   # 两条命令都能查 DNS；dig 更详细
 
 # 抓包看三次握手（最直观的学习方式）
 tcpdump -i lo -nn 'tcp port 8888'
+# tcpdump=抓包工具；-i lo=监听回环网卡；-nn=不解析域名和端口；'tcp port 8888'=过滤条件
 # 另开终端连接 8888，会看到: Flags [S] -> [S.] -> [.] 即 SYN/SYN-ACK/ACK
 tcpdump -i any -nn 'tcp[tcpflags] & (tcp-syn|tcp-fin|tcp-rst) != 0'
+
+# 模拟输出（CentOS 7，抓包部分）：
+#   $ tcpdump -i lo -nn 'tcp port 8888'
+#   12:00:01.123456 IP 127.0.0.1.51234 > 127.0.0.1.8888: Flags [S], seq 100
+#   12:00:01.123460 IP 127.0.0.1.8888 > 127.0.0.1.51234: Flags [S.], seq 200, ack 101
+#   12:00:01.123461 IP 127.0.0.1.51234 > 127.0.0.1.8888: Flags [.], ack 201
+#   三条 = 三次握手：SYN -> SYN+ACK -> ACK（[S] [S.] [.]）
 ```
 
 ```python
@@ -10209,6 +11705,10 @@ Internet domain socket 用 **IP 地址 + 端口号**寻址，是真正的网络�
 1. **地址结构**
 
 ```c
+/* ===== 设计注释（结构体定义片段，非完整程序）=====
+ * 内容：Internet IPv4 socket 的地址结构
+ * 说明：端口 sin_port 与 IP sin_addr 必须是【网络字节序】（见下方字节序转换）；完整示例见下方 inet_client.c
+ */
 struct sockaddr_in {
     sa_family_t    sin_family;   /* AF_INET */
     in_port_t      sin_port;     /* 端口号（【网络字节序】） */
@@ -10245,6 +11745,12 @@ struct in_addr {
    值为 `0.0.0.0`，用于 `bind()` 时表示"**监听本机所有网卡**"——不管客户端连到哪个 IP 都能接受。服务器通常用 `INADDR_ANY`。
 
 ```c
+/* ===== 设计注释 inet_client.c =====
+ * 演示：getaddrinfo 协议无关解析 + 遍历结果逐个 connect
+ * 关键：getaddrinfo 返回链表（一个域名多个 IP）；用完 freeaddrinfo 释放
+ * 编译：gcc -std=c99 inet_client.c -o inet_client
+ * 运行：./inet_client 127.0.0.1 8888; ./inet_client localhost http
+ */
 /* inet_client.c：协议无关的 TCP 客户端（用 getaddrinfo） */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -10292,15 +11798,25 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；inet_client.c=源文件；-o inet_client=输出可执行名
 gcc -std=c99 inet_client.c -o inet_client
 
-./inet_client 127.0.0.1 8888        # 用 IP + 端口
-./inet_client localhost http        # 用主机名 + 服务名（服务名会自动解析成 80）
+./inet_client 127.0.0.1 8888        # 参数1=主机（IP），参数2=端口
+./inet_client localhost http        # 用主机名 + 服务名（http 自动解析成端口 80）
 ./inet_client www.baidu.com 80
 
 # 查看服务名与端口的对应
-cat /etc/services | grep -E "^http|^ssh|^mysql"
-getent services 80
+cat /etc/services | grep -E "^http|^ssh|^mysql"   # grep -E=扩展正则；^http=行首匹配
+getent services 80                  # getent=查系统数据库；反向查 80 端口对应哪个服务名
+
+# 模拟输出（CentOS 7）：
+#   $ ./inet_client 127.0.0.1 8888
+#   已连接到 127.0.0.1:8888
+#   收到: hello
+#   $ cat /etc/services | grep -E "^http|^ssh|^mysql"
+#   http     80/tcp    www    # WorldWideWeb HTTP
+#   ssh      22/tcp            # The Secure Shell (SSH) Protocol
+#   mysql    3306/tcp          # MySQL
 ```
 
 ```python
@@ -10409,6 +11925,12 @@ print("反向:", sk.getnameinfo(("8.8.8.8", 53), 0))
    - 注意 **资源限制**（`RLIMIT_NOFILE`，第 36 章）
 
 ```c
+/* ===== 设计注释 concurrent_server.c =====
+ * 演示：accept 后 fork 子进程处理，多进程并发服务器 + SIGCHLD 回收
+ * 关键：fork 后父子各自关闭不需要的 fd（防泄漏）；waitpid 循环防僵尸
+ * 编译：gcc -std=c99 concurrent_server.c -o cserver
+ * 运行：./cserver  （多个 nc 同时连接体验并发）
+ */
 /* concurrent_server.c：多进程并发 echo 服务器 */
 #define _XOPEN_SOURCE 700
 #include <stdio.h>
@@ -10492,18 +12014,27 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；concurrent_server.c=源文件；-o cserver=输出可执行名；
+#   && = 编译成功才运行（shell 逻辑与）
 gcc -std=c99 concurrent_server.c -o cserver && ./cserver
 
 # 同时开多个终端测试（体验"并发"——客户端互不阻塞）
-nc 127.0.0.1 8888     # 终端1
+nc 127.0.0.1 8888     # 终端1：连上后输入内容会回显
 nc 127.0.0.1 8888     # 终端2 —— 都能同时收发，不像迭代型要排队
 
 # 观察子进程
-ps -o pid,ppid,stat,comm --ppid <服务器PID>
-pstree -p <服务器PID>
+ps -o pid,ppid,stat,comm --ppid <服务器PID>   # ps -o=自定义输出列；--ppid=按父进程筛选
+pstree -p <服务器PID>                        # pstree=进程树视图；-p 显示 PID
 
 # 验证没有僵尸进程
-ps aux | awk '$8 ~ /^Z/'
+ps aux | awk '$8 ~ /^Z/'    # awk 过滤：$8=STAT 列；~ /^Z/ = 以 Z 开头（Zombie 僵尸）
+
+# 模拟输出（CentOS 7）：
+#   $ ps -o pid,ppid,stat,comm --ppid 1234
+#      PID  PPID STAT COMMAND
+#     1240  1234 S    cserver          # 子进程在处理连接
+#   $ ps aux | awk '$8 ~ /^Z/'
+#   （无输出 = 没有僵尸进程，SIGCHLD 处理器生效了）
 ```
 
 ```python
@@ -10631,6 +12162,12 @@ while True:
    - SCTP / DCCP 等其他传输层协议
 
 ```c
+/* ===== 设计注释 socket_adv.c =====
+ * 演示：setsockopt 选项、sendfile 零拷贝发文件、shutdown 半关闭
+ * 关键：SO_REUSEADDR 是服务器重启必备；sendfile 不经过用户态
+ * 编译：gcc -std=c99 -D_GNU_SOURCE socket_adv.c -o sadv
+ * 运行：./sadv  （另开终端 nc 127.0.0.1 9999 收文件内容）
+ */
 /* socket_adv.c：SO_REUSEADDR + sendfile 零拷贝 + shutdown 半关闭 */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -10695,16 +12232,28 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-D_GNU_SOURCE=定义 GNU 宏（开启 sendfile 等接口）；
+#   socket_adv.c=源文件；-o sadv=输出可执行名；&&=编译成功才运行
 gcc -std=c99 -D_GNU_SOURCE socket_adv.c -o sadv && ./sadv
 # 另开终端: nc 127.0.0.1 9999   （会收到 /etc/hostname 的内容）
 
 # 相关内核参数
-cat /proc/sys/net/ipv4/tcp_tw_reuse          # TIME_WAIT 套接字是否可重用
-cat /proc/sys/net/core/rmem_default          # 默认接收缓冲区
-cat /proc/sys/net/ipv4/tcp_keepalive_time    # TCP 保活探测时间（默认 7200 秒）
+cat /proc/sys/net/ipv4/tcp_tw_reuse          # tcp_tw_reuse=TIME_WAIT 连接是否可重用（1=启用）
+cat /proc/sys/net/core/rmem_default          # rmem_default=默认接收缓冲区字节数
+cat /proc/sys/net/ipv4/tcp_keepalive_time    # tcp_keepalive_time=保活探测间隔秒数（默认 7200）
 
 # Nginx 的 sendfile（底层就是 sendfile 系统调用）
-grep -r "sendfile" /etc/nginx/nginx.conf
+grep -r "sendfile" /etc/nginx/nginx.conf     # grep -r=递归搜索配置目录
+
+# 模拟输出（CentOS 7）：
+#   $ ./sadv
+#   1. 已设置 SO_REUSEADDR（重启不会再报 Address already in use）
+#   2. 已设置 TCP_NODELAY（禁用 Nagle，降低延迟）
+#   3. 默认接收缓冲区: 87380 字节
+#   监听 9999 —— 另开终端用 nc 127.0.0.1 9999 连接
+#   4. 客户端已连接
+#   5. sendfile 已发送 8 字节（零拷贝）     # nc 终端会显示主机名内容
+#   6. 已 SHUT_WR（告诉对方"我说完了"，但仍可接收数据）
 ```
 
 ```python
@@ -10787,6 +12336,10 @@ print("os.sendfile 可用:", hasattr(os, "sendfile"))
 3. **termios 结构**
 
 ```c
+/* ===== 设计注释（结构体定义片段，非完整程序）=====
+ * 内容：终端属性结构（termios）——控制回显/模式/信号/波特率
+ * 说明：c_lflag 是重点（ECHO/ICANON/ISIG）；完整示例见下方 term_demo.c
+ */
 struct termios {
     tcflag_t c_iflag;      /* 输入模式标志 */
     tcflag_t c_oflag;      /* 输出模式标志 */
@@ -10818,6 +12371,12 @@ struct termios {
    - `tcdrain` / `tcflush`：等待输出完成 / 清空缓冲
 
 ```c
+/* ===== 设计注释 term_demo.c =====
+ * 演示：tcgetattr/tcsetattr 关闭 ECHO+ICANON 实现密码静默输入
+ * 关键：修改终端属性【必须恢复】，否则终端“变坏”（stty sane 救急）
+ * 编译：gcc -std=c99 term_demo.c -o term_demo
+ * 运行：./term_demo
+ */
 /* term_demo.c：关闭回显读取密码（原始模式入门） */
 #include <stdio.h>
 #include <stdlib.h>
@@ -10863,20 +12422,28 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；term_demo.c=源文件；-o term_demo=输出可执行名
 gcc -std=c99 term_demo.c -o term_demo && ./term_demo
 
 # ===== stty 命令（底层就是 tcsetattr）=====
-stty -a           # 显示所有终端属性
-stty -echo        # 关闭回显（输入看不见）
-stty echo         # 恢复回显
-stty raw          # 设为原始模式（小心：可能无法正常输入）
-stty sane         # 【救命命令】恢复正常设置（终端乱了时用）
-stty -isig        # 禁用信号（Ctrl+C 不再终止程序）
+stty -a           # -a = all，显示所有终端属性
+stty -echo        # -echo = 关闭回显（输入看不见，但程序照样能收到）
+stty echo         # 恢复回显（【记得恢复】）
+stty raw          # raw = 设为原始模式（小心：可能无法正常输入）
+stty sane         # sane = 【救命命令】恢复正常设置（终端乱了时用它）
+stty -isig        # -isig = 禁用信号（Ctrl+C 不再终止程序）
 reset             # 彻底重置终端（比 stty sane 更强）
 
 # 经典技巧：shell 里读取密码
-stty -echo; read pwd; stty echo        # 手动方式
-read -s -p "密码: " pwd; echo          # 更简洁（-s = silent）
+stty -echo; read pwd; stty echo        # 手动方式（分号=连续执行多条）
+read -s -p "密码: " pwd; echo          # 更简洁（-s = silent 静默，-p = 提示语）
+
+# 模拟输出（CentOS 7，term_demo 部分）：
+#   $ ./term_demo
+#   请输入密码（不会回显，无需按回车也可逐字符读取）: 
+#   （输入 abc 时屏幕不显示任何字符）
+#   你输入的是: abc
+#   （终端属性已恢复）
 ```
 
 ```python
@@ -10999,6 +12566,12 @@ finally:
    - **连接多（数千上万）但活跃少**：**epoll 优势巨大**（O(1) vs O(n)）——这正是 C10K 的答案
 
 ```c
+/* ===== 设计注释 epoll_demo.c =====
+ * 演示：epoll_create1/epoll_ctl/epoll_wait 单线程高并发 + LT/ET 双模式
+ * 关键：ET 必须配非阻塞 + 循环读直到 EAGAIN；监听 socket 和连接 fd 都在一个 epoll
+ * 编译：gcc -std=c99 -D_GNU_SOURCE epoll_demo.c -o epoll_server
+ * 运行：./epoll_server 或 ./epoll_server et  （多 nc 连接测试）
+ */
 /* epoll_demo.c：epoll 高并发 echo 服务器（LT / ET 双模式） */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -11098,24 +12671,35 @@ int main(int argc, char *argv[]) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；-D_GNU_SOURCE=定义 GNU 宏（开启 epoll 接口）；
+#   epoll_demo.c=源文件；-o epoll_server=输出可执行名
 gcc -std=c99 -D_GNU_SOURCE epoll_demo.c -o epoll_server
 
 ./epoll_server          # LT 模式（默认，推荐入门）
-./epoll_server et       # ET 边缘触发模式
+./epoll_server et       # et=参数，ET 边缘触发模式
 
 # 测试（开多个终端，体验"单线程支撑多连接"）
 nc 127.0.0.1 8888
 
 # 关键观察：只有【一个进程、一个线程】！
-ps -o pid,nlwp,comm -p <PID>       # nlwp（线程数）= 1
+ps -o pid,nlwp,comm -p <PID>       # ps -o=自定义列；nlwp=线程数（应为 1）
 pstree -p <PID>                    # 没有 fork 出子进程（对比第60章多进程模型）
 
 # epoll 限制
-cat /proc/sys/fs/epoll/max_user_watches   # 每用户最多监听的 fd 数
+cat /proc/sys/fs/epoll/max_user_watches   # max_user_watches=每用户最多监听的 fd 数
 
 # 检查某进程是否用了 epoll
-ls -l /proc/<PID>/fd | grep -i eventpoll
+ls -l /proc/<PID>/fd | grep -i eventpoll   # 进程 fd 里有 eventpoll 实例
 lsof -p <PID> | grep eventpoll
+
+# 模拟输出（CentOS 7）：
+#   $ ./epoll_server
+#   echo 服务器监听 8888 —— LT 水平触发模式（单线程管理所有连接）
+#     新连接 fd=4
+#     客户端 fd=4 断开
+#   $ ps -o pid,nlwp,comm -p 1234
+#      PID NLWP COMMAND
+#     1234    1 epoll_server      # 一个进程一个线程，却管着所有连接！
 ```
 
 ```python
@@ -11246,6 +12830,12 @@ while True:
    - `expect`（自动化交互程序，常用于自动输入密码）
 
 ```c
+/* ===== 设计注释 pty_demo.c =====
+ * 演示：openpty 创建伪终端对 + login_tty 设置控制终端 + 在主设备上收发
+ * 关键：父进程通过主设备与子进程 shell 通信——终端模拟器/SSH 的原理
+ * 编译：gcc -std=c99 pty_demo.c -o pty_demo -lutil
+ * 运行：./pty_demo  （输出里 tty 命令证明 shell 连着伪终端）
+ */
 /* pty_demo.c：创建一个伪终端并在其中运行 shell */
 #define _XOPEN_SOURCE 600
 #include <stdio.h>
@@ -11301,26 +12891,38 @@ int main(void) {
 ```
 
 ```bash
+# 参数解释：gcc=编译器；-std=c99=按 C99 标准；pty_demo.c=源文件；-o pty_demo=输出可执行名；
+#   -lutil=链接 util 库（openpty/login_tty 所在）；&&=编译成功才运行
 gcc -std=c99 pty_demo.c -o pty_demo -lutil && ./pty_demo
 # 输出里会看到 tty 命令的结果（如 /dev/pts/5）—— 证明 shell 确实连着"终端"
 
 # ===== 观察伪终端 =====
-tty                          # 显示当前终端设备（如 /dev/pts/0）
-ls -l /dev/pts/              # 查看所有伪终端从设备
-ps -o pid,tty,stat,comm      # 查看各进程关联的终端（TTY 列）
+tty                          # tty=显示当前终端设备（如 /dev/pts/0）
+ls -l /dev/pts/              # 查看所有伪终端从设备（每开一个终端窗口就多一个）
+ps -o pid,tty,stat,comm      # ps -o=自定义列；tty=进程关联的终端号（？=没有终端）
 
 # ===== docker -t 就是分配伪终端 =====
-docker run -it ubuntu bash        # -i 保持 stdin 打开 + -t 分配伪终端
-docker exec -it <container> sh
+docker run -it ubuntu bash        # -i 保持 stdin 打开 + -t 分配伪终端（-it 常组合使用）
+docker exec -it <container> sh    # exec=进入运行中的容器；-it 同样分配伪终端
 
 # 对比有无终端的区别
 docker run ubuntu ls              # 无 tty：纯文本输出
 docker run -t ubuntu ls           # 有 tty：可能带颜色、列格式
 
 # script 命令（基于伪终端，记录会话）
-script /tmp/session.log
+script /tmp/session.log           # script=开始记录终端会话（底层就是伪终端）
 # ... 执行若干命令 ...
-exit                              # 之后 cat /tmp/session.log 可回放
+exit                              # exit=结束记录；之后 cat /tmp/session.log 可回放
+
+# 模拟输出（CentOS 7，pty_demo 部分）：
+#   $ ./pty_demo
+#   主设备 fd=3, 从设备 fd=4
+#   从设备名: /dev/pts/5
+#   --- shell 的输出 ---
+#   echo 'hello from pty'; tty; exit
+#   hello from pty
+#   /dev/pts/5                     # tty 命令证明 shell 确实连着伪终端！
+#   --- 结束 ---
 ```
 
 ```python

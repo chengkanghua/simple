@@ -4096,9 +4096,12 @@ worker_rlimit_nofile 65535;             # 9.性能调优：单进程最大文件
 
 ==== ==== ==== ==== == events 块：9.性能调优 epoll 模型、并发连接 == ==== ==== ==== ====
 events {
-    use epoll;                          # 9.性能调优：Linux IO 多路复用异步模型
-    worker_connections 10240;           # 9.性能调优：单个 worker 最大并发连接
-    multi_accept on;                    # 9.性能调优：一次性接收多条 TCP 连接
+    # 9.性能调优：理论最大并发连接数 = worker_processes × worker_connections；
+    #   该值同时受 worker_rlimit_nofile、系统 ulimit、内核 fs.file-max 三者最小值的约束（取最小上限）
+    use epoll;                          # 9.性能调优：Linux 下 IO 多路复用异步模型，高并发首选
+    worker_connections 10240;           # 9.性能调优：单个 worker 进程最大并发连接数（配合 worker_processes 放大总并发）
+    multi_accept on;                    # 9.性能调优：一次 accept 尽量多拿连接，提升新连接吞吐
+    accept_mutex off;                   # 9.性能调优：关闭 accept 锁，避免多 worker 惊群（1.11.3+ 默认 off，高并发推荐关）
 }
 
 ==== ==== ==== ==== == http 块：公共通用配置，覆盖安全、限流、日志、缓存、代理 == ==== ==== ==== ====
@@ -4120,19 +4123,40 @@ http {
     # limit_conn：限制单 IP 最大并发连接数
     limit_conn_zone $binary_remote_addr zone = conn_zone: 10m;
 
-    # ---------------- 9.性能调优：零拷贝、网络优化、超时控制 ----------------
-    sendfile on;                        # 零拷贝，减少 CPU 内存拷贝开销
-    tcp_nopush on;
-    tcp_nodelay on;
-    keepalive_timeout 60;               # HTTP 长连接超时
-    client_header_timeout 10s;
-    client_body_timeout 10s;
-    send_timeout 15s;
+    # ---------------- 9.性能调优：零拷贝、TCP 网络优化、长连接、超时、压缩、缓存 ----------------
+    # 1) 零拷贝：数据直接内核态→网卡，跳过用户态，省 CPU 拷贝
+    sendfile on;                        # 9.性能调优：开启零拷贝，静态文件大杀器
 
-    # 文件元数据缓存，降低磁盘 IO
-    open_file_cache max = 65535 inactive = 60s;
-    open_file_cache_valid 80s;
-    open_file_cache_min_uses 2;
+    # 2) TCP 发送优化：与 sendfile 配合，凑满一个包再发，提升带宽利用率
+    tcp_nopush on;                      # 9.性能调优：开启 Nagle 反向（满包才发），配合 sendfile 不延迟、提带宽利用率
+    tcp_nodelay on;                     # 9.性能调优：关闭 Nagle 算法，小包立即发，降低交互延迟（实时/keepalive 场景必备）
+
+    # 3) 长连接：减少 TCP 握手/挥手开销，但需配上限防单连接长期占用
+    keepalive_timeout 60;               # 9.性能调优：客户端长连接超时，超时回收
+    keepalive_requests 10000;           # 9.性能调优：单条长连接上最多处理请求数，到数断开重连，防被单客户端长期霸占
+    reset_timedout_connection on;       # 9.性能调优：超时连接直接发 RST 立即释放，避免 FIN_WAIT/ TIME_WAIT 堆积耗尽端口
+
+    # 4) 超时控制：防慢客户端拖死 worker 连接
+    client_header_timeout 10s;          # 9.性能调优：读取客户端请求头超时
+    client_body_timeout 10s;            # 9.性能调优：读取客户端请求体超时
+    send_timeout 15s;                   # 9.性能调优：向客户端发送响应超时（两次写操作之间）
+
+    # 5) 文件元数据缓存：把 fd/大小/修改时间缓存内存，降低 stat 系统调用与磁盘 IO
+    open_file_cache max = 65535 inactive = 60s;       # 9.性能调优：最多缓存 65535 个文件句柄，60s 无访问即淘汰
+    open_file_cache_valid 80s;          # 9.性能调优：缓存元素 80s 后校验一次是否过期
+    open_file_cache_min_uses 2;         # 9.性能调优：文件被访问 >=2 次才进缓存，避免冷文件占坑
+    open_file_cache_errors on;          # 9.性能调优：缓存「文件不存在」错误，避免反复 stat 不存在的路径
+
+    # 6) 响应压缩：文本类响应压缩后传输，省带宽、提速首屏（CPU 换带宽；图片/视频已压缩不宜再压）
+    gzip on;                            # 9.性能调优：开启 gzip 压缩
+    gzip_min_length 1k;                 # 9.性能调优：小于 1k 不压缩（压缩比低反而亏 CPU）
+    gzip_comp_level 5;                  # 9.性能调优：压缩级别 1-9，5 为性价比均衡点
+    gzip_types text/plain text/css application/json application/javascript application/xml image/svg+xml;  # 9.性能调优：只对文本类 MIME 压缩
+    gzip_vary on;                       # 9.性能调优：响应头加 Vary: Accept-Encoding，避免下游代理缓存错版本
+    gzip_disable "msie6";               # 9.性能调优：老 IE6 不支持 gzip，跳过
+
+    # 7) 七层代理缓存：把后端响应缓到本地磁盘，命中直接返回，大幅降低后端压力（配合 location /api/ 的 proxy_cache 使用）
+    proxy_cache_path /data/nginx/cache levels = 1: 2 keys_zone = mycache: 100m inactive = 60m max_size = 10g;  # 9.性能调优：缓存路径/目录层级/共享内存名/最大体积
 
     # ---------------- 3.反向代理：全局代理超时、缓冲统一配置 ----------------
     proxy_connect_timeout 30s;
@@ -4156,7 +4180,7 @@ http {
 
     # ==== ==== ==== ==== ==== == 2.虚拟主机 1：80 站点 + 6.HTTPS 跳转 == ==== ==== ==== ==== ====
     server {
-        listen 80;
+        listen 80 reuseport backlog = 4096;   # 9.性能调优：reuseport 多 worker 独立监听降锁竞争；backlog 调大 accept 队列防 SYN 丢包
         server_name www.example.com; # 基于域名虚拟主机
         # 6.HTTPS：HTTP 全部 301 永久跳转加密站点
         return 301 https://$host$request_uri;
@@ -4164,7 +4188,7 @@ http {
 
     # ==== ==== ==== ==== ==== == 2.虚拟主机 2：443 HTTPS 全站加密 == ==== ==== ==== ==== ====
     server {
-        listen 443 ssl;
+        listen 443 ssl http2 reuseport backlog = 4096;  # 9.性能调优：HTTP/2 多路复用；reuseport + 大 backlog 提升并发
         server_name www.example.com;
         root /data/www/www.example.com/html;
         index index.html;
@@ -4209,6 +4233,12 @@ http {
         # ---------------- 3.反向代理：动态接口转发后端 Java/Tomcat ----------------
         location /api/ {
             proxy_pass http://backend_pool; # 无/，完整拼接 URI；加/会截取匹配前缀
+            # 9.性能调优：七层代理缓存，命中直接返回不转发后端
+            proxy_cache mycache;                            # 启用上面定义的 mycache 共享内存区
+            proxy_cache_valid 200 302 10m;                  # 200/302 响应缓存 10 分钟
+            proxy_cache_valid 404 1m;                       # 404 也短暂缓存，避免重复打后端
+            proxy_cache_key $host$uri$is_args$args;         # 缓存 key（默认即此，显式声明便于调）
+            add_header X-Cache $upstream_cache_status;      # 响应头暴露 HIT/MISS/BYPASS，便于排查命中率
             # 透传真实客户端 IP、域名、请求协议
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;

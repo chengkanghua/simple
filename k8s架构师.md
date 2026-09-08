@@ -2864,6 +2864,44 @@ Service (ClusterIP) 做负载均衡到后端 Pod
 
 常见插件：Flannel（VXLAN overlay）、Calico（BGP + 网络策略）、Cilium（eBPF）。
 
+**① 三者核心区别（数据平面技术路线不同）**
+- **Flannel**：最轻量。VXLAN overlay 把 Pod 二层帧封装成 UDP 隧道，在节点三层网络之上"搭桥"让跨节点 Pod 互通；**只管连通、原生不支持 NetworkPolicy**；有封装开销，适合学习/小集群。
+  - ★ 易错：默认模式无网络策略；VXLAN 封装使 MTU 变小需调。
+- **Calico**：走 **BGP 路由**路线，默认把 Pod 路由直接写进节点路由表、跨节点走三层（基本无封装、性能接近原生）；**完整支持 NetworkPolicy**（iptables/IPVS）；也有 IPIP/VXLAN 封装模式应对跨网段。生产最稳主流。
+  - ★ 易错：BGP 模式要求节点二层互通或能跑 BGP；跨网段才需 IPIP 封装。
+- **Cilium**：新一代，基于 **eBPF** 在内核里直接做转发/负载均衡/策略校验，绕过 iptables 长链表；支持 **L3/L4/L7（HTTP/DNS/Kafka）策略**；可**替代 kube-proxy**、配 Hubble 做流量可观测。超大规模/高性能首选。
+
+**② 速览对比**
+- 网络模型：Flannel=overlay 二层 / Calico=BGP 三层路由（或 overlay）/ Cilium=eBPF 内核转发
+- 网络策略：Flannel ❌ / Calico ✅ / Cilium ✅（更强，到 L7）
+- 封装开销：Flannel 有 / Calico 的 BGP 模式几乎零 / Cilium 无 overlay 时无
+- 额外能力：Flannel 仅连通 / Calico 策略+网关+服务网格集成 / Cilium 可观测+透明加密+抗 DDoS+替 kube-proxy
+
+**④ BGP 是什么（Calico 路由模式的核心）**
+- **全称**：Border Gateway Protocol（边界网关协议），互联网用于**不同自治系统 AS 之间**交换"哪些 IP 段从哪走"的路由信息的协议，可理解为互联网的"地图交换协议"。
+- **Calico 怎么用**：每个节点跑一个 BGP 客户端（通常是 BIRD），节点间建立 BGP 邻居（peer）；当某节点分配到 Pod 网段（如 `10.244.1.0/24`），就通过 BGP **把这条路由通告给全网**，于是每个节点路由表里都有"去该网段走某节点"。
+- ★ 效果：跨节点 Pod 通信**直接走三层 IP 路由转发，无 VXLAN 封装、无额外开销**，性能接近原生网络。
+- ★ 易错前提：BGP 模式要求**节点二层互通或能跑 BGP**；跨网段/跨三层子网时 Calico 会退回 **IPIP/VXLAN 封装模式**兜底。
+- ★ 易混：Calico 默认用 **iBGP**（集群内同一 AS），不是互联网连运营商的 **eBGP**；大规模集群用 **Route Reflector（路由反射器）** 收敛邻居数，避免 N² 连接。
+- 🎯 面试一句话：BGP 借"通告 Pod 网段→所在节点"的路由让跨节点原生三层互通，所以快；代价是节点间得能跑 BGP，否则用 IPIP 封装。
+
+**⑤ eBPF 是什么（Cilium 的核心）**
+- **全称**：extended Berkeley Packet Filter（扩展伯克利包过滤器），由 BSD 包过滤技术演进而来；如今是 Linux 里"不用改内核、不用写内核模块，就能在内核钩子安全运行沙箱程序"的通用框架。
+- **机制四步**：用户态写 C 编译成 eBPF 字节码 → 经 `bpf()` 系统调用加载 → **内核验证器（verifier）** 严格安检（禁死循环/越界/崩内核） → 挂到内核钩子（网络收发、系统调用、kprobe/uprobe、tracepoint）；运行时经 **BPF map** 与用户态交换数据。
+- ★ 优势：① 零侵入+安全（验证器兜底，崩了最多被拒、不会 panic 系统）；② 高性能（内核态直接处理，省去数据拷贝）；③ 统一（同一机制做性能剖析/网络/安全）。
+- ★ Cilium 怎么用：用 eBPF 在网络栈钩子（`tc`、XDP、socket）直接做 Pod 转发、**负载均衡（替代 kube-proxy 的 iptables）**、NetworkPolicy 校验、L7 可见性；**XDP** 甚至在网卡驱动层处理包，极快。
+- ★ 为什么碾压 iptables：iptables 是 O(n) 规则链表，eBPF 是哈希查表 O(1)；且策略能到 **L7**（HTTP 方法/路径、DNS 名、Kafka topic）；对比 sidecar 服务网格，eBPF 在内核做、免去每个 Pod 注入 sidecar 的开销。
+- 🎯 面试一句话：eBPF 是在 Linux 内核安全运行沙箱程序的技术；Cilium 用它挂钩网络栈直接转发、负载均衡、做策略，绕过 iptables 链表、可达 L7，所以高性能又灵活。
+
+**③ 面试怎么说（约 1.5 分钟话术）**
+> 三者都是 CNI 插件，解决 Pod 跨节点互通，但数据平面技术路线不同，按 overlay / 路由 / eBPF 三类记：
+> 第一，Flannel 最轻量，VXLAN overlay 让 Pod 跨节点互通，但只管连通、没有网络策略，适合学习或小集群；
+> 第二，Calico 走 BGP 路由，默认把 Pod 路由写进节点路由表、跨节点走三层（基本无封装开销），完整支持 NetworkPolicy，是生产最稳主流；
+> 第三，Cilium 基于 eBPF 在内核直接做转发和策略，不光 L3/L4，还能做 L7 策略，并能替代 kube-proxy、配合 Hubble 做可观测，超大规模首选。
+> 选型：学习/简单用 Flannel，生产要策略用 Calico，大规模/高性能/云原生安全用 Cilium。
+
+> 🎯 **面试加分项**：Flannel 的 `host-gw` 模式无封装但要求二层直连；Calico 的 BGP vs IPIP 取舍（性能 vs 跨网段）；Cilium 如何 kube-proxy-free（eBPF 替代 iptables 做 ClusterIP 负载均衡）；大规则量下 iptables 是 O(n) 链表、eBPF 是哈希查表，这是 Cilium 性能碾压的根本原因。
+
 > 💡 **面试重点：** K8s 网络三大前提（Pod 扁平互通、节点与 Pod 互通、无 NAT 即可通信）；CNI 是“容器网络接口”标准，kubelet 调用插件为 Pod 配网卡。
 
 **可观测性**：监控 Prometheus + Grafana，日志 DaemonSet 采集至 ES，链路 Jaeger。

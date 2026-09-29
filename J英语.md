@@ -668,15 +668,147 @@ STEP 4 听+记录问题
 
 ## 加餐:英语听力备考建议
 
+听力是最容易提升的
+因为它在考试中的难度要求实际上是远低于阅
+读、写作的(词汇难度、长难句复杂程度),
+也比较少存在内容听懂了,但是题目做错的情
+况。
+
+在各项英语考试项目中。。。
+
+听力也是最难提升的.
+因为它涉及到你真正的英语能力的提升:阅读
+通常可以用定位法、长难句找主干法让难度相
+对降低;写作也可以通过套模板或者背高级表
+达等方法提分 -- 而听力提升几乎没有捷径。
 
 
 
+所以“逐句精听” 依然是你练习的重点
+
+如果距离下次考试时间不足2个月
+
+练习考试真题:选择每个考试听力
+最难的部分(通常是单人2-3分钟的
+Lecture),每天抽出一个小时时间
+来攻克1篇听力材料;如果想要冲刺
+高分,可以用1.25-1.5倍速度练习。
+
+.
+
+如果备考时间较为充裕 ..
+
+●找比你现在自身能力稍难的材料
+来练习,真题留到最后刷题用!
 
 
+
+其他备考策略
+
+听力高频词:1秒内反应出意思
+
+笔记法：英语表达的逻辑性
+
+做题技巧：
+
+
+
+**常见逻辑词**
+
+序列: first, second, last but not least, in the first place,
+first of all, to begin with, subsequently, previously ......
+
+转折&对比: but, however, nevertheless, yet, still, anyhow,
+anyway, after all, whereas, while, instead of, otherwise, in
+contrast, on the contrary, compare with, different from,
+unlike ... , rather than, on the other hand ...
+
+因果: as a result, since, due to, because of, therefore,
+thus, so, consequently, in consequence ......
+
+● 举例:for example, for instance, such as, illustrate
+
+● 强调:most important, especially, actually, in other
+words,that is to say,语音语调(重读、拖长音)
+
+● 总结:in brief, in conclusion, at last, to summarize, in
+short, in a word, all in all
+
+笔记法的核心是抓取段落逻辑
+
+ 
+
+常见做题技巧一览
+
+01 根据题干和选项做预判
+
+02 找定位
+
+03 正确选项一般是同义替换
+
+04 避免过于绝对的选项
+
+复盘总结很重要!
+
+
+
+正确方法+坚持练习 =高分不是梦!
 
 # 精听实战操练|零基础预备级
 
+## 1 在机场
 
+**At the Airport |** 完整文稿
+
+**Part 1**
+
+**Staff:** Good afternoon.
+
+**Passenger:** -Hi. -Hi. We need to **check in.**
+
+**Staff:** Where are you **flying** to today?
+
+**Passenger:** We're flyin g to Rio, and then we have a **connecting flight** to Recife.
+
+**Staff:** Are you **checking** any **bags**?
+
+**Passenger:** Yes, just one.
+
+**Staff:** Can you put it on the **scale**?
+
+**Passenger:** Sure.
+
+**Part 2**
+
+**Passenger:** Can you check our bags **through** to Recife?
+
+**Staff:** No, I can’t. You‘ll need to **pick it up** in Rio to **go through custo**ms.
+
+**Passenger:** And then we **have to** check it in again for Recife?
+
+**Staff:** That’s right. 
+
+**Passenger:** How much time do we have? How long is our **layover**?
+
+**Staff:** About two and a half hours.
+
+**Passenger:** That’s **plenty of** time.
+
+**Part 3**
+
+**Staff:** Here are your **boarding passes**.
+
+Your flight **leaves** from Gate 19, and boarding **begins** at 11:20.
+
+Your **seat numbers** are 16E and 16F.
+
+**Passenger:** Do we have an **aisle seat**?
+
+**Staff:** Yes, you have an aisle seat and a **middle se at**.
+
+**Passenger:** Thank you very much.
+
+**Staff: Have a great trip**
 
 
 
